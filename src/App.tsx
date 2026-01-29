@@ -9,6 +9,7 @@ import { SettingsView } from './views/SettingsView/SettingsView'
 import { crawlService } from './services/CrawlService'
 import { addError, setCrawlStatus, setProgress, setRunId, setStartUrl, upsertPage } from './store/slices/crawlSlice'
 import { browserService } from './services/BrowserService'
+import { setNavState } from './store/slices/browserSlice'
 import { useUserConfig } from './hooks/useUserConfig'
 import { useTheme } from './hooks/useTheme'
 import { useLocale } from './hooks/useLocale'
@@ -49,6 +50,28 @@ function App() {
     const visible = currentView === 'browser' && !isLoading
     void browserService.setVisible(visible).catch(() => void 0)
   }, [currentView, isLoading])
+
+  useEffect(() => {
+    const unsub = window.electronAPI.onBrowserEvent((evt: any) => {
+      if (!evt || typeof evt !== 'object') return
+      if (evt.type === 'nav') {
+        dispatch(
+          setNavState({
+            canGoBack: Boolean((evt as any).canGoBack),
+            canGoForward: Boolean((evt as any).canGoForward),
+            url: typeof (evt as any).url === 'string' ? (evt as any).url : undefined,
+          }),
+        )
+      }
+    })
+    return () => {
+      try {
+        unsub()
+      } catch {
+        void 0
+      }
+    }
+  }, [dispatch])
 
   useEffect(() => {
     const unsubscribe = crawlService.onEvent((evt) => {

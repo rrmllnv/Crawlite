@@ -3,7 +3,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { browserService } from '../../services/BrowserService'
 import { crawlService } from '../../services/CrawlService'
 import { selectPage, upsertPage } from '../../store/slices/crawlSlice'
-import { clearRequestedNavigate, setCurrentUrl, setPageLoading } from '../../store/slices/browserSlice'
+import { clearRequestedNavigate, ensurePagesTreeExpanded, setCurrentUrl, setPageLoading, togglePagesTreeExpanded } from '../../store/slices/browserSlice'
 import type { CrawlPageData } from '../../electron'
 import { Separate } from '../../components/Separate/Separate'
 import { ImageModal } from '../../components/ImageModal/ImageModal'
@@ -12,12 +12,28 @@ import './BrowserView.scss'
 
 type TabId = 'meta' | 'links' | 'images' | 'resources' | 'errors'
 
+type LinkDetailed = { url: string; anchor: string }
+
+type ResourceHeadInfo = { sizeBytes: number | null; elapsedMs: number | null }
+
 function formatSizeKB(valueBytes: number | null) {
   if (typeof valueBytes !== 'number' || !Number.isFinite(valueBytes)) {
     return '—'
   }
   const kb = valueBytes / 1024
   return `${kb.toFixed(2)} KB`
+}
+
+function formatResourceInfo(info: ResourceHeadInfo | undefined) {
+  if (!info) return ''
+  const parts: string[] = []
+  if (typeof info.sizeBytes === 'number' && Number.isFinite(info.sizeBytes)) {
+    parts.push(`${(info.sizeBytes / 1024).toFixed(2)} KB`)
+  }
+  if (typeof info.elapsedMs === 'number' && Number.isFinite(info.elapsedMs)) {
+    parts.push(`${(info.elapsedMs / 1000).toFixed(2)} s`)
+  }
+  return parts.join(' · ')
 }
 
 function formatSeconds(valueMs: number | null) {
@@ -285,11 +301,13 @@ export function BrowserView() {
   const requestedUrl = useAppSelector((s) => s.browser.requestedUrl)
   const errors = useAppSelector((s) => s.crawl.errors)
   const isPageLoading = useAppSelector((s) => s.browser.isPageLoading)
+  const pagesTreeExpandedIds = useAppSelector((s) => s.browser.pagesTreeExpandedIds)
 
   const [activeTab, setActiveTab] = useState<TabId>('meta')
   const [imageModalUrl, setImageModalUrl] = useState<string>('')
   const [resourceModal, setResourceModal] = useState<{ type: 'js' | 'css'; url: string } | null>(null)
   const [openHeadingLevels, setOpenHeadingLevels] = useState<Set<string>>(() => new Set())
+  const [headInfoByUrl, setHeadInfoByUrl] = useState<Record<string, ResourceHeadInfo>>({})
 
   const pages = useMemo(() => {
     return pageOrder
@@ -298,7 +316,7 @@ export function BrowserView() {
   }, [pageOrder, pagesByUrl])
 
   const tree = useMemo(() => buildUrlTree(pages, pagesByUrl), [pages, pagesByUrl])
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['root']))
+  const expanded = useMemo(() => new Set(pagesTreeExpandedIds || []), [pagesTreeExpandedIds])
 
   useEffect(() => {
     // авто-раскрытие корня и хоста выбранной страницы
@@ -309,24 +327,14 @@ export function BrowserView() {
     try {
       const u = new URL(p.url)
       const hostId = `host:${u.hostname}`
-      setExpanded((prev) => {
-        const next = new Set(prev)
-        next.add('root')
-        next.add(hostId)
-        return next
-      })
+      dispatch(ensurePagesTreeExpanded([hostId]))
     } catch {
       void 0
     }
-  }, [selectedUrl, pagesByUrl])
+  }, [dispatch, selectedUrl, pagesByUrl])
 
   const toggle = (id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    dispatch(togglePagesTreeExpanded(id))
   }
 
   const selectedPage = useMemo(() => {
@@ -336,6 +344,15 @@ export function BrowserView() {
     }
     return pagesByUrl[key] || null
   }, [pagesByUrl, selectedUrl])
+
+  const resourceMiscList = useMemo(() => {
+    if (!selectedPage) return [] as string[]
+    const miscList = Array.isArray(selectedPage.misc) ? selectedPage.misc : []
+    const seen = new Set<string>([...selectedPage.links, ...selectedPage.images, ...selectedPage.scripts, ...selectedPage.stylesheets].map((x) => String(x)))
+    return miscList
+      .map((x) => String(x || '').trim())
+      .filter((x) => x && !seen.has(String(x)))
+  }, [selectedPage])
 
   const openLinkSafely = async (url: string) => {
     if (isPageLoading) {
@@ -373,7 +390,7 @@ export function BrowserView() {
 
   const linkGroups = useMemo(() => {
     if (!selectedPage?.url) {
-      return { internal: [] as string[], external: [] as string[] }
+      return { internal: [] as LinkDetailed[], external: [] as LinkDetailed[] }
     }
     let base: URL | null = null
     try {
@@ -382,23 +399,75 @@ export function BrowserView() {
       base = null
     }
     const baseHost = base ? normalizeHostname(base.hostname) : ''
-    const internal: string[] = []
-    const external: string[] = []
-    for (const raw of selectedPage.links || []) {
-      const href = String(raw || '').trim()
+    const internal: LinkDetailed[] = []
+    const external: LinkDetailed[] = []
+
+    const detailed: LinkDetailed[] =
+      Array.isArray((selectedPage as any).linksDetailed) && (selectedPage as any).linksDetailed.length > 0
+        ? (selectedPage as any).linksDetailed
+            .map((x: any) => ({ url: String(x?.url || '').trim(), anchor: String(x?.anchor || '').trim() }))
+            .filter((x: LinkDetailed) => Boolean(x.url))
+        : (selectedPage.links || []).map((x) => ({ url: String(x || '').trim(), anchor: '' }))
+
+    for (const it of detailed) {
+      const href = String(it.url || '').trim()
       if (!href) continue
       try {
         const u = new URL(href)
         const host = normalizeHostname(u.hostname)
         const isHttp = u.protocol === 'http:' || u.protocol === 'https:'
-        if (isHttp && baseHost && host === baseHost) internal.push(href)
-        else external.push(href)
+        if (isHttp && baseHost && host === baseHost) internal.push(it)
+        else external.push(it)
       } catch {
-        external.push(href)
+        external.push(it)
       }
     }
     return { internal, external }
   }, [selectedPage])
+
+  useEffect(() => {
+    if (!selectedPage) return
+    if (activeTab !== 'images' && activeTab !== 'resources') return
+
+    const list: string[] = []
+    if (activeTab === 'images') {
+      list.push(...(selectedPage.images || []))
+    } else {
+      list.push(...(selectedPage.scripts || []), ...(selectedPage.stylesheets || []), ...(resourceMiscList || []))
+    }
+
+    const uniq = Array.from(new Set(list.map((x) => String(x || '').trim()).filter(Boolean)))
+    if (uniq.length === 0) return
+
+    let cancelled = false
+    void (async () => {
+      // ограничим чтобы не спамить сетью на больших списках
+      const max = 50
+      let processed = 0
+      for (const url of uniq) {
+        if (cancelled) return
+        if (processed >= max) return
+        if (headInfoByUrl[url]) continue
+        processed += 1
+        try {
+          const res = await window.electronAPI.resourceHead(url)
+          if (!res?.success) continue
+          const sizeBytes = typeof (res as any).contentLength === 'number' ? (res as any).contentLength : null
+          const elapsedMs = typeof (res as any).elapsedMs === 'number' ? (res as any).elapsedMs : null
+          setHeadInfoByUrl((prev) => ({
+            ...prev,
+            [url]: { sizeBytes, elapsedMs },
+          }))
+        } catch {
+          void 0
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, selectedPage, resourceMiscList, headInfoByUrl])
 
   useEffect(() => {
     if (!requestedUrl) {
@@ -492,13 +561,13 @@ export function BrowserView() {
     const nested = Array.isArray(selectedPage.nestedHeadings) ? selectedPage.nestedHeadings : []
 
     if ((raw.h1 || 0) === 0) {
-      issues.push('Отсутствие H1: На странице вообще нет главного заголовка.')
+      issues.push('Отсутствие H1: На странице вообще нет главного заголовка')
     }
     if ((raw.h1 || 0) > 1) {
-      issues.push('Дублирование H1: Несколько тегов H1 на одной странице.')
+      issues.push('Дублирование H1: Несколько тегов H1 на одной странице')
     }
     if (title && h1 && title.toLowerCase() === h1.toLowerCase()) {
-      issues.push('Одинаковый H1 и Title: Лучше их различать для расширения семантики.')
+      issues.push('Одинаковый H1 и Title: Лучше их различать для расширения семантики')
     }
     const emptyParts: string[] = []
     ;(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const).forEach((k) => {
@@ -508,19 +577,19 @@ export function BrowserView() {
       }
     })
     if (emptyParts.length > 0) {
-      issues.push(`Пустые заголовки: ${emptyParts.join(', ')}.`)
+      issues.push(`Пустые заголовки: ${emptyParts.join(', ')}`)
     }
     if (nested.length > 0) {
       issues.push(`Вложенные заголовки: ${nested.join(', ')}`)
     }
     if (!String(selectedPage.description || '').trim()) {
-      issues.push('Отсутствие Description: Поисковик сам соберет кусок текста.')
+      issues.push('Отсутствие Description: Поисковик сам соберет кусок текста')
     }
     if (!selectedPage.hasViewport) {
-      issues.push('Отсутствие тега Viewport: Сайт может не адаптироваться под мобильные устройства.')
+      issues.push('Отсутствие тега Viewport: Сайт может не адаптироваться под мобильные устройства')
     }
     if (!selectedPage.hasCanonical) {
-      issues.push('Отсутствие Canonical: Поисковик может не понимать главную страницу при дублях.')
+      issues.push('Отсутствие Canonical: Поисковик может не понимать главную страницу при дублях')
     }
 
     return issues
@@ -534,14 +603,9 @@ export function BrowserView() {
     const images = selectedPage.images?.length || 0
     const js = selectedPage.scripts?.length || 0
     const css = selectedPage.stylesheets?.length || 0
-    const miscList = Array.isArray(selectedPage.misc) ? selectedPage.misc : []
-    const seen = new Set<string>([...selectedPage.links, ...selectedPage.images, ...selectedPage.scripts, ...selectedPage.stylesheets].map((x) => String(x)))
-    const misc = miscList
-      .map((x) => String(x || '').trim())
-      .filter((x) => x && !seen.has(String(x)) && !isMailtoOrTel(x))
-      .length
+    const misc = resourceMiscList.filter((x) => x && !isMailtoOrTel(x)).length
     return { links, images, resources: js + css + misc, errors: errors.length }
-  }, [selectedPage, errors.length])
+  }, [selectedPage, errors.length, resourceMiscList])
 
   return (
     <div className="browser-view">
@@ -599,33 +663,29 @@ export function BrowserView() {
             type="button"
             className={`browser-view__tab ${activeTab === 'links' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('links')}
-            data-count={selectedPage ? String(tabsCount.links) : '—'}
           >
-            Ссылки
+            {selectedPage && tabsCount.links > 0 ? `Ссылки ${tabsCount.links}` : 'Ссылки'}
           </button>
           <button
             type="button"
             className={`browser-view__tab ${activeTab === 'images' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('images')}
-            data-count={selectedPage ? String(tabsCount.images) : '—'}
           >
-            Картинки
+            {selectedPage && tabsCount.images > 0 ? `Картинки ${tabsCount.images}` : 'Картинки'}
           </button>
           <button
             type="button"
             className={`browser-view__tab ${activeTab === 'resources' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('resources')}
-            data-count={selectedPage ? String(tabsCount.resources) : '—'}
           >
-            Ресурсы
+            {selectedPage && tabsCount.resources > 0 ? `Ресурсы ${tabsCount.resources}` : 'Ресурсы'}
           </button>
           <button
             type="button"
             className={`browser-view__tab ${activeTab === 'errors' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('errors')}
-            data-count={String(tabsCount.errors)}
           >
-            Ошибки
+            {tabsCount.errors > 0 ? `Ошибки ${tabsCount.errors}` : 'Ошибки'}
           </button>
         </div>
 
@@ -641,6 +701,18 @@ export function BrowserView() {
               <div className="browser-view__kv-row">
                 <div className="browser-view__kv-key">URL</div>
                 <div className="browser-view__kv-val">{selectedPage.url}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Rel canonical</div>
+                <div className="browser-view__kv-val">{String((selectedPage as any).canonicalUrl || '').trim() || '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Meta robots</div>
+                <div className="browser-view__kv-val">{String((selectedPage as any).metaRobots || '').trim() || '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">IP сайта</div>
+                <div className="browser-view__kv-val">{String((selectedPage as any).ipAddress || '').trim() || '—'}</div>
               </div>
               <div className="browser-view__kv-row">
                 <div className="browser-view__kv-key">Title</div>
@@ -683,13 +755,16 @@ export function BrowserView() {
                 </>
               )}
 
-              <Separate title="Проверки" />
-              {seoIssues.length === 0 && <div className="browser-view__empty">Нет.</div>}
-              {seoIssues.map((x) => (
-                <div key={x} className="browser-view__list-item">
-                  {x}
-                </div>
-              ))}
+              {seoIssues.length > 0 && (
+                <>
+                  <Separate title="Проверки" />
+                  {seoIssues.map((x) => (
+                    <div key={x} className="browser-view__list-item">
+                      {x}
+                    </div>
+                  ))}
+                </>
+              )}
 
               <Separate title="Сводка по странице" />
 
@@ -701,18 +776,15 @@ export function BrowserView() {
                     <button
                       type="button"
                       className="browser-view__headings-control"
-                      onClick={() => setOpenHeadingLevels(new Set(['h2', 'h3', 'h4', 'h5', 'h6']))}
+                      onClick={() => {
+                        setOpenHeadingLevels((prev) => {
+                          const isOpen = prev.size > 0
+                          return isOpen ? new Set() : new Set(['h2', 'h3', 'h4', 'h5', 'h6'])
+                        })
+                      }}
                       disabled={isPageLoading}
                     >
-                      Раскрыть
-                    </button>
-                    <button
-                      type="button"
-                      className="browser-view__headings-control browser-view__headings-control--secondary"
-                      onClick={() => setOpenHeadingLevels(new Set())}
-                      disabled={isPageLoading}
-                    >
-                      Скрыть
+                      {openHeadingLevels.size > 0 ? 'Скрыть' : 'Раскрыть'}
                     </button>
                   </span>
                 </div>
@@ -806,22 +878,23 @@ export function BrowserView() {
                   </summary>
                   <div className="browser-view__group-body">
                     {linkGroups.internal.length === 0 && <div className="browser-view__empty">Нет.</div>}
-                    {linkGroups.internal.map((x) => (
-                      <div key={x} className="browser-view__row">
+                    {linkGroups.internal.map((it) => (
+                      <div key={it.url} className="browser-view__row">
                       <button
                         type="button"
-                        className="browser-view__row-main"
-                        onClick={() => void browserService.highlightLink(x).catch(() => void 0)}
+                        className="browser-view__row-main browser-view__row-main--two-lines"
+                        onClick={() => void browserService.highlightLink(it.url).catch(() => void 0)}
                         title="Подсветить в браузере"
                         disabled={isPageLoading}
                       >
-                        {x}
+                        <div className="browser-view__row-main-text">{it.url}</div>
+                        {it.anchor ? <div className="browser-view__row-subtext">{it.anchor}</div> : null}
                       </button>
                         <div className="browser-view__row-actions">
                         <button
                           type="button"
                           className="browser-view__action browser-view__action--primary"
-                          onClick={() => void openLinkSafely(x)}
+                          onClick={() => void openLinkSafely(it.url)}
                           title="Открыть"
                           disabled={isPageLoading}
                         >
@@ -842,22 +915,23 @@ export function BrowserView() {
                   </summary>
                   <div className="browser-view__group-body">
                     {linkGroups.external.length === 0 && <div className="browser-view__empty">Нет.</div>}
-                    {linkGroups.external.map((x) => (
-                      <div key={x} className="browser-view__row">
+                    {linkGroups.external.map((it) => (
+                      <div key={it.url} className="browser-view__row">
                       <button
                         type="button"
-                        className="browser-view__row-main"
-                        onClick={() => void browserService.highlightLink(x).catch(() => void 0)}
+                        className="browser-view__row-main browser-view__row-main--two-lines"
+                        onClick={() => void browserService.highlightLink(it.url).catch(() => void 0)}
                         title="Подсветить в браузере"
                         disabled={isPageLoading}
                       >
-                        {x}
+                        <div className="browser-view__row-main-text">{it.url}</div>
+                        {it.anchor ? <div className="browser-view__row-subtext">{it.anchor}</div> : null}
                       </button>
                         <div className="browser-view__row-actions">
                         <button
                           type="button"
                           className="browser-view__action browser-view__action--primary"
-                          onClick={() => void openLinkSafely(x)}
+                          onClick={() => void openLinkSafely(it.url)}
                           title="Открыть"
                           disabled={isPageLoading}
                         >
@@ -885,7 +959,10 @@ export function BrowserView() {
                     disabled={isPageLoading}
                   >
                     <img className="browser-view__thumb" src={x} alt="" loading="lazy" />
-                    <span className="browser-view__row-main-text">{x}</span>
+                    <div className="browser-view__row-main-two">
+                      <div className="browser-view__row-main-text">{x}</div>
+                      {formatResourceInfo(headInfoByUrl[x]) ? <div className="browser-view__row-subtext">{formatResourceInfo(headInfoByUrl[x])}</div> : null}
+                    </div>
                   </button>
                   <div className="browser-view__row-actions">
                     <button
@@ -916,11 +993,12 @@ export function BrowserView() {
                     <button
                       type="button"
                       key={x}
-                      className="browser-view__list-item browser-view__list-item--button"
+                      className="browser-view__list-item browser-view__list-item--button browser-view__list-item--with-meta"
                       onClick={() => setResourceModal({ type: 'js', url: x })}
                       disabled={isPageLoading}
                     >
-                      {x}
+                      <div className="browser-view__list-item-title">{x}</div>
+                      {formatResourceInfo(headInfoByUrl[x]) ? <div className="browser-view__list-item-meta">{formatResourceInfo(headInfoByUrl[x])}</div> : null}
                     </button>
                   ))}
                 </div>
@@ -937,11 +1015,12 @@ export function BrowserView() {
                     <button
                       type="button"
                       key={x}
-                      className="browser-view__list-item browser-view__list-item--button"
+                      className="browser-view__list-item browser-view__list-item--button browser-view__list-item--with-meta"
                       onClick={() => setResourceModal({ type: 'css', url: x })}
                       disabled={isPageLoading}
                     >
-                      {x}
+                      <div className="browser-view__list-item-title">{x}</div>
+                      {formatResourceInfo(headInfoByUrl[x]) ? <div className="browser-view__list-item-meta">{formatResourceInfo(headInfoByUrl[x])}</div> : null}
                     </button>
                   ))}
                 </div>
@@ -962,7 +1041,8 @@ export function BrowserView() {
                     }
                     return list.map((x) => (
                       <div key={x} className="browser-view__list-item">
-                        {x}
+                        <div className="browser-view__list-item-title">{x}</div>
+                        {formatResourceInfo(headInfoByUrl[x]) ? <div className="browser-view__list-item-meta">{formatResourceInfo(headInfoByUrl[x])}</div> : null}
                       </div>
                     ))
                   })()}

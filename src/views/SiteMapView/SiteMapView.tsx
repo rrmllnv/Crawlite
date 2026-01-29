@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
-import { setCurrentView } from '../../store/slices/appSlice'
-import { requestNavigate } from '../../store/slices/browserSlice'
+import { setCurrentView, setError as setAppError, setLoading } from '../../store/slices/appSlice'
+import { ensurePagesTreeExpanded, requestNavigate } from '../../store/slices/browserSlice'
 import { crawlService } from '../../services/CrawlService'
 import { selectPage, upsertPage } from '../../store/slices/crawlSlice'
-import { setBuilding, setData, setError as setSitemapError, toggleExpanded } from '../../store/slices/sitemapSlice'
+import { setBuilding, setData, setError as setSitemapError, setScrollTop, toggleExpanded } from '../../store/slices/sitemapSlice'
 import './SiteMapView.scss'
 
 type TreeNode = {
@@ -79,6 +79,35 @@ function buildUrlTree(urls: string[]) {
   return root
 }
 
+function buildPagesTreeExpandChain(urlStr: string): string[] {
+  const raw = String(urlStr || '').trim()
+  if (!raw) return ['root']
+  let u: URL | null = null
+  try {
+    u = new URL(raw)
+  } catch {
+    u = null
+  }
+  if (!u) return ['root']
+
+  const ids: string[] = []
+  ids.push('root')
+  const hostId = `host:${u.hostname}`
+  ids.push(hostId)
+
+  const segments = u.pathname.split('/').filter(Boolean)
+  if (segments.length === 0) {
+    ids.push(`${hostId}:/`)
+    return ids
+  }
+  let acc = ''
+  for (let i = 0; i < segments.length; i += 1) {
+    acc += `/${segments[i]}`
+    ids.push(`${hostId}:${acc}`)
+  }
+  return ids
+}
+
 function TreeItem({
   node,
   level,
@@ -138,13 +167,40 @@ export function SiteMapView() {
   const urls = useAppSelector((s) => s.sitemap.urls)
   const sitemaps = useAppSelector((s) => s.sitemap.sitemaps)
   const expandedIds = useAppSelector((s) => s.sitemap.expandedIds)
+  const scrollTop = useAppSelector((s) => s.sitemap.scrollTop)
 
   const tree = useMemo(() => buildUrlTree(urls), [urls])
   const expanded = useMemo(() => new Set(expandedIds || []), [expandedIds])
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  const rafRef = useRef<number | null>(null)
 
   const toggle = (id: string) => {
     dispatch(toggleExpanded(id))
   }
+
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+    if (scrollTop > 0) {
+      try {
+        el.scrollTop = scrollTop
+      } catch {
+        void 0
+      }
+    }
+  }, [scrollTop, urls.length])
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) {
+        try {
+          cancelAnimationFrame(rafRef.current)
+        } catch {
+          void 0
+        }
+      }
+    }
+  }, [])
 
   const handleBuild = async () => {
     if (!startUrl) {
@@ -174,6 +230,8 @@ export function SiteMapView() {
     const target = String(url || '').trim()
     if (!target) return
     // открываем как “безопасную ссылку”: переключаемся в BrowserView, навигацию отдаём через requestNavigate
+    dispatch(setAppError(null))
+    dispatch(setLoading(true))
     dispatch(setCurrentView('browser'))
     dispatch(requestNavigate(target))
     // и параллельно подтягиваем анализ страницы без crawl, чтобы в данных сразу было заполнено
@@ -182,11 +240,15 @@ export function SiteMapView() {
       if (res?.success && (res as any).page) {
         const page = (res as any).page
         dispatch(upsertPage(page))
+        const expandChain = buildPagesTreeExpandChain(String(page.url || target))
+        dispatch(ensurePagesTreeExpanded(expandChain))
         const key = page.normalizedUrl || page.url
         if (key) dispatch(selectPage(key))
       }
     } catch {
       void 0
+    } finally {
+      dispatch(setLoading(false))
     }
   }
 
@@ -206,7 +268,19 @@ export function SiteMapView() {
         )}
       </div>
 
-      <div className="sitemap-view__content">
+      <div
+        className="sitemap-view__content"
+        ref={contentRef}
+        onScroll={() => {
+          const el = contentRef.current
+          if (!el) return
+          if (rafRef.current) return
+          rafRef.current = requestAnimationFrame(() => {
+            rafRef.current = null
+            dispatch(setScrollTop(el.scrollTop))
+          })
+        }}
+      >
         <div className="sitemap-view__header">
           <div className="sitemap-view__title">Карта сайта</div>
           <div className="sitemap-view__subtitle">URL: {urls.length}</div>

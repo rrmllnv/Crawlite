@@ -20,6 +20,10 @@ export type ElectronResult<T = unknown> = {
   error?: string
 } & T
 
+export type BrowserEvent =
+  | { type: 'loading'; isLoading: boolean }
+  | { type: 'nav'; canGoBack: boolean; canGoForward: boolean; url?: string }
+
 export type CrawlEvent =
   | {
       type: 'started'
@@ -49,6 +53,8 @@ export type CrawlPageData = {
   hasViewport: boolean
   hasCanonical: boolean
   canonicalUrl: string
+  metaRobots: string
+  ipAddress: string
   headingsRawCount: { h1: number; h2: number; h3: number; h4: number; h5: number; h6: number }
   headingsEmptyCount: { h1: number; h2: number; h3: number; h4: number; h5: number; h6: number }
   nestedHeadings: string[]
@@ -75,6 +81,7 @@ export type CrawlPageData = {
   loadTimeMs: number | null
   discoveredAt: number
   links: string[]
+  linksDetailed: { url: string; anchor: string }[]
   images: string[]
   scripts: string[]
   stylesheets: string[]
@@ -86,6 +93,9 @@ export interface ElectronAPI {
   browserResize: (bounds: BrowserBounds) => Promise<ElectronResult>
   browserSetVisible: (visible: boolean) => Promise<ElectronResult>
   browserNavigate: (url: string) => Promise<ElectronResult>
+  browserGoBack: () => Promise<ElectronResult>
+  browserGoForward: () => Promise<ElectronResult>
+  browserReload: () => Promise<ElectronResult>
   browserHighlightHeading: (payload: { level: number; text: string }) => Promise<ElectronResult>
   browserHighlightLink: (url: string) => Promise<ElectronResult>
   browserHighlightImage: (url: string) => Promise<ElectronResult>
@@ -99,11 +109,11 @@ export interface ElectronAPI {
   saveUserConfig: (userConfig: any) => Promise<boolean>
 
   downloadFile: (url: string) => Promise<ElectronResult>
-  resourceHead: (url: string) => Promise<ElectronResult<{ contentLength?: number | null }>>
+  resourceHead: (url: string) => Promise<ElectronResult<{ contentLength?: number | null; elapsedMs?: number | null }>>
 
   sitemapBuild: (startUrl: string) => Promise<ElectronResult<{ sitemaps?: string[]; urls?: string[] }>>
 
-  onBrowserEvent: (listener: (event: { type: 'loading'; isLoading: boolean }) => void) => () => void
+  onBrowserEvent: (listener: (event: BrowserEvent) => void) => () => void
   onCrawlEvent: (listener: (event: CrawlEvent) => void) => () => void
 }
 

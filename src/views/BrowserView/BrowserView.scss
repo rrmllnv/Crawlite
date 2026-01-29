@@ -195,21 +195,6 @@
   }
 }
 
-.browser-view__tab[data-count]::after {
-  content: attr(data-count);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 6px;
-  margin-left: 6px;
-  border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.10);
-  color: $text-primary;
-  font-size: 11px;
-}
-
 .browser-view__tab--active {
   background-color: rgba(74, 163, 255, 0.16);
   color: $text-primary;
@@ -222,10 +207,10 @@
 }
 
 .browser-view__details-block {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: $border-radius;
-  background-color: rgba(255, 255, 255, 0.04);
-  padding: 8px 8px;
+  // border: 1px solid rgba(255, 255, 255, 0.06);
+  // border-radius: $border-radius;
+  // background-color: rgba(255, 255, 255, 0.04);
+  // padding: 8px 8px;
 }
 
 .browser-view__details-summary {
@@ -233,14 +218,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  cursor: pointer;
+  // cursor: pointer;
   list-style: none;
   padding: 6px 6px;
   border-radius: $border-radius;
   color: $text-primary;
+  // pointer-events: none;
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.06);
+    // background-color: rgba(255, 255, 255, 0.06);
   }
 }
 
@@ -498,6 +484,20 @@
   align-items: center;
 }
 
+.browser-view__row-main--two-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.browser-view__row-main-two {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .browser-view__thumb {
   width: 34px;
   height: 34px;
@@ -511,6 +511,33 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.browser-view__row-subtext {
+  font-size: 11px;
+  color: $text-secondary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-view__list-item--with-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.browser-view__list-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.browser-view__list-item-meta {
+  font-size: 11px;
+  color: $text-secondary;
 }
 
 .browser-view__row-actions {

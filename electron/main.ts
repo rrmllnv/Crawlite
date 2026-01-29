@@ -2,6 +2,7 @@ import { app, BrowserWindow, WebContentsView, ipcMain, shell, dialog, net } from
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
+import { lookup } from 'node:dns/promises'
 import { loadUserConfig, saveUserConfig } from './api/UserConfig'
 
 type BrowserBounds = { x: number; y: number; width: number; height: number }
@@ -24,6 +25,8 @@ type CrawlPageData = {
   hasViewport: boolean
   hasCanonical: boolean
   canonicalUrl: string
+  metaRobots: string
+  ipAddress: string
   headingsRawCount: { h1: number; h2: number; h3: number; h4: number; h5: number; h6: number }
   headingsEmptyCount: { h1: number; h2: number; h3: number; h4: number; h5: number; h6: number }
   nestedHeadings: string[]
@@ -50,6 +53,7 @@ type CrawlPageData = {
   loadTimeMs: number | null
   discoveredAt: number
   links: string[]
+  linksDetailed: { url: string; anchor: string }[]
   images: string[]
   scripts: string[]
   stylesheets: string[]
@@ -57,6 +61,26 @@ type CrawlPageData = {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const ipByHost = new Map<string, string>()
+
+async function resolveHostIp(hostname: string): Promise<string> {
+  const host = String(hostname || '').trim()
+  if (!host) return ''
+  const cached = ipByHost.get(host)
+  if (cached) return cached
+  try {
+    const res = await lookup(host, { all: false })
+    const ip = typeof (res as any)?.address === 'string' ? String((res as any).address) : ''
+    if (ip) {
+      ipByHost.set(host, ip)
+      return ip
+    }
+  } catch {
+    void 0
+  }
+  return ''
+}
 
 process.env.APP_ROOT = path.join(__dirname, '..')
 
@@ -508,6 +532,21 @@ function ensureBrowserView(bounds: BrowserBounds) {
     })
     mainWindow.contentView.addChildView(browserView)
     try {
+      const sendNavState = () => {
+        try {
+          if (!browserView) return
+          const wc = browserView.webContents
+          mainWindow?.webContents.send('browser:event', {
+            type: 'nav',
+            canGoBack: wc.canGoBack(),
+            canGoForward: wc.canGoForward(),
+            url: wc.getURL(),
+          })
+        } catch {
+          void 0
+        }
+      }
+
       browserView.webContents.on('did-start-loading', () => {
         try {
           mainWindow?.webContents.send('browser:event', { type: 'loading', isLoading: true })
@@ -521,9 +560,14 @@ function ensureBrowserView(bounds: BrowserBounds) {
         } catch {
           void 0
         }
+        sendNavState()
       }
       browserView.webContents.on('did-stop-loading', stop)
       browserView.webContents.on('did-fail-load', stop)
+
+      browserView.webContents.on('did-navigate', sendNavState)
+      browserView.webContents.on('did-navigate-in-page', sendNavState)
+      browserView.webContents.on('did-start-navigation', sendNavState)
 
       browserView.webContents.on('did-finish-load', () => {
         try {
@@ -533,6 +577,7 @@ function ensureBrowserView(bounds: BrowserBounds) {
         }
       })
       void browserView.webContents.insertCSS(BROWSER_SCROLLBAR_CSS).catch(() => void 0)
+      sendNavState()
     } catch {
       void 0
     }
@@ -582,7 +627,7 @@ function ensureCrawlView() {
 
 async function extractPageDataFromView(
   view: WebContentsView
-): Promise<(Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt'> & { htmlBytes: number | null })> {
+): Promise<(Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt' | 'ipAddress'> & { htmlBytes: number | null })> {
   const data = await view.webContents.executeJavaScript(`
     (function() {
       const text = (v) => (typeof v === 'string' ? v : '');
@@ -637,6 +682,7 @@ async function extractPageDataFromView(
       const h1 = normText(chosen && chosen.textContent);
       const description = pickMeta('description').slice(0, 500);
       const keywords = pickMeta('keywords').slice(0, 500);
+      const metaRobots = pickMeta('robots').slice(0, 500);
 
       const uniqKeepOrder = (arr) => {
         const seen = new Set();
@@ -770,6 +816,7 @@ async function extractPageDataFromView(
       };
 
       const rawLinks = [];
+      const rawLinksDetailed = [];
       const rawMisc = [];
 
       // Ссылки: в links кладём только http(s). Остальное — в misc (mailto/tel/javascript/# и т.п.).
@@ -787,8 +834,12 @@ async function extractPageDataFromView(
             rawMisc.push(v);
             return;
           }
-          if (isHttpLike(abs) && !isDocOrMedia(abs)) rawLinks.push(abs);
-          else rawMisc.push(abs);
+          if (isHttpLike(abs) && !isDocOrMedia(abs)) {
+            rawLinks.push(abs);
+            rawLinksDetailed.push({ url: abs, anchor: normText(a && a.textContent).slice(0, 300) });
+          } else {
+            rawMisc.push(abs);
+          }
         } catch (e) {
           rawMisc.push(String((a && a.href) || '').trim());
         }
@@ -838,6 +889,23 @@ async function extractPageDataFromView(
       });
 
       const uniq = (arr) => Array.from(new Set(arr));
+      const uniqLinksDetailed = (arr) => {
+        const byUrl = new Map();
+        for (const it of (arr || [])) {
+          const url = it && it.url ? String(it.url).trim() : '';
+          if (!url) continue;
+          const anchor = it && typeof it.anchor === 'string' ? String(it.anchor).trim() : '';
+          const prev = byUrl.get(url);
+          if (!prev) {
+            byUrl.set(url, { url, anchor });
+            continue;
+          }
+          if (!prev.anchor && anchor) {
+            byUrl.set(url, { url, anchor });
+          }
+        }
+        return Array.from(byUrl.values());
+      };
       return {
         url: String(window.location.href || ''),
         title,
@@ -853,7 +921,9 @@ async function extractPageDataFromView(
         htmlBytes,
         description,
         keywords,
+        metaRobots,
         links: uniq(rawLinks),
+        linksDetailed: uniqLinksDetailed(rawLinksDetailed),
         images: uniq(rawImages),
         scripts: uniq(rawScripts),
         stylesheets: uniq(rawStyles),
@@ -871,6 +941,7 @@ async function extractPageDataFromView(
     hasViewport: Boolean((data as any)?.hasViewport),
     hasCanonical: Boolean((data as any)?.hasCanonical),
     canonicalUrl: typeof (data as any)?.canonicalUrl === 'string' ? (data as any).canonicalUrl : '',
+    metaRobots: typeof (data as any)?.metaRobots === 'string' ? (data as any).metaRobots : '',
     headingsRawCount: (data && typeof data === 'object' && (data as any).headingsRawCount && typeof (data as any).headingsRawCount === 'object')
       ? {
           h1: typeof (data as any).headingsRawCount.h1 === 'number' ? (data as any).headingsRawCount.h1 : 0,
@@ -915,6 +986,11 @@ async function extractPageDataFromView(
     description: typeof data?.description === 'string' ? data.description : '',
     keywords: typeof data?.keywords === 'string' ? data.keywords : '',
     links: Array.isArray(data?.links) ? data.links.filter((x: unknown) => typeof x === 'string') : [],
+    linksDetailed: Array.isArray((data as any)?.linksDetailed)
+      ? (data as any).linksDetailed
+          .map((x: any) => ({ url: String(x?.url || '').trim(), anchor: String(x?.anchor || '').trim() }))
+          .filter((x: any) => x.url)
+      : [],
     images: Array.isArray(data?.images) ? data.images.filter((x: unknown) => typeof x === 'string') : [],
     scripts: Array.isArray(data?.scripts) ? data.scripts.filter((x: unknown) => typeof x === 'string') : [],
     stylesheets: Array.isArray(data?.stylesheets) ? data.stylesheets.filter((x: unknown) => typeof x === 'string') : [],
@@ -1077,7 +1153,7 @@ async function crawlStart(params: CrawlStartParams) {
 
     const loadFinishedAt = Date.now()
 
-    let extracted: (Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt'> & { htmlBytes: number | null }) | null = null
+    let extracted: (Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt' | 'ipAddress'> & { htmlBytes: number | null }) | null = null
     try {
       extracted = await extractPageDataFromView(crawlView)
     } catch {
@@ -1087,6 +1163,13 @@ async function crawlStart(params: CrawlStartParams) {
     const finalUrlRaw = (extracted?.url || crawlView.webContents.getURL() || u.toString())
     const finalNormalized = normalizeUrl(finalUrlRaw) || normalizeUrl(u.toString())
     const meta = finalNormalized ? crawlMainFrameMetaByUrl.get(finalNormalized) : undefined
+    let ipAddress = ''
+    try {
+      const host = safeParseUrl(finalUrlRaw)?.hostname || u.hostname
+      ipAddress = await resolveHostIp(host)
+    } catch {
+      ipAddress = ''
+    }
 
     const page: CrawlPageData = {
       url: finalUrlRaw,
@@ -1096,6 +1179,8 @@ async function crawlStart(params: CrawlStartParams) {
       hasViewport: Boolean((extracted as any)?.hasViewport),
       hasCanonical: Boolean((extracted as any)?.hasCanonical),
       canonicalUrl: typeof (extracted as any)?.canonicalUrl === 'string' ? (extracted as any).canonicalUrl : '',
+      metaRobots: typeof (extracted as any)?.metaRobots === 'string' ? (extracted as any).metaRobots : '',
+      ipAddress,
       headingsRawCount: (extracted as any)?.headingsRawCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
       headingsEmptyCount: (extracted as any)?.headingsEmptyCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
       nestedHeadings: (extracted as any)?.nestedHeadings || [],
@@ -1108,6 +1193,7 @@ async function crawlStart(params: CrawlStartParams) {
       loadTimeMs: loadOk ? (loadFinishedAt - pageStartedAt) : null,
       discoveredAt: pageStartedAt,
       links: extracted?.links || [],
+      linksDetailed: Array.isArray((extracted as any)?.linksDetailed) ? (extracted as any).linksDetailed : [],
       images: extracted?.images || [],
       scripts: extracted?.scripts || [],
       stylesheets: extracted?.stylesheets || [],
@@ -1173,6 +1259,8 @@ async function crawlStart(params: CrawlStartParams) {
           hasViewport: false,
           hasCanonical: false,
           canonicalUrl: '',
+          metaRobots: '',
+          ipAddress: '',
           headingsRawCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
           headingsEmptyCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
           nestedHeadings: [],
@@ -1185,6 +1273,7 @@ async function crawlStart(params: CrawlStartParams) {
           loadTimeMs: null,
           discoveredAt: Date.now(),
           links: [],
+          linksDetailed: [],
           images: [],
           scripts: [],
           stylesheets: [],
@@ -1252,6 +1341,46 @@ ipcMain.handle('browser:navigate', async (_event, url: string) => {
   }
 })
 
+ipcMain.handle('browser:go-back', async () => {
+  if (!browserView) {
+    return { success: false, error: 'Browser view not created' }
+  }
+  try {
+    if (browserView.webContents.canGoBack()) {
+      browserView.webContents.goBack()
+    }
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('browser:go-forward', async () => {
+  if (!browserView) {
+    return { success: false, error: 'Browser view not created' }
+  }
+  try {
+    if (browserView.webContents.canGoForward()) {
+      browserView.webContents.goForward()
+    }
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('browser:reload', async () => {
+  if (!browserView) {
+    return { success: false, error: 'Browser view not created' }
+  }
+  try {
+    browserView.webContents.reload()
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
 ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: number; text: string }) => {
   if (!browserView) {
     return { success: false, error: 'Browser view not created' }
@@ -1269,28 +1398,54 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
     const js = `
       (function() {
         try {
+          const clearOverlay = () => {
+            try {
+              const dim = document.getElementById('__crawlite_overlay_dim');
+              const box = document.getElementById('__crawlite_overlay_box');
+              if (dim) dim.remove();
+              if (box) box.remove();
+            } catch (e) { /* noop */ }
+          };
           const ensureOverlay = () => {
             try {
-              let ov = document.getElementById('__crawlite_overlay');
-              if (!ov) {
-                ov = document.createElement('div');
-                ov.id = '__crawlite_overlay';
-                ov.style.position = 'fixed';
-                ov.style.inset = '0';
-                ov.style.background = 'rgba(0,0,0,0.65)';
-                ov.style.pointerEvents = 'none';
-                ov.style.zIndex = '2147483646';
-                document.documentElement.appendChild(ov);
-              }
-              return ov;
+              clearOverlay();
+              const dim = document.createElement('div');
+              dim.id = '__crawlite_overlay_dim';
+              dim.style.position = 'fixed';
+              dim.style.inset = '0';
+              dim.style.background = 'rgba(0,0,0,0.65)';
+              dim.style.pointerEvents = 'none';
+              dim.style.zIndex = '2147483646';
+
+              const box = document.createElement('div');
+              box.id = '__crawlite_overlay_box';
+              box.style.position = 'fixed';
+              box.style.pointerEvents = 'none';
+              box.style.zIndex = '2147483647';
+              box.style.border = '2px solid rgba(74, 163, 255, 0.95)';
+              box.style.background = 'rgba(74, 163, 255, 0.10)';
+              box.style.borderRadius = '10px';
+              box.style.boxShadow = '0 0 0 1px rgba(0,0,0,0.25)';
+
+              document.documentElement.appendChild(dim);
+              document.documentElement.appendChild(box);
+              return { dim, box };
             } catch (e) {
               return null;
             }
           };
-          const clearOverlay = () => {
+          const positionBox = (box, el) => {
             try {
-              const ov = document.getElementById('__crawlite_overlay');
-              if (ov) ov.remove();
+              const r = el.getBoundingClientRect();
+              const pad = 6;
+              const left = Math.max(8, r.left - pad);
+              const top = Math.max(8, r.top - pad);
+              const w = Math.max(0, r.width + pad * 2);
+              const h = Math.max(0, r.height + pad * 2);
+              box.style.left = left + 'px';
+              box.style.top = top + 'px';
+              box.style.width = w + 'px';
+              box.style.height = h + 'px';
             } catch (e) { /* noop */ }
           };
 
@@ -1304,32 +1459,16 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
           const el = partial;
           if (!el) return false;
 
-          const ov = ensureOverlay();
-          const prev = {
-            outline: el.style.outline,
-            backgroundColor: el.style.backgroundColor,
-            scrollMarginTop: el.style.scrollMarginTop,
-            position: el.style.position,
-            zIndex: el.style.zIndex,
-          };
-
           el.style.scrollMarginTop = '120px';
-          try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { el.scrollIntoView(); }
-          if (!prev.position || prev.position === 'static') {
-            el.style.position = 'relative';
+          // smooth иногда “пролетает” мимо цели на некоторых страницах/контейнерах — используем точный скролл
+          try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' }); } catch (e) { el.scrollIntoView(); }
+          const ov = ensureOverlay();
+          if (ov && ov.box) {
+            positionBox(ov.box, el);
+            setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 80);
           }
-          el.style.zIndex = '2147483647';
-          el.style.outline = '2px solid rgba(74, 163, 255, 0.95)';
-          el.style.backgroundColor = 'rgba(74, 163, 255, 0.18)';
 
           setTimeout(() => {
-            try {
-              el.style.outline = prev.outline;
-              el.style.backgroundColor = prev.backgroundColor;
-              el.style.scrollMarginTop = prev.scrollMarginTop;
-              el.style.position = prev.position;
-              el.style.zIndex = prev.zIndex;
-            } catch (e) { /* noop */ }
             clearOverlay();
           }, 1400);
 
@@ -1358,6 +1497,57 @@ ipcMain.handle('browser:highlight-link', async (_event, url: string) => {
     const js = `
       (function() {
         try {
+          const clearOverlay = () => {
+            try {
+              const dim = document.getElementById('__crawlite_overlay_dim');
+              const box = document.getElementById('__crawlite_overlay_box');
+              if (dim) dim.remove();
+              if (box) box.remove();
+            } catch (e) { /* noop */ }
+          };
+          const ensureOverlay = () => {
+            try {
+              clearOverlay();
+              const dim = document.createElement('div');
+              dim.id = '__crawlite_overlay_dim';
+              dim.style.position = 'fixed';
+              dim.style.inset = '0';
+              dim.style.background = 'rgba(0,0,0,0.65)';
+              dim.style.pointerEvents = 'none';
+              dim.style.zIndex = '2147483646';
+
+              const box = document.createElement('div');
+              box.id = '__crawlite_overlay_box';
+              box.style.position = 'fixed';
+              box.style.pointerEvents = 'none';
+              box.style.zIndex = '2147483647';
+              box.style.border = '2px solid rgba(74, 163, 255, 0.95)';
+              box.style.background = 'rgba(74, 163, 255, 0.10)';
+              box.style.borderRadius = '10px';
+              box.style.boxShadow = '0 0 0 1px rgba(0,0,0,0.25)';
+
+              document.documentElement.appendChild(dim);
+              document.documentElement.appendChild(box);
+              return { dim, box };
+            } catch (e) {
+              return null;
+            }
+          };
+          const positionBox = (box, el) => {
+            try {
+              const r = el.getBoundingClientRect();
+              const pad = 6;
+              const left = Math.max(8, r.left - pad);
+              const top = Math.max(8, r.top - pad);
+              const w = Math.max(0, r.width + pad * 2);
+              const h = Math.max(0, r.height + pad * 2);
+              box.style.left = left + 'px';
+              box.style.top = top + 'px';
+              box.style.width = w + 'px';
+              box.style.height = h + 'px';
+            } catch (e) { /* noop */ }
+          };
+
           const targetRaw = ${JSON.stringify(target)};
           const norm = (s) => String(s || '').trim().replace(/\\s+/g, ' ');
           const strip = (u) => {
@@ -1426,40 +1616,17 @@ ipcMain.handle('browser:highlight-link', async (_event, url: string) => {
           openDetailsChain(best);
           const el = pickHighlightTarget(best);
 
-          // затемнение всего вокруг элемента
-          const prev = {
-            outline: el.style.outline,
-            backgroundColor: el.style.backgroundColor,
-            boxShadow: el.style.boxShadow,
-            borderRadius: el.style.borderRadius,
-            position: el.style.position,
-            zIndex: el.style.zIndex,
-            scrollMarginTop: el.style.scrollMarginTop,
-          };
-
           el.style.scrollMarginTop = '120px';
-          try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
-
-          // если position=static, для z-index достаточно relative
-          if (!prev.position || prev.position === 'static') {
-            el.style.position = 'relative';
+          // smooth иногда “пролетает” мимо цели на некоторых страницах/контейнерах — используем точный скролл
+          try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
+          const ov = ensureOverlay();
+          if (ov && ov.box) {
+            positionBox(ov.box, el);
+            setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 80);
           }
-          el.style.zIndex = '2147483647';
-          el.style.outline = '2px solid rgba(74, 163, 255, 0.95)';
-          el.style.backgroundColor = 'rgba(74, 163, 255, 0.18)';
-          el.style.borderRadius = '8px';
-          el.style.boxShadow = '0 0 0 9999px rgba(0,0,0,0.65)';
 
           setTimeout(() => {
-            try {
-              el.style.outline = prev.outline;
-              el.style.backgroundColor = prev.backgroundColor;
-              el.style.boxShadow = prev.boxShadow;
-              el.style.borderRadius = prev.borderRadius;
-              el.style.position = prev.position;
-              el.style.zIndex = prev.zIndex;
-              el.style.scrollMarginTop = prev.scrollMarginTop;
-            } catch (e) { /* noop */ }
+            clearOverlay();
           }, 1400);
 
           return true;
@@ -1487,6 +1654,57 @@ ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
     const js = `
       (function() {
         try {
+          const clearOverlay = () => {
+            try {
+              const dim = document.getElementById('__crawlite_overlay_dim');
+              const box = document.getElementById('__crawlite_overlay_box');
+              if (dim) dim.remove();
+              if (box) box.remove();
+            } catch (e) { /* noop */ }
+          };
+          const ensureOverlay = () => {
+            try {
+              clearOverlay();
+              const dim = document.createElement('div');
+              dim.id = '__crawlite_overlay_dim';
+              dim.style.position = 'fixed';
+              dim.style.inset = '0';
+              dim.style.background = 'rgba(0,0,0,0.65)';
+              dim.style.pointerEvents = 'none';
+              dim.style.zIndex = '2147483646';
+
+              const box = document.createElement('div');
+              box.id = '__crawlite_overlay_box';
+              box.style.position = 'fixed';
+              box.style.pointerEvents = 'none';
+              box.style.zIndex = '2147483647';
+              box.style.border = '2px solid rgba(74, 163, 255, 0.95)';
+              box.style.background = 'rgba(74, 163, 255, 0.10)';
+              box.style.borderRadius = '10px';
+              box.style.boxShadow = '0 0 0 1px rgba(0,0,0,0.25)';
+
+              document.documentElement.appendChild(dim);
+              document.documentElement.appendChild(box);
+              return { dim, box };
+            } catch (e) {
+              return null;
+            }
+          };
+          const positionBox = (box, el) => {
+            try {
+              const r = el.getBoundingClientRect();
+              const pad = 6;
+              const left = Math.max(8, r.left - pad);
+              const top = Math.max(8, r.top - pad);
+              const w = Math.max(0, r.width + pad * 2);
+              const h = Math.max(0, r.height + pad * 2);
+              box.style.left = left + 'px';
+              box.style.top = top + 'px';
+              box.style.width = w + 'px';
+              box.style.height = h + 'px';
+            } catch (e) { /* noop */ }
+          };
+
           const targetRaw = ${JSON.stringify(target)};
           const norm = (s) => String(s || '').trim().replace(/\\s+/g, ' ');
           const strip = (u) => {
@@ -1554,38 +1772,17 @@ ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
           }
           el = el || best;
 
-          const prev = {
-            outline: el.style.outline,
-            backgroundColor: el.style.backgroundColor,
-            boxShadow: el.style.boxShadow,
-            borderRadius: el.style.borderRadius,
-            position: el.style.position,
-            zIndex: el.style.zIndex,
-            scrollMarginTop: el.style.scrollMarginTop,
-          };
-
           el.style.scrollMarginTop = '120px';
-          try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
-
-          if (!prev.position || prev.position === 'static') {
-            el.style.position = 'relative';
+          // smooth иногда “пролетает” мимо цели на некоторых страницах/контейнерах — используем точный скролл
+          try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
+          const ov = ensureOverlay();
+          if (ov && ov.box) {
+            positionBox(ov.box, el);
+            setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 80);
           }
-          el.style.zIndex = '2147483647';
-          el.style.outline = '2px solid rgba(74, 163, 255, 0.95)';
-          el.style.backgroundColor = 'rgba(74, 163, 255, 0.18)';
-          el.style.borderRadius = '8px';
-          el.style.boxShadow = '0 0 0 9999px rgba(0,0,0,0.65)';
 
           setTimeout(() => {
-            try {
-              el.style.outline = prev.outline;
-              el.style.backgroundColor = prev.backgroundColor;
-              el.style.boxShadow = prev.boxShadow;
-              el.style.borderRadius = prev.borderRadius;
-              el.style.position = prev.position;
-              el.style.zIndex = prev.zIndex;
-              el.style.scrollMarginTop = prev.scrollMarginTop;
-            } catch (e) { /* noop */ }
+            clearOverlay();
           }, 1400);
 
           return true;
@@ -1635,7 +1832,7 @@ ipcMain.handle('page:analyze', async (_event, url: string) => {
 
   const finishedAt = Date.now()
 
-  let extracted: (Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt'> & { htmlBytes: number | null }) | null = null
+  let extracted: (Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt' | 'ipAddress'> & { htmlBytes: number | null }) | null = null
   try {
     extracted = await extractPageDataFromView(crawlView)
   } catch {
@@ -1645,6 +1842,13 @@ ipcMain.handle('page:analyze', async (_event, url: string) => {
   const finalUrlRaw = (extracted?.url || crawlView.webContents.getURL() || u.toString())
   const finalNormalized = normalizeUrl(finalUrlRaw) || normalizeUrl(u.toString())
   const meta = finalNormalized ? crawlMainFrameMetaByUrl.get(finalNormalized) : undefined
+  let ipAddress = ''
+  try {
+    const host = safeParseUrl(finalUrlRaw)?.hostname || u.hostname
+    ipAddress = await resolveHostIp(host)
+  } catch {
+    ipAddress = ''
+  }
 
   const page: CrawlPageData = {
     url: finalUrlRaw,
@@ -1654,6 +1858,8 @@ ipcMain.handle('page:analyze', async (_event, url: string) => {
     hasViewport: Boolean((extracted as any)?.hasViewport),
     hasCanonical: Boolean((extracted as any)?.hasCanonical),
     canonicalUrl: typeof (extracted as any)?.canonicalUrl === 'string' ? (extracted as any).canonicalUrl : '',
+    metaRobots: typeof (extracted as any)?.metaRobots === 'string' ? (extracted as any).metaRobots : '',
+    ipAddress,
     headingsRawCount: (extracted as any)?.headingsRawCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
     headingsEmptyCount: (extracted as any)?.headingsEmptyCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
     nestedHeadings: (extracted as any)?.nestedHeadings || [],
@@ -1666,6 +1872,7 @@ ipcMain.handle('page:analyze', async (_event, url: string) => {
     loadTimeMs: loadOk ? (finishedAt - startedAt) : null,
     discoveredAt: startedAt,
     links: extracted?.links || [],
+    linksDetailed: Array.isArray((extracted as any)?.linksDetailed) ? (extracted as any).linksDetailed : [],
     images: extracted?.images || [],
     scripts: extracted?.scripts || [],
     stylesheets: extracted?.stylesheets || [],
@@ -1685,8 +1892,10 @@ ipcMain.handle('resource:head', async (_event, url: string) => {
   }
 
   try {
+    const startedAt = Date.now()
     const contentLength = await headContentLength(u.toString())
-    return { success: true, contentLength }
+    const elapsedMs = Date.now() - startedAt
+    return { success: true, contentLength, elapsedMs }
   } catch (error) {
     return { success: false, error: String(error) }
   }

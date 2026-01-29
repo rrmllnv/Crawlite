@@ -17,6 +17,18 @@ class BrowserService {
     return await window.electronAPI.browserNavigate(url)
   }
 
+  async goBack() {
+    return await window.electronAPI.browserGoBack()
+  }
+
+  async goForward() {
+    return await window.electronAPI.browserGoForward()
+  }
+
+  async reload() {
+    return await window.electronAPI.browserReload()
+  }
+
   async highlightHeading(level: number, text: string) {
     return await window.electronAPI.browserHighlightHeading({ level, text })
   }

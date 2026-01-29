@@ -41,6 +41,11 @@
   }
 }
 
+.header__icon-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .header__url-input {
   height: 32px;
   padding: 0 $spacing-md;

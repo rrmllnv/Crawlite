@@ -6,6 +6,7 @@ export interface SiteMapState {
   urls: string[]
   sitemaps: string[]
   expandedIds: string[]
+  scrollTop: number
 }
 
 const initialState: SiteMapState = {
@@ -14,6 +15,7 @@ const initialState: SiteMapState = {
   urls: [],
   sitemaps: [],
   expandedIds: ['root'],
+  scrollTop: 0,
 }
 
 export const sitemapSlice = createSlice({
@@ -32,6 +34,7 @@ export const sitemapSlice = createSlice({
       state.urls = urls
       state.sitemaps = sitemaps
       state.expandedIds = ['root']
+      state.scrollTop = 0
     },
     clear: () => initialState,
     toggleExpanded: (state, action: PayloadAction<string>) => {
@@ -46,9 +49,13 @@ export const sitemapSlice = createSlice({
       const ids = Array.isArray(action.payload) ? action.payload.map((x) => String(x || '')).filter(Boolean) : []
       state.expandedIds = ids.length > 0 ? Array.from(new Set(ids)) : ['root']
     },
+    setScrollTop: (state, action: PayloadAction<number>) => {
+      const v = typeof action.payload === 'number' && Number.isFinite(action.payload) ? action.payload : 0
+      state.scrollTop = v < 0 ? 0 : v
+    },
   },
 })
 
-export const { setBuilding, setError, setData, clear, toggleExpanded, setExpandedIds } = sitemapSlice.actions
+export const { setBuilding, setError, setData, clear, toggleExpanded, setExpandedIds, setScrollTop } = sitemapSlice.actions
 export default sitemapSlice.reducer
 
