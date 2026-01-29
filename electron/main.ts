@@ -1459,18 +1459,58 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
           const el = partial;
           if (!el) return false;
 
-          el.style.scrollMarginTop = '120px';
-          // smooth иногда “пролетает” мимо цели на некоторых страницах/контейнерах — используем точный скролл
-          try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' }); } catch (e) { el.scrollIntoView(); }
-          const ov = ensureOverlay();
-          if (ov && ov.box) {
-            positionBox(ov.box, el);
-            setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 80);
-          }
+          const disableSmooth = () => {
+            try {
+              const existing = document.getElementById('__crawlite_scroll_fix');
+              if (existing) existing.remove();
+              const st = document.createElement('style');
+              st.id = '__crawlite_scroll_fix';
+              st.textContent = 'html,body,*{scroll-behavior:auto !important;}';
+              document.documentElement.appendChild(st);
+              return () => { try { st.remove(); } catch (e) { /* noop */ } };
+            } catch (e) {
+              return () => {};
+            }
+          };
+          const waitStable = (el) => {
+            return new Promise((resolve) => {
+              try {
+                let last = el.getBoundingClientRect();
+                let stable = 0;
+                const started = Date.now();
+                const tick = () => {
+                  const r = el.getBoundingClientRect();
+                  const d = Math.abs(r.top - last.top) + Math.abs(r.left - last.left);
+                  last = r;
+                  if (d < 0.5) stable += 1;
+                  else stable = 0;
+                  if (stable >= 3 || (Date.now() - started) > 800) return resolve(true);
+                  requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+              } catch (e) {
+                resolve(true);
+              }
+            });
+          };
 
-          setTimeout(() => {
-            clearOverlay();
-          }, 1400);
+          (async () => {
+            const restore = disableSmooth();
+            el.style.scrollMarginTop = '120px';
+            try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
+            await waitStable(el);
+            try { restore(); } catch (e) { /* noop */ }
+
+            const ov = ensureOverlay();
+            if (ov && ov.box) {
+              positionBox(ov.box, el);
+              setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
+            }
+
+            setTimeout(() => {
+              clearOverlay();
+            }, 1400);
+          })();
 
           return true;
         } catch (e) {
@@ -1616,18 +1656,58 @@ ipcMain.handle('browser:highlight-link', async (_event, url: string) => {
           openDetailsChain(best);
           const el = pickHighlightTarget(best);
 
-          el.style.scrollMarginTop = '120px';
-          // smooth иногда “пролетает” мимо цели на некоторых страницах/контейнерах — используем точный скролл
-          try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
-          const ov = ensureOverlay();
-          if (ov && ov.box) {
-            positionBox(ov.box, el);
-            setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 80);
-          }
+          const disableSmooth = () => {
+            try {
+              const existing = document.getElementById('__crawlite_scroll_fix');
+              if (existing) existing.remove();
+              const st = document.createElement('style');
+              st.id = '__crawlite_scroll_fix';
+              st.textContent = 'html,body,*{scroll-behavior:auto !important;}';
+              document.documentElement.appendChild(st);
+              return () => { try { st.remove(); } catch (e) { /* noop */ } };
+            } catch (e) {
+              return () => {};
+            }
+          };
+          const waitStable = (el) => {
+            return new Promise((resolve) => {
+              try {
+                let last = el.getBoundingClientRect();
+                let stable = 0;
+                const started = Date.now();
+                const tick = () => {
+                  const r = el.getBoundingClientRect();
+                  const d = Math.abs(r.top - last.top) + Math.abs(r.left - last.left);
+                  last = r;
+                  if (d < 0.5) stable += 1;
+                  else stable = 0;
+                  if (stable >= 3 || (Date.now() - started) > 800) return resolve(true);
+                  requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+              } catch (e) {
+                resolve(true);
+              }
+            });
+          };
 
-          setTimeout(() => {
-            clearOverlay();
-          }, 1400);
+          (async () => {
+            const restore = disableSmooth();
+            el.style.scrollMarginTop = '120px';
+            try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
+            await waitStable(el);
+            try { restore(); } catch (e) { /* noop */ }
+
+            const ov = ensureOverlay();
+            if (ov && ov.box) {
+              positionBox(ov.box, el);
+              setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
+            }
+
+            setTimeout(() => {
+              clearOverlay();
+            }, 1400);
+          })();
 
           return true;
         } catch (e) {
@@ -1772,18 +1852,58 @@ ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
           }
           el = el || best;
 
-          el.style.scrollMarginTop = '120px';
-          // smooth иногда “пролетает” мимо цели на некоторых страницах/контейнерах — используем точный скролл
-          try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
-          const ov = ensureOverlay();
-          if (ov && ov.box) {
-            positionBox(ov.box, el);
-            setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 80);
-          }
+          const disableSmooth = () => {
+            try {
+              const existing = document.getElementById('__crawlite_scroll_fix');
+              if (existing) existing.remove();
+              const st = document.createElement('style');
+              st.id = '__crawlite_scroll_fix';
+              st.textContent = 'html,body,*{scroll-behavior:auto !important;}';
+              document.documentElement.appendChild(st);
+              return () => { try { st.remove(); } catch (e) { /* noop */ } };
+            } catch (e) {
+              return () => {};
+            }
+          };
+          const waitStable = (el) => {
+            return new Promise((resolve) => {
+              try {
+                let last = el.getBoundingClientRect();
+                let stable = 0;
+                const started = Date.now();
+                const tick = () => {
+                  const r = el.getBoundingClientRect();
+                  const d = Math.abs(r.top - last.top) + Math.abs(r.left - last.left);
+                  last = r;
+                  if (d < 0.5) stable += 1;
+                  else stable = 0;
+                  if (stable >= 3 || (Date.now() - started) > 800) return resolve(true);
+                  requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+              } catch (e) {
+                resolve(true);
+              }
+            });
+          };
 
-          setTimeout(() => {
-            clearOverlay();
-          }, 1400);
+          (async () => {
+            const restore = disableSmooth();
+            el.style.scrollMarginTop = '120px';
+            try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
+            await waitStable(el);
+            try { restore(); } catch (e) { /* noop */ }
+
+            const ov = ensureOverlay();
+            if (ov && ov.box) {
+              positionBox(ov.box, el);
+              setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
+            }
+
+            setTimeout(() => {
+              clearOverlay();
+            }, 1400);
+          })();
 
           return true;
         } catch (e) {
