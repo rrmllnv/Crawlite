@@ -13,7 +13,6 @@ import { setNavState } from './store/slices/browserSlice'
 import { useUserConfig } from './hooks/useUserConfig'
 import { useTheme } from './hooks/useTheme'
 import { useLocale } from './hooks/useLocale'
-import { userConfigManager } from './utils/userConfig'
 import './App.scss'
 
 function App() {
@@ -21,28 +20,11 @@ function App() {
   const isLoading = useAppSelector((state) => state.app.isLoading)
   const error = useAppSelector((state) => state.app.error)
   const currentView = useAppSelector((state) => state.app.currentView)
-  const theme = useAppSelector((state) => state.app.theme)
-  const locale = useAppSelector((state) => state.app.locale)
-  const crawlSettings = useAppSelector((state) => state.crawl.settings)
 
   // Загружаем UserConfig и применяем theme/locale при старте
   useUserConfig()
   useTheme()
   useLocale()
-
-  useEffect(() => {
-    void userConfigManager.update({
-      app: {
-        theme,
-        locale,
-        currentView,
-      },
-      crawling: {
-        maxDepth: crawlSettings.maxDepth,
-        maxPages: crawlSettings.maxPages,
-      },
-    })
-  }, [theme, locale, currentView, crawlSettings.maxDepth, crawlSettings.maxPages])
 
   useEffect(() => {
     // `WebContentsView` рисуется поверх DOM: скрываем его во всех представлениях кроме BrowserView,

@@ -3,6 +3,7 @@ import appReducer from './slices/appSlice'
 import crawlReducer from './slices/crawlSlice'
 import browserReducer from './slices/browserSlice'
 import sitemapReducer from './slices/sitemapSlice'
+import { userConfigMiddleware } from './middleware/userConfigMiddleware'
 
 export const store = configureStore({
   reducer: {
@@ -11,6 +12,7 @@ export const store = configureStore({
     browser: browserReducer,
     sitemap: sitemapReducer,
   },
+  middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(userConfigMiddleware),
 })
 
 export type RootState = ReturnType<typeof store.getState>
