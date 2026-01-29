@@ -8,6 +8,7 @@ import { SiteMapView } from './views/SiteMapView/SiteMapView'
 import { SettingsView } from './views/SettingsView/SettingsView'
 import { crawlService } from './services/CrawlService'
 import { addError, setCrawlStatus, setProgress, setRunId, setStartUrl, upsertPage } from './store/slices/crawlSlice'
+import { browserService } from './services/BrowserService'
 import { useUserConfig } from './hooks/useUserConfig'
 import { useTheme } from './hooks/useTheme'
 import { useLocale } from './hooks/useLocale'
@@ -41,6 +42,13 @@ function App() {
       },
     })
   }, [theme, locale, currentView, crawlSettings.maxDepth, crawlSettings.maxPages])
+
+  useEffect(() => {
+    // `WebContentsView` рисуется поверх DOM: скрываем его во всех представлениях кроме BrowserView,
+    // и также скрываем во время глобальной загрузки (иначе он "останется один" поверх лоадера).
+    const visible = currentView === 'browser' && !isLoading
+    void browserService.setVisible(visible).catch(() => void 0)
+  }, [currentView, isLoading])
 
   useEffect(() => {
     const unsubscribe = crawlService.onEvent((evt) => {

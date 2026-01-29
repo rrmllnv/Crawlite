@@ -101,6 +101,8 @@ export interface ElectronAPI {
   downloadFile: (url: string) => Promise<ElectronResult>
   resourceHead: (url: string) => Promise<ElectronResult<{ contentLength?: number | null }>>
 
+  sitemapBuild: (startUrl: string) => Promise<ElectronResult<{ sitemaps?: string[]; urls?: string[] }>>
+
   onBrowserEvent: (listener: (event: { type: 'loading'; isLoading: boolean }) => void) => () => void
   onCrawlEvent: (listener: (event: CrawlEvent) => void) => () => void
 }
