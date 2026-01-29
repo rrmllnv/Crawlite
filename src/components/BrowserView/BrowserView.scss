@@ -42,12 +42,13 @@
 
 .browser-view__col-header,
 .browser-view__browser-header {
-  padding: 10px 12px;
+  padding: 5px 10px;
   border-bottom: 1px solid $border-color;
   background-color: $bg-tertiary;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-height: 61px;
 }
 
 .browser-view__browser-header-top {
