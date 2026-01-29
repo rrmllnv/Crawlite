@@ -4,7 +4,7 @@ import { setCurrentView, setError as setAppError, setLoading } from '../../store
 import { ensurePagesTreeExpanded, requestNavigate } from '../../store/slices/browserSlice'
 import { crawlService } from '../../services/CrawlService'
 import { selectPage, upsertPage } from '../../store/slices/crawlSlice'
-import { setBuilding, setData, setError as setSitemapError, setScrollTop, toggleExpanded } from '../../store/slices/sitemapSlice'
+import { setScrollTop, toggleExpanded } from '../../store/slices/sitemapSlice'
 import './SiteMapView.scss'
 
 type TreeNode = {
@@ -171,7 +171,7 @@ export function SiteMapView() {
 
   const [searchQuery, setSearchQuery] = useState('')
 
-  const uniqueHostsCount = useMemo(() => {
+  const hostsList = useMemo(() => {
     const hosts = new Set<string>()
     for (const raw of urls) {
       const uStr = String(raw || '').trim()
@@ -183,8 +183,10 @@ export function SiteMapView() {
         void 0
       }
     }
-    return hosts.size
+    return Array.from(hosts).sort((a, b) => a.localeCompare(b))
   }, [urls])
+
+  const uniqueHostsCount = hostsList.length
 
   const sectionSummary = useMemo(() => {
     const bySegment = new Map<string, number>()
@@ -244,30 +246,6 @@ export function SiteMapView() {
     }
   }, [])
 
-  const handleBuild = async () => {
-    if (!startUrl) {
-      dispatch(setSitemapError('Нет стартового URL. Сначала открой страницу через "Перейти".'))
-      return
-    }
-    dispatch(setSitemapError(''))
-    dispatch(setBuilding(true))
-    try {
-      const res = await window.electronAPI.sitemapBuild(startUrl)
-      if (!res?.success) {
-        dispatch(setSitemapError(res?.error || 'Не удалось построить sitemap'))
-        dispatch(setData({ urls: [], sitemaps: [] }))
-        return
-      }
-      const list = Array.isArray((res as any).urls) ? (res as any).urls : []
-      const sm = Array.isArray((res as any).sitemaps) ? (res as any).sitemaps : []
-      dispatch(setData({ urls: list, sitemaps: sm }))
-    } catch (e) {
-      dispatch(setSitemapError(String(e)))
-    } finally {
-      dispatch(setBuilding(false))
-    }
-  }
-
   const openInBrowser = async (url: string) => {
     const target = String(url || '').trim()
     if (!target) return
@@ -297,42 +275,52 @@ export function SiteMapView() {
   return (
     <div className="sitemap-view">
       <div className="sitemap-view__sidebar">
-        <button type="button" className="sitemap-view__button" onClick={() => void handleBuild()} disabled={isBuilding}>
-          {isBuilding ? 'Построение…' : 'Построить карту сайта'}
-        </button>
-        <div className="sitemap-view__sidebar-line">
-          Базовый URL: <span className="sitemap-view__sidebar-val">{startUrl || '—'}</span>
-        </div>
         {urls.length > 0 && (
-          <div className="sitemap-view__sidebar-line">
-            Хостов: <span className="sitemap-view__sidebar-val">{uniqueHostsCount}</span>
-          </div>
-        )}
-        {sitemaps.length > 0 && (
-          <details className="sitemap-view__details">
-            <summary className="sitemap-view__details-summary">
-              Sitemap файлов: <span className="sitemap-view__sidebar-val">{sitemaps.length}</span>
+          <details className="sitemap-view__group" open>
+            <summary className="sitemap-view__group-summary">
+              <span className="sitemap-view__group-title">Хостов</span>
+              <span className="sitemap-view__group-count">{uniqueHostsCount}</span>
             </summary>
-            <ul className="sitemap-view__list">
-              {sitemaps.map((sm, idx) => (
-                <li key={`${sm}-${idx}`} className="sitemap-view__list-item" title={sm}>
-                  <span className="sitemap-view__list-item-text">{sm}</span>
-                </li>
+            <div className="sitemap-view__group-body">
+              {hostsList.map((host) => (
+                <div key={host} className="sitemap-view__group-item" title={host}>
+                  {host}
+                </div>
               ))}
-            </ul>
+            </div>
           </details>
         )}
-        {sectionSummary.length > 0 && (
-          <details className="sitemap-view__details">
-            <summary className="sitemap-view__details-summary">Разделы (по первому сегменту)</summary>
-            <ul className="sitemap-view__list">
-              {sectionSummary.map(({ segment, count }) => (
-                <li key={segment} className="sitemap-view__list-item sitemap-view__list-item--row">
-                  <span className="sitemap-view__list-item-text">{segment}</span>
-                  <span className="sitemap-view__sidebar-val">{count}</span>
-                </li>
+
+        {sitemaps.length > 0 && (
+          <details className="sitemap-view__group">
+            <summary className="sitemap-view__group-summary">
+              <span className="sitemap-view__group-title">Sitemap файлов</span>
+              <span className="sitemap-view__group-count">{sitemaps.length}</span>
+            </summary>
+            <div className="sitemap-view__group-body">
+              {sitemaps.map((sm, idx) => (
+                <div key={`${sm}-${idx}`} className="sitemap-view__group-item" title={sm}>
+                  {sm}
+                </div>
               ))}
-            </ul>
+            </div>
+          </details>
+        )}
+
+        {sectionSummary.length > 0 && (
+          <details className="sitemap-view__group">
+            <summary className="sitemap-view__group-summary">
+              <span className="sitemap-view__group-title">Разделы</span>
+              <span className="sitemap-view__group-count">{sectionSummary.length}</span>
+            </summary>
+            <div className="sitemap-view__group-body">
+              {sectionSummary.map(({ segment, count }) => (
+                <div key={segment} className="sitemap-view__group-item sitemap-view__group-item--row" title={segment}>
+                  <span className="sitemap-view__group-item-text">{segment}</span>
+                  <span className="sitemap-view__group-item-badge">{count}</span>
+                </div>
+              ))}
+            </div>
           </details>
         )}
       </div>
@@ -351,7 +339,12 @@ export function SiteMapView() {
         }}
       >
         <div className="sitemap-view__header">
-          <div className="sitemap-view__title">Карта сайта</div>
+          <div className="sitemap-view__title-wrap">
+            <div className="sitemap-view__title">Карта сайта</div>
+            <div className="sitemap-view__base-url" title={startUrl || ''}>
+              Базовый URL: <span className="sitemap-view__base-url-val">{startUrl || '—'}</span>
+            </div>
+          </div>
           <div className="sitemap-view__header-right">
             <input
               type="text"
@@ -362,17 +355,14 @@ export function SiteMapView() {
               disabled={urls.length === 0}
             />
             <div className="sitemap-view__subtitle">
-              {urls.length === 0
-                ? 'URL: 0'
-                : searchQuery.trim()
-                  ? `URL: ${filteredUrls.length} из ${urls.length}`
-                  : `URL: ${urls.length}`}
+              {isBuilding ? 'Построение… · ' : ''}
+              {urls.length === 0 ? 'URL: 0' : searchQuery.trim() ? `URL: ${filteredUrls.length} из ${urls.length}` : `URL: ${urls.length}`}
             </div>
           </div>
         </div>
 
         {error && <div className="sitemap-view__empty">Ошибка: {error}</div>}
-        {!error && urls.length === 0 && <div className="sitemap-view__empty">Нажми “Построить карту сайта”.</div>}
+        {!error && urls.length === 0 && <div className="sitemap-view__empty">Карта сайта будет построена после “Перейти” или “Запустить”.</div>}
         {!error && urls.length > 0 && filteredUrls.length === 0 && (
           <div className="sitemap-view__empty">Нет URL по запросу «{searchQuery.trim()}».</div>
         )}

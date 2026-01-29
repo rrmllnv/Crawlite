@@ -17,76 +17,92 @@
   overflow: hidden;
 }
 
-.sitemap-view__sidebar-line {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  word-break: break-all;
+.sitemap-view__group {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: $border-radius;
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
 }
 
-.sitemap-view__sidebar-val {
-  color: #fff;
-}
-
-.sitemap-view__details {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.sitemap-view__details-summary {
+.sitemap-view__group-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 10px;
   cursor: pointer;
   list-style: none;
-  user-select: none;
+  color: $text-primary;
 
-  &::-webkit-details-marker {
-    display: none;
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
   }
 }
 
-.sitemap-view__list {
-  margin: 6px 0 0;
-  padding-left: 14px;
-  list-style: none;
-  max-height: 160px;
-  overflow-y: auto;
+.sitemap-view__group-summary::-webkit-details-marker {
+  display: none;
 }
 
-.sitemap-view__list-item {
-  padding: 2px 0;
-  word-break: break-all;
+.sitemap-view__group-title {
+  font-size: $font-size-sm;
+  font-weight: 700;
+}
+
+.sitemap-view__group-count {
   font-size: 11px;
+  padding: 0 8px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  color: $text-primary;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sitemap-view__group-body {
+  padding: 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.sitemap-view__group-item {
+  font-size: $font-size-sm;
+  color: $text-primary;
+  padding: 8px 8px;
+  border-radius: $border-radius;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background-color: rgba(255, 255, 255, 0.04);
+  word-break: break-word;
 
   &--row {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 10px;
   }
 }
 
-.sitemap-view__list-item-text {
-  color: rgba(255, 255, 255, 0.85);
+.sitemap-view__group-item-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sitemap-view__button {
-  height: 34px;
-  border-radius: $border-radius;
-  border: 1px solid $border-color;
-  background: rgba(255, 255, 255, 0.08);
+.sitemap-view__group-item-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 0 8px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
   color: $text-primary;
-  cursor: pointer;
-  text-align: left;
-  padding: 0 10px;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.12);
-  }
-}
-
-.sitemap-view__button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sitemap-view__content {
@@ -141,9 +157,29 @@
   }
 }
 
+.sitemap-view__title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+}
+
 .sitemap-view__title {
   font-size: $font-size-sm;
   font-weight: 700;
+  color: $text-primary;
+}
+
+.sitemap-view__base-url {
+  font-size: 12px;
+  color: $text-secondary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 520px;
+}
+
+.sitemap-view__base-url-val {
   color: $text-primary;
 }
 

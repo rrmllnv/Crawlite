@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { setCurrentView, setError } from '../../store/slices/appSlice'
 import { resetCrawl, setCrawlStatus, setRunId, setStartUrl } from '../../store/slices/crawlSlice'
+import { setBuilding as setSitemapBuilding, setData as setSitemapData, setError as setSitemapError } from '../../store/slices/sitemapSlice'
 import { crawlService } from '../../services/CrawlService'
 import { requestNavigate } from '../../store/slices/browserSlice'
 import { browserService } from '../../services/BrowserService'
@@ -34,6 +35,31 @@ export function Header() {
 
   const isRunning = crawlStatus === 'running'
 
+  const buildSitemap = async (baseUrl: string) => {
+    const target = normalizeInputUrl(baseUrl)
+    if (!target) {
+      return
+    }
+    dispatch(setSitemapError(''))
+    dispatch(setSitemapBuilding(true))
+    try {
+      const res = await window.electronAPI.sitemapBuild(target)
+      if (!res?.success) {
+        dispatch(setSitemapError(res?.error || 'Не удалось построить sitemap'))
+        dispatch(setSitemapData({ urls: [], sitemaps: [] }))
+        return
+      }
+      const list = Array.isArray((res as any).urls) ? (res as any).urls : []
+      const sm = Array.isArray((res as any).sitemaps) ? (res as any).sitemaps : []
+      dispatch(setSitemapData({ urls: list, sitemaps: sm }))
+    } catch (e) {
+      dispatch(setSitemapError(String(e)))
+      dispatch(setSitemapData({ urls: [], sitemaps: [] }))
+    } finally {
+      dispatch(setSitemapBuilding(false))
+    }
+  }
+
   const canNavigate = useMemo(() => {
     const normalized = normalizeInputUrl(urlInput)
     return Boolean(normalized)
@@ -52,6 +78,9 @@ export function Header() {
     if (isRunning) {
       return
     }
+
+    // карту сайта строим при "Перейти"
+    void buildSitemap(url)
 
     // "Перейти" = открыть страницу + запустить crawling только этой страницы
     dispatch(setError(null))
@@ -91,6 +120,9 @@ export function Header() {
     if (!startUrl || isRunning) {
       return
     }
+
+    // карту сайта строим при "Запустить"
+    void buildSitemap(startUrl)
 
     dispatch(setError(null))
     dispatch(resetCrawl())
