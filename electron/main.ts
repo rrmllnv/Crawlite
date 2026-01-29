@@ -64,6 +64,11 @@ function safeParseUrl(raw: string): URL | null {
   }
 }
 
+function normalizeHostname(hostname: string): string {
+  const h = String(hostname || '').trim().toLowerCase()
+  return h.startsWith('www.') ? h.slice(4) : h
+}
+
 function normalizeUrl(input: string): string {
   const u = safeParseUrl(input)
   if (!u) {
@@ -73,6 +78,17 @@ function normalizeUrl(input: string): string {
   // canonical-ish
   const href = u.toString()
   return href.endsWith('/') ? href.slice(0, -1) : href
+}
+
+function isHttpUrl(u: URL | null): u is URL {
+  if (!u) return false
+  return u.protocol === 'http:' || u.protocol === 'https:'
+}
+
+function isInternalByHost(u: URL | null, baseHostNormalized: string): boolean {
+  if (!u) return false
+  if (!isHttpUrl(u)) return false
+  return normalizeHostname(u.hostname) === baseHostNormalized
 }
 
 function readHeaderValue(headers: Record<string, unknown> | undefined, name: string): string {
@@ -250,8 +266,36 @@ async function extractPageDataFromView(view: WebContentsView): Promise<Omit<Craw
       };
 
       const title = text(document.title).trim();
-      const h1El = document.querySelector('h1');
-      const h1 = text(h1El && h1El.textContent).trim().replace(/\\s+/g, ' ').slice(0, 300);
+      const isVisible = (el) => {
+        try {
+          if (!el) return false;
+          const rects = el.getClientRects();
+          if (!rects || rects.length === 0) return false;
+          const style = window.getComputedStyle(el);
+          if (!style) return true;
+          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+          return true;
+        } catch (e) {
+          return true;
+        }
+      };
+      const normText = (s) => text(s).trim().replace(/\\s+/g, ' ').slice(0, 300);
+
+      // Более устойчивый выбор H1:
+      // - берем только видимые
+      // - предпочитаем внутри main/role=main
+      // - иначе исключаем header/nav/footer
+      const allH1 = Array.from(document.querySelectorAll('h1')).filter((el) => isVisible(el));
+      const inMain = (el) => {
+        try { return Boolean(el.closest('main, [role="main"]')); } catch (e) { return false; }
+      };
+      const inChrome = (el) => {
+        try { return Boolean(el.closest('header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"]')); } catch (e) { return false; }
+      };
+      const mainH1 = allH1.filter((el) => inMain(el));
+      const candidateList = mainH1.length > 0 ? mainH1 : allH1.filter((el) => !inChrome(el));
+      const chosen = (candidateList.length > 0 ? candidateList : allH1)[0] || null;
+      const h1 = normText(chosen && chosen.textContent);
       const description = pickMeta('description').slice(0, 500);
       const keywords = pickMeta('keywords').slice(0, 500);
 
@@ -336,7 +380,9 @@ async function crawlStart(params: CrawlStartParams) {
     return { success: false as const, error: 'Crawler view not available' }
   }
 
-  const origin = start.origin
+  // “Внутренние страницы” считаем по нормализованному hostname (www.* == без www).
+  // Это нужно, чтобы редиректы и ссылки с www не считались “внешними”.
+  const baseHost = normalizeHostname(start.hostname)
   const queue: string[] = [start.toString()]
   const seen = new Set<string>()
   const enqueued = new Set<string>()
@@ -400,10 +446,7 @@ async function crawlStart(params: CrawlStartParams) {
     if (!u) {
       continue
     }
-    if (u.origin !== origin) {
-      continue
-    }
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    if (!isInternalByHost(u, baseHost)) {
       continue
     }
 
@@ -415,6 +458,23 @@ async function crawlStart(params: CrawlStartParams) {
       await crawlView.webContents.loadURL(u.toString())
     } catch {
       loadOk = false
+    }
+
+    // Для SPA/динамических сайтов: даем DOM догрузить контент перед извлечением.
+    try {
+      await crawlView.webContents.executeJavaScript(`
+        (function() {
+          return new Promise((resolve) => {
+            try {
+              requestAnimationFrame(() => setTimeout(resolve, 250));
+            } catch (e) {
+              setTimeout(resolve, 250);
+            }
+          });
+        })()
+      `)
+    } catch {
+      void 0
     }
 
     const loadFinishedAt = Date.now()
@@ -469,10 +529,7 @@ async function crawlStart(params: CrawlStartParams) {
       if (!lu) {
         continue
       }
-      if (lu.origin !== origin) {
-        continue
-      }
-      if (lu.protocol !== 'http:' && lu.protocol !== 'https:') {
+      if (!isInternalByHost(lu, baseHost)) {
         continue
       }
       enqueued.add(normalizedLink)
