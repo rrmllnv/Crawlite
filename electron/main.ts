@@ -105,17 +105,28 @@ let crawlMainFrameMetaByUrl = new Map<string, { statusCode: number | null; conte
 let crawlWebRequestAttachedForWebContentsId: number | null = null
 
 const BROWSER_SCROLLBAR_CSS = `
-  /* App-injected scrollbar styling (WebContentsView). !important перебивает стили страницы. */
-  :root { color-scheme: dark; }
-  *::-webkit-scrollbar { width: 5px !important; height: 10px !important; }
-  *::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.06) !important; }
-  *::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2) !important;
-    border-radius: 5px !important;
+  /* App-injected scrollbar styling (WebContentsView) */
+  :root {
+    color-scheme: dark;
   }
-  *::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3) !important; }
-  *::-webkit-scrollbar-thumb:active { background: rgba(255, 255, 255, 0.4) !important; }
-  *::-webkit-scrollbar-corner { background: transparent !important; }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    border: 2px solid rgba(0, 0, 0, 0);
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+    border: 2px solid rgba(0, 0, 0, 0);
+    background-clip: padding-box;
+  }
 `
 
 function safeParseUrl(raw: string): URL | null {
