@@ -107,7 +107,7 @@ let crawlWebRequestAttachedForWebContentsId: number | null = null
 const BROWSER_SCROLLBAR_CSS = `
   /* App-injected scrollbar styling (WebContentsView). !important перебивает стили страницы. */
   :root { color-scheme: dark; }
-  *::-webkit-scrollbar { width: 10px !important; height: 10px !important; }
+  *::-webkit-scrollbar { width: 5px !important; height: 10px !important; }
   *::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.06) !important; }
   *::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.2) !important;
