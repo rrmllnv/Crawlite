@@ -1449,14 +1449,17 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
     const js = `
       (function() {
         try {
-          const clearOverlay = () => {
+          let overlayCleanup = null;
+          const clearOverlayWithCleanup = () => {
             try {
+              if (overlayCleanup) { try { overlayCleanup(); } catch (e) { /* noop */ } overlayCleanup = null; }
               const dim = document.getElementById('__crawlite_overlay_dim');
               const box = document.getElementById('__crawlite_overlay_box');
               if (dim) dim.remove();
               if (box) box.remove();
             } catch (e) { /* noop */ }
           };
+          const clearOverlay = clearOverlayWithCleanup;
           const ensureOverlay = () => {
             try {
               clearOverlay();
@@ -1510,20 +1513,21 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
           const el = partial;
           if (!el) return false;
 
-          const disableSmooth = () => {
+          const ensureSmoothScroll = () => {
             try {
-              const existing = document.getElementById('__crawlite_scroll_fix');
+              const existing = document.getElementById('__crawlite_scroll_smooth');
               if (existing) existing.remove();
               const st = document.createElement('style');
-              st.id = '__crawlite_scroll_fix';
-              st.textContent = 'html,body,*{scroll-behavior:auto !important;}';
+              st.id = '__crawlite_scroll_smooth';
+              st.textContent = 'html,body,*{scroll-behavior:smooth !important;}';
               document.documentElement.appendChild(st);
               return () => { try { st.remove(); } catch (e) { /* noop */ } };
             } catch (e) {
               return () => {};
             }
           };
-          const waitStable = (el) => {
+          const waitStable = (el, maxMs) => {
+            const timeout = typeof maxMs === 'number' && maxMs > 0 ? maxMs : 2500;
             return new Promise((resolve) => {
               try {
                 let last = el.getBoundingClientRect();
@@ -1535,7 +1539,7 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
                   last = r;
                   if (d < 0.5) stable += 1;
                   else stable = 0;
-                  if (stable >= 3 || (Date.now() - started) > 800) return resolve(true);
+                  if (stable >= 3 || (Date.now() - started) > timeout) return resolve(true);
                   requestAnimationFrame(tick);
                 };
                 requestAnimationFrame(tick);
@@ -1546,20 +1550,27 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
           };
 
           (async () => {
-            const restore = disableSmooth();
+            const restore = ensureSmoothScroll();
             el.style.scrollMarginTop = '120px';
-            try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
-            await waitStable(el);
+            try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView({ behavior: 'smooth' }); } catch (e2) { /* noop */ } }
+            await waitStable(el, 2500);
             try { restore(); } catch (e) { /* noop */ }
 
             const ov = ensureOverlay();
             if (ov && ov.box) {
               positionBox(ov.box, el);
+              const onUpdate = () => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } };
+              window.addEventListener('scroll', onUpdate, true);
+              window.addEventListener('resize', onUpdate);
+              overlayCleanup = () => {
+                window.removeEventListener('scroll', onUpdate, true);
+                window.removeEventListener('resize', onUpdate);
+              };
             }
 
             setTimeout(() => {
               clearOverlay();
-            }, 3000);
+            }, 1500);
           })();
 
           return true;
