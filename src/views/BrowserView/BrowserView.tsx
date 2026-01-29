@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { browserService } from '../../services/BrowserService'
-import { selectPage } from '../../store/slices/crawlSlice'
+import { crawlService } from '../../services/CrawlService'
+import { selectPage, resetCrawl, setCrawlStatus, setRunId, setStartUrl } from '../../store/slices/crawlSlice'
 import { clearRequestedNavigate, setCurrentUrl } from '../../store/slices/browserSlice'
+import { setError, setLoading } from '../../store/slices/appSlice'
 import type { CrawlPageData } from '../../electron'
 import { Separate } from '../../components/Separate/Separate'
 import { ImageModal } from '../../components/ImageModal/ImageModal'
@@ -302,16 +304,65 @@ export function BrowserView() {
     return pagesByUrl[key] || null
   }, [pagesByUrl, selectedUrl])
 
+  const startSinglePageCrawlAndOpen = async (url: string) => {
+    const target = String(url || '').trim()
+    if (!target) {
+      return
+    }
+
+    dispatch(setError(null))
+    dispatch(setLoading(true))
+    dispatch(resetCrawl())
+    dispatch(setStartUrl(target))
+    dispatch(setCrawlStatus('running'))
+
+    try {
+      const navRes = await browserService.navigate(target)
+      if (!navRes?.success) {
+        throw new Error(navRes?.error || 'Browser navigate failed')
+      }
+      dispatch(setCurrentUrl(target))
+    } catch {
+      dispatch(setCrawlStatus('error'))
+      dispatch(setError('Не удалось открыть URL (проверьте домен/DNS)'))
+      dispatch(setLoading(false))
+      return
+    }
+
+    try {
+      const res = await crawlService.start({
+        startUrl: target,
+        options: {
+          maxDepth: 0,
+          maxPages: 1,
+          delayMs: 0,
+          jitterMs: 0,
+        },
+      })
+      if (!res.success) {
+        dispatch(setCrawlStatus('error'))
+        dispatch(setError(res.error || 'Crawl start failed'))
+        return
+      }
+      dispatch(setRunId(typeof (res as any).runId === 'string' ? (res as any).runId : null))
+    } catch (error) {
+      dispatch(setCrawlStatus('error'))
+      dispatch(setError(String(error)))
+    } finally {
+      dispatch(setLoading(false))
+    }
+  }
+
   useEffect(() => {
     if (!requestedUrl) {
       return
     }
     void (async () => {
       try {
-        await browserService.navigate(requestedUrl)
-        dispatch(setCurrentUrl(requestedUrl))
-      } catch {
-        void 0
+        const res = await browserService.navigate(requestedUrl)
+        if (res?.success) {
+          dispatch(setCurrentUrl(requestedUrl))
+        }
       } finally {
         dispatch(clearRequestedNavigate())
       }
@@ -485,11 +536,11 @@ export function BrowserView() {
 
               <Separate title="Сводка по странице" />
 
-              <div className="browser-view__details-block">
-                <div className="browser-view__details-summary">
+              <details className="browser-view__details-block" open>
+                <summary className="browser-view__details-summary">
                   <span className="browser-view__details-summary-title">Заголовки</span>
                   <span className="browser-view__details-summary-value">{summary ? `всего ${summary.totalHeadings}` : '—'}</span>
-                </div>
+                </summary>
 
                 {summary && (
                   <div className="browser-view__headings">
@@ -538,7 +589,7 @@ export function BrowserView() {
                 )}
 
                 {!summary && <div className="browser-view__empty">—</div>}
-              </div>
+              </details>
 
               <div className="browser-view__kv-row">
                 <div className="browser-view__kv-key">Всего ссылок</div>
@@ -563,9 +614,14 @@ export function BrowserView() {
             <div className="browser-view__list">
               {selectedPage.links.length === 0 && <div className="browser-view__empty">Нет ссылок.</div>}
               {selectedPage.links.map((x) => (
-                <div key={x} className="browser-view__list-item">
+                <button
+                  type="button"
+                  key={x}
+                  className="browser-view__list-item browser-view__list-item--button"
+                  onClick={() => void startSinglePageCrawlAndOpen(x)}
+                >
                   {x}
-                </div>
+                </button>
               ))}
             </div>
           )}

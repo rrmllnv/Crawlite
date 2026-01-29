@@ -69,6 +69,31 @@ let activeCrawl: { runId: string; cancelled: boolean } | null = null
 let crawlMainFrameMetaByUrl = new Map<string, { statusCode: number | null; contentLength: number | null }>()
 let crawlWebRequestAttachedForWebContentsId: number | null = null
 
+const BROWSER_SCROLLBAR_CSS = `
+  /* App-injected scrollbar styling (WebContentsView) */
+  :root {
+    color-scheme: dark;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    border: 2px solid rgba(0, 0, 0, 0);
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+    border: 2px solid rgba(0, 0, 0, 0);
+    background-clip: padding-box;
+  }
+`
+
 function safeParseUrl(raw: string): URL | null {
   try {
     const trimmed = String(raw ?? '').trim()
@@ -238,6 +263,18 @@ function ensureBrowserView(bounds: BrowserBounds) {
       },
     })
     mainWindow.contentView.addChildView(browserView)
+    try {
+      browserView.webContents.on('did-finish-load', () => {
+        try {
+          void browserView?.webContents.insertCSS(BROWSER_SCROLLBAR_CSS).catch(() => void 0)
+        } catch {
+          void 0
+        }
+      })
+      void browserView.webContents.insertCSS(BROWSER_SCROLLBAR_CSS).catch(() => void 0)
+    } catch {
+      void 0
+    }
   }
   // `WebContentsView` рисуется поверх DOM, поэтому при показе модалок его нужно уметь скрывать.
   // При скрытии мы не меняем `lastBounds`, чтобы восстановить исходное положение.
