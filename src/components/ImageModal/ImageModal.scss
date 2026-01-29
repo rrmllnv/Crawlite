@@ -90,6 +90,28 @@
   padding: 10px;
 }
 
+.image-modal__meta {
+  display: grid;
+  gap: 6px;
+}
+
+.image-modal__meta-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.image-modal__meta-key {
+  font-size: 12px;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.72));
+}
+
+.image-modal__meta-val {
+  font-size: 12px;
+  color: var(--text-primary, #fff);
+}
+
 .image-modal__footer {
   display: flex;
   gap: 10px;

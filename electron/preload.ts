@@ -40,6 +40,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveUserConfig: (userConfig: any) => ipcRenderer.invoke('save-user-config', userConfig),
 
   downloadFile: (url: string) => ipcRenderer.invoke('download:file', url),
+  resourceHead: (url: string) => ipcRenderer.invoke('resource:head', url),
+
+  onBrowserEvent: (listener: (event: unknown) => void) => {
+    const handler = (_evt: unknown, payload: unknown) => listener(payload)
+    ipcRenderer.on('browser:event', handler)
+    return () => {
+      ipcRenderer.removeListener('browser:event', handler)
+    }
+  },
 
   onCrawlEvent: (listener: (event: unknown) => void) => {
     const handler = (_evt: unknown, payload: unknown) => listener(payload)

@@ -4,12 +4,14 @@ interface BrowserState {
   currentUrl: string
   isReady: boolean
   requestedUrl: string
+  isPageLoading: boolean
 }
 
 const initialState: BrowserState = {
   currentUrl: '',
   isReady: false,
   requestedUrl: '',
+  isPageLoading: false,
 }
 
 export const browserSlice = createSlice({
@@ -28,9 +30,12 @@ export const browserSlice = createSlice({
     clearRequestedNavigate: (state) => {
       state.requestedUrl = ''
     },
+    setPageLoading: (state, action: PayloadAction<boolean>) => {
+      state.isPageLoading = action.payload
+    },
   },
 })
 
-export const { setBrowserReady, setCurrentUrl, requestNavigate, clearRequestedNavigate } = browserSlice.actions
+export const { setBrowserReady, setCurrentUrl, requestNavigate, clearRequestedNavigate, setPageLoading } = browserSlice.actions
 export default browserSlice.reducer
 

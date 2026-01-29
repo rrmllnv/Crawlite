@@ -3,7 +3,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { browserService } from '../../services/BrowserService'
 import { crawlService } from '../../services/CrawlService'
 import { selectPage, upsertPage } from '../../store/slices/crawlSlice'
-import { clearRequestedNavigate, setCurrentUrl } from '../../store/slices/browserSlice'
+import { clearRequestedNavigate, setCurrentUrl, setPageLoading } from '../../store/slices/browserSlice'
 import type { CrawlPageData } from '../../electron'
 import { Separate } from '../../components/Separate/Separate'
 import { ImageModal } from '../../components/ImageModal/ImageModal'
@@ -266,6 +266,7 @@ export function BrowserView() {
   const selectedUrl = useAppSelector((s) => s.crawl.selectedUrl)
   const requestedUrl = useAppSelector((s) => s.browser.requestedUrl)
   const errors = useAppSelector((s) => s.crawl.errors)
+  const isPageLoading = useAppSelector((s) => s.browser.isPageLoading)
 
   const [activeTab, setActiveTab] = useState<TabId>('meta')
   const [imageModalUrl, setImageModalUrl] = useState<string>('')
@@ -319,6 +320,9 @@ export function BrowserView() {
   }, [pagesByUrl, selectedUrl])
 
   const openLinkSafely = async (url: string) => {
+    if (isPageLoading) {
+      return
+    }
     const target = String(url || '').trim()
     if (!target) {
       return
@@ -393,6 +397,25 @@ export function BrowserView() {
       }
     })()
   }, [requestedUrl, dispatch])
+
+  useEffect(() => {
+    if (!window.electronAPI?.onBrowserEvent) {
+      return
+    }
+    const unsub = window.electronAPI.onBrowserEvent((evt: any) => {
+      if (!evt || typeof evt !== 'object') return
+      if (evt.type === 'loading') {
+        dispatch(setPageLoading(Boolean((evt as any).isLoading)))
+      }
+    })
+    return () => {
+      try {
+        unsub()
+      } catch {
+        void 0
+      }
+    }
+  }, [dispatch])
 
   const handleSelect = async (page: CrawlPageData) => {
     const key = page.normalizedUrl || page.url
@@ -478,6 +501,7 @@ export function BrowserView() {
           <div className="browser-view__col-title">Браузер</div>
           <div className="browser-view__col-subtitle">{selectedPage ? selectedPage.url : '—'}</div>
         </div>
+        {isPageLoading && <div className="browser-view__loading-bar">Загрузка страницы…</div>}
         <div className="browser-view__browser-surface" ref={boundsRef}>
           {/* WebContentsView рисуется нативно поверх этого прямоугольника */}
         </div>
@@ -687,6 +711,7 @@ export function BrowserView() {
                         className="browser-view__row-main"
                         onClick={() => void browserService.highlightLink(x).catch(() => void 0)}
                         title="Подсветить в браузере"
+                        disabled={isPageLoading}
                       >
                         {x}
                       </button>
@@ -696,6 +721,7 @@ export function BrowserView() {
                           className="browser-view__action browser-view__action--primary"
                           onClick={() => void openLinkSafely(x)}
                           title="Открыть"
+                          disabled={isPageLoading}
                         >
                           Открыть
                         </button>
@@ -721,6 +747,7 @@ export function BrowserView() {
                         className="browser-view__row-main"
                         onClick={() => void browserService.highlightLink(x).catch(() => void 0)}
                         title="Подсветить в браузере"
+                        disabled={isPageLoading}
                       >
                         {x}
                       </button>
@@ -730,6 +757,7 @@ export function BrowserView() {
                           className="browser-view__action browser-view__action--primary"
                           onClick={() => void openLinkSafely(x)}
                           title="Открыть"
+                          disabled={isPageLoading}
                         >
                           Открыть
                         </button>
@@ -752,6 +780,7 @@ export function BrowserView() {
                     className="browser-view__row-main browser-view__row-main--with-thumb"
                     onClick={() => void browserService.highlightImage(x).catch(() => void 0)}
                     title="Подсветить в браузере"
+                    disabled={isPageLoading}
                   >
                     <img className="browser-view__thumb" src={x} alt="" loading="lazy" />
                     <span className="browser-view__row-main-text">{x}</span>
@@ -762,6 +791,7 @@ export function BrowserView() {
                       className="browser-view__action browser-view__action--primary"
                       onClick={() => setImageModalUrl(x)}
                       title="Открыть"
+                      disabled={isPageLoading}
                     >
                       Открыть
                     </button>
@@ -786,6 +816,7 @@ export function BrowserView() {
                       key={x}
                       className="browser-view__list-item browser-view__list-item--button"
                       onClick={() => setResourceModal({ type: 'js', url: x })}
+                      disabled={isPageLoading}
                     >
                       {x}
                     </button>
@@ -806,6 +837,7 @@ export function BrowserView() {
                       key={x}
                       className="browser-view__list-item browser-view__list-item--button"
                       onClick={() => setResourceModal({ type: 'css', url: x })}
+                      disabled={isPageLoading}
                     >
                       {x}
                     </button>
@@ -847,6 +879,7 @@ export function BrowserView() {
                     className="browser-view__row-main"
                     onClick={() => void browserService.highlightLink(e.url).catch(() => void 0)}
                     title="Подсветить в браузере"
+                    disabled={isPageLoading}
                   >
                     {e.url}
                   </button>
@@ -856,6 +889,7 @@ export function BrowserView() {
                       className="browser-view__action browser-view__action--primary"
                       onClick={() => void openLinkSafely(e.url)}
                       title="Открыть"
+                      disabled={isPageLoading}
                     >
                       Открыть
                     </button>

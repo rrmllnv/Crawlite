@@ -45,7 +45,21 @@ export const crawlSlice = createSlice({
   name: 'crawl',
   initialState,
   reducers: {
-    resetCrawl: () => initialState,
+    resetCrawl: (state) => {
+      // ВАЖНО: настройки crawling (maxDepth/maxPages) не сбрасываем,
+      // иначе “лимиты” и сохранение в UserConfig ломаются при любом запуске.
+      const preservedSettings = state.settings
+      state.status = 'idle'
+      state.runId = null
+      state.startUrl = ''
+      state.processed = 0
+      state.queued = 0
+      state.pagesByUrl = {}
+      state.pageOrder = []
+      state.selectedUrl = ''
+      state.errors = []
+      state.settings = preservedSettings
+    },
     setCrawlStatus: (state, action: PayloadAction<CrawlStatus>) => {
       state.status = action.payload
     },

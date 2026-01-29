@@ -127,6 +127,28 @@ function normalizeUrl(input: string): string {
   return href.endsWith('/') ? href.slice(0, -1) : href
 }
 
+function isDocumentOrMediaUrl(rawUrl: string): boolean {
+  try {
+    const u = new URL(rawUrl)
+    const pathLower = String(u.pathname || '').toLowerCase()
+    const ext = pathLower.includes('.') ? pathLower.split('.').pop() || '' : ''
+    const cleanExt = ext.split('?')[0].split('#')[0]
+    if (!cleanExt) return false
+
+    const blocked = new Set([
+      // documents
+      'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'txt', 'csv',
+      // archives/binaries
+      'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'exe', 'msi', 'dmg', 'apk',
+      // video/audio
+      'mp4', 'webm', 'mkv', 'mov', 'avi', 'wmv', 'flv', 'm4v', 'mp3', 'wav', 'flac', 'ogg', 'm4a',
+    ])
+    return blocked.has(cleanExt)
+  } catch {
+    return false
+  }
+}
+
 function isHttpUrl(u: URL | null): u is URL {
   if (!u) return false
   return u.protocol === 'http:' || u.protocol === 'https:'
@@ -179,6 +201,27 @@ function suggestFilenameFromUrl(rawUrl: string): string {
   } catch {
     return 'download'
   }
+}
+
+async function headContentLength(url: string): Promise<number | null> {
+  return await new Promise<number | null>((resolve) => {
+    try {
+      const request = net.request({ method: 'HEAD', url })
+      request.on('response', (response: any) => {
+        try {
+          const headers = response?.headers as Record<string, unknown> | undefined
+          const len = parseContentLength(headers)
+          resolve(len)
+        } catch {
+          resolve(null)
+        }
+      })
+      request.on('error', () => resolve(null))
+      request.end()
+    } catch {
+      resolve(null)
+    }
+  })
 }
 
 async function downloadToFile(url: string, filePath: string): Promise<void> {
@@ -317,6 +360,23 @@ function ensureBrowserView(bounds: BrowserBounds) {
     })
     mainWindow.contentView.addChildView(browserView)
     try {
+      browserView.webContents.on('did-start-loading', () => {
+        try {
+          mainWindow?.webContents.send('browser:event', { type: 'loading', isLoading: true })
+        } catch {
+          void 0
+        }
+      })
+      const stop = () => {
+        try {
+          mainWindow?.webContents.send('browser:event', { type: 'loading', isLoading: false })
+        } catch {
+          void 0
+        }
+      }
+      browserView.webContents.on('did-stop-loading', stop)
+      browserView.webContents.on('did-fail-load', stop)
+
       browserView.webContents.on('did-finish-load', () => {
         try {
           void browserView?.webContents.insertCSS(BROWSER_SCROLLBAR_CSS).catch(() => void 0)
@@ -400,20 +460,18 @@ async function extractPageDataFromView(
       };
       const normText = (s) => text(s).trim().replace(/\\s+/g, ' ').slice(0, 300);
 
-      // Более устойчивый выбор H1:
-      // - берем только видимые
-      // - предпочитаем внутри main/role=main
-      // - иначе исключаем header/nav/footer
+      // Выбор H1 без привязки к <main>: берём видимый H1 с самым “сильным” текстом.
       const allH1 = Array.from(document.querySelectorAll('h1')).filter((el) => isVisible(el));
-      const inMain = (el) => {
-        try { return Boolean(el.closest('main, [role="main"]')); } catch (e) { return false; }
-      };
-      const inChrome = (el) => {
-        try { return Boolean(el.closest('header, nav, footer, [role="banner"], [role="navigation"], [role="contentinfo"]')); } catch (e) { return false; }
-      };
-      const mainH1 = allH1.filter((el) => inMain(el));
-      const candidateList = mainH1.length > 0 ? mainH1 : allH1.filter((el) => !inChrome(el));
-      const chosen = (candidateList.length > 0 ? candidateList : allH1)[0] || null;
+      let chosen = null;
+      let bestLen = -1;
+      for (const el of allH1) {
+        const t = normText(el && el.textContent);
+        if (!t) continue;
+        if (t.length > bestLen) {
+          bestLen = t.length;
+          chosen = el;
+        }
+      }
       const h1 = normText(chosen && chosen.textContent);
       const description = pickMeta('description').slice(0, 500);
       const keywords = pickMeta('keywords').slice(0, 500);
@@ -486,6 +544,18 @@ async function extractPageDataFromView(
       const absUrl = (raw) => {
         try { return String(new URL(String(raw || ''), window.location.href).toString()); } catch (e) { return ''; }
       };
+      const isDocOrMedia = (u) => {
+        try {
+          const x = new URL(String(u || ''));
+          const p = String(x.pathname || '').toLowerCase();
+          const ext = p.includes('.') ? (p.split('.').pop() || '') : '';
+          const e = ext.split('?')[0].split('#')[0];
+          const blocked = new Set(['pdf','doc','docx','xls','xlsx','ppt','pptx','odt','ods','odp','rtf','txt','csv','zip','rar','7z','tar','gz','bz2','xz','exe','msi','dmg','apk','mp4','webm','mkv','mov','avi','wmv','flv','m4v','mp3','wav','flac','ogg','m4a']);
+          return blocked.has(String(e || '').toLowerCase());
+        } catch (e) {
+          return false;
+        }
+      };
 
       const rawLinks = [];
       const rawMisc = [];
@@ -505,7 +575,7 @@ async function extractPageDataFromView(
             rawMisc.push(v);
             return;
           }
-          if (isHttpLike(abs)) rawLinks.push(abs);
+          if (isHttpLike(abs) && !isDocOrMedia(abs)) rawLinks.push(abs);
           else rawMisc.push(abs);
         } catch (e) {
           rawMisc.push(String((a && a.href) || '').trim());
@@ -815,7 +885,15 @@ async function crawlStart(params: CrawlStartParams) {
       if (!normalizedLink) {
         continue
       }
+      // документы/видео/архивы в дерево страниц не добавляем
+      if (isDocumentOrMediaUrl(normalizedLink)) {
+        continue
+      }
       if (seen.has(normalizedLink) || enqueued.has(normalizedLink)) {
+        continue
+      }
+      // Жёстко ограничиваем планируемое кол-во страниц, чтобы “в очереди” не раздувалось.
+      if (enqueued.size >= maxPages) {
         continue
       }
       const lu = safeParseUrl(normalizedLink)
@@ -931,6 +1009,31 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
     const js = `
       (function() {
         try {
+          const ensureOverlay = () => {
+            try {
+              let ov = document.getElementById('__crawlite_overlay');
+              if (!ov) {
+                ov = document.createElement('div');
+                ov.id = '__crawlite_overlay';
+                ov.style.position = 'fixed';
+                ov.style.inset = '0';
+                ov.style.background = 'rgba(0,0,0,0.65)';
+                ov.style.pointerEvents = 'none';
+                ov.style.zIndex = '2147483646';
+                document.documentElement.appendChild(ov);
+              }
+              return ov;
+            } catch (e) {
+              return null;
+            }
+          };
+          const clearOverlay = () => {
+            try {
+              const ov = document.getElementById('__crawlite_overlay');
+              if (ov) ov.remove();
+            } catch (e) { /* noop */ }
+          };
+
           const level = ${level};
           const targetRaw = ${JSON.stringify(text)};
           const normalize = (s) => String(s || '').trim().replace(/\\s+/g, ' ').slice(0, 300);
@@ -941,14 +1044,21 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
           const el = partial;
           if (!el) return false;
 
+          const ov = ensureOverlay();
           const prev = {
             outline: el.style.outline,
             backgroundColor: el.style.backgroundColor,
             scrollMarginTop: el.style.scrollMarginTop,
+            position: el.style.position,
+            zIndex: el.style.zIndex,
           };
 
           el.style.scrollMarginTop = '120px';
           try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { el.scrollIntoView(); }
+          if (!prev.position || prev.position === 'static') {
+            el.style.position = 'relative';
+          }
+          el.style.zIndex = '2147483647';
           el.style.outline = '2px solid rgba(74, 163, 255, 0.95)';
           el.style.backgroundColor = 'rgba(74, 163, 255, 0.18)';
 
@@ -957,7 +1067,10 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
               el.style.outline = prev.outline;
               el.style.backgroundColor = prev.backgroundColor;
               el.style.scrollMarginTop = prev.scrollMarginTop;
+              el.style.position = prev.position;
+              el.style.zIndex = prev.zIndex;
             } catch (e) { /* noop */ }
+            clearOverlay();
           }, 1400);
 
           return true;
@@ -986,29 +1099,105 @@ ipcMain.handle('browser:highlight-link', async (_event, url: string) => {
       (function() {
         try {
           const targetRaw = ${JSON.stringify(target)};
-          const normalize = (s) => String(s || '').trim().replace(/\\s+/g, ' ');
-          const target = normalize(targetRaw);
-          const list = Array.from(document.querySelectorAll('a[href]'));
-          const exact = list.find((a) => normalize(a && a.href) === target) || null;
-          const partial = exact ? exact : (list.find((a) => normalize(a && a.href).includes(target)) || null);
-          const el = partial;
-          if (!el) return false;
+          const norm = (s) => String(s || '').trim().replace(/\\s+/g, ' ');
+          const strip = (u) => {
+            try { const x = new URL(u); x.hash = ''; x.search = ''; return x.toString(); } catch (e) { return ''; }
+          };
+          const target = norm(targetRaw);
+          const targetNoQuery = strip(target);
 
+          // если ссылка в <details> — раскрываем
+          const openDetailsChain = (el) => {
+            const opened = [];
+            try {
+              let d = el && el.closest ? el.closest('details') : null;
+              while (d) {
+                if (!d.open) { d.open = true; opened.push(d); }
+                d = d.parentElement && d.parentElement.closest ? d.parentElement.closest('details') : null;
+              }
+            } catch (e) { /* noop */ }
+            return opened;
+          };
+
+          const isVisible = (el) => {
+            try {
+              if (!el) return false;
+              const rects = el.getClientRects();
+              if (!rects || rects.length === 0) return false;
+              const st = window.getComputedStyle(el);
+              if (!st) return true;
+              if (st.display === 'none' || st.visibility === 'hidden') return false;
+              if (Number(st.opacity || '1') <= 0.01) return false;
+              return true;
+            } catch (e) {
+              return true;
+            }
+          };
+
+          const pickHighlightTarget = (el) => {
+            // пытаемся подняться до видимого предка с “нормальным” размером
+            let cur = el;
+            for (let i = 0; i < 8 && cur; i += 1) {
+              if (isVisible(cur)) {
+                const r = cur.getBoundingClientRect();
+                const area = Math.max(0, r.width) * Math.max(0, r.height);
+                if (area >= 120) return cur;
+              }
+              cur = cur.parentElement;
+            }
+            return el;
+          };
+
+          const list = Array.from(document.querySelectorAll('a[href]'));
+          const scored = list.map((a) => {
+            const href = norm(a && a.href);
+            const hrefNoQuery = strip(href);
+            let score = 0;
+            if (href === target) score += 100;
+            if (hrefNoQuery && targetNoQuery && hrefNoQuery === targetNoQuery) score += 60;
+            if (href && target && href.includes(target)) score += 20;
+            if (target && href && target.includes(href)) score += 10;
+            if (isVisible(a)) score += 15;
+            return { a, score };
+          }).sort((x, y) => y.score - x.score);
+
+          const best = scored.length > 0 ? scored[0].a : null;
+          if (!best) return false;
+          openDetailsChain(best);
+          const el = pickHighlightTarget(best);
+
+          // затемнение всего вокруг элемента
           const prev = {
             outline: el.style.outline,
             backgroundColor: el.style.backgroundColor,
+            boxShadow: el.style.boxShadow,
+            borderRadius: el.style.borderRadius,
+            position: el.style.position,
+            zIndex: el.style.zIndex,
             scrollMarginTop: el.style.scrollMarginTop,
           };
 
           el.style.scrollMarginTop = '120px';
-          try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { el.scrollIntoView(); }
+          try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
+
+          // если position=static, для z-index достаточно relative
+          if (!prev.position || prev.position === 'static') {
+            el.style.position = 'relative';
+          }
+          el.style.zIndex = '2147483647';
           el.style.outline = '2px solid rgba(74, 163, 255, 0.95)';
           el.style.backgroundColor = 'rgba(74, 163, 255, 0.18)';
+          el.style.borderRadius = '8px';
+          el.style.boxShadow = '0 0 0 9999px rgba(0,0,0,0.65)';
 
           setTimeout(() => {
             try {
               el.style.outline = prev.outline;
               el.style.backgroundColor = prev.backgroundColor;
+              el.style.boxShadow = prev.boxShadow;
+              el.style.borderRadius = prev.borderRadius;
+              el.style.position = prev.position;
+              el.style.zIndex = prev.zIndex;
               el.style.scrollMarginTop = prev.scrollMarginTop;
             } catch (e) { /* noop */ }
           }, 1400);
@@ -1039,30 +1228,102 @@ ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
       (function() {
         try {
           const targetRaw = ${JSON.stringify(target)};
-          const normalize = (s) => String(s || '').trim().replace(/\\s+/g, ' ');
-          const target = normalize(targetRaw);
+          const norm = (s) => String(s || '').trim().replace(/\\s+/g, ' ');
+          const strip = (u) => {
+            try { const x = new URL(u); x.hash = ''; x.search = ''; return x.toString(); } catch (e) { return ''; }
+          };
+          const target = norm(targetRaw);
+          const targetNoQuery = strip(target);
+          const filename = (u) => {
+            try { const x = new URL(u); const p = String(x.pathname || '').split('/').filter(Boolean).pop() || ''; return p.toLowerCase(); } catch (e) { return ''; }
+          };
+          const targetFile = filename(target);
+
+          const isVisible = (el) => {
+            try {
+              if (!el) return false;
+              const rects = el.getClientRects();
+              if (!rects || rects.length === 0) return false;
+              const st = window.getComputedStyle(el);
+              if (!st) return true;
+              if (st.display === 'none' || st.visibility === 'hidden') return false;
+              if (Number(st.opacity || '1') <= 0.01) return false;
+              return true;
+            } catch (e) {
+              return true;
+            }
+          };
+
+          const pickUrl = (img) => {
+            try {
+              const c = img && img.currentSrc ? String(img.currentSrc) : '';
+              const s = img && img.src ? String(img.src) : '';
+              const a = img && img.getAttribute ? String(img.getAttribute('src') || '') : '';
+              const d = img && img.getAttribute ? String(img.getAttribute('data-src') || '') : '';
+              return norm(c || s || a || d);
+            } catch (e) {
+              return '';
+            }
+          };
+
           const list = Array.from(document.querySelectorAll('img'));
-          const pick = (img) => normalize((img && (img.currentSrc || img.src)) || '');
-          const exact = list.find((img) => pick(img) === target) || null;
-          const partial = exact ? exact : (list.find((img) => pick(img).includes(target)) || null);
-          const el = partial;
-          if (!el) return false;
+          const scored = list.map((img) => {
+            const u = pickUrl(img);
+            const uNoQuery = strip(u);
+            let score = 0;
+            if (u === target) score += 120;
+            if (uNoQuery && targetNoQuery && uNoQuery === targetNoQuery) score += 80;
+            if (targetFile && filename(u) === targetFile) score += 35;
+            if (u && target && (u.includes(target) || target.includes(u))) score += 15;
+            if (isVisible(img)) score += 15;
+            return { img, score };
+          }).sort((a, b) => b.score - a.score);
+
+          const best = scored.length > 0 ? scored[0].img : null;
+          if (!best) return false;
+
+          // highlight target: если img слишком маленькая/inline, подсвечиваем ближайший видимый контейнер
+          let el = best;
+          for (let i = 0; i < 6 && el; i += 1) {
+            if (isVisible(el)) {
+              const r = el.getBoundingClientRect();
+              const area = Math.max(0, r.width) * Math.max(0, r.height);
+              if (area >= 160) break;
+            }
+            el = el.parentElement;
+          }
+          el = el || best;
 
           const prev = {
             outline: el.style.outline,
             backgroundColor: el.style.backgroundColor,
+            boxShadow: el.style.boxShadow,
+            borderRadius: el.style.borderRadius,
+            position: el.style.position,
+            zIndex: el.style.zIndex,
             scrollMarginTop: el.style.scrollMarginTop,
           };
 
           el.style.scrollMarginTop = '120px';
-          try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { el.scrollIntoView(); }
+          try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { try { el.scrollIntoView(); } catch (e2) { /* noop */ } }
+
+          if (!prev.position || prev.position === 'static') {
+            el.style.position = 'relative';
+          }
+          el.style.zIndex = '2147483647';
           el.style.outline = '2px solid rgba(74, 163, 255, 0.95)';
           el.style.backgroundColor = 'rgba(74, 163, 255, 0.18)';
+          el.style.borderRadius = '8px';
+          el.style.boxShadow = '0 0 0 9999px rgba(0,0,0,0.65)';
 
           setTimeout(() => {
             try {
               el.style.outline = prev.outline;
               el.style.backgroundColor = prev.backgroundColor;
+              el.style.boxShadow = prev.boxShadow;
+              el.style.borderRadius = prev.borderRadius;
+              el.style.position = prev.position;
+              el.style.zIndex = prev.zIndex;
               el.style.scrollMarginTop = prev.scrollMarginTop;
             } catch (e) { /* noop */ }
           }, 1400);
@@ -1146,6 +1407,23 @@ ipcMain.handle('page:analyze', async (_event, url: string) => {
   }
 
   return { success: true, page }
+})
+
+ipcMain.handle('resource:head', async (_event, url: string) => {
+  const u = safeParseUrl(url)
+  if (!u) {
+    return { success: false, error: 'Invalid URL' }
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    return { success: false, error: 'Unsupported protocol' }
+  }
+
+  try {
+    const contentLength = await headContentLength(u.toString())
+    return { success: true, contentLength }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
 })
 
 ipcMain.handle('download:file', async (_event, url: string) => {
