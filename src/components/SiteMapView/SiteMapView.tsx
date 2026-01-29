@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { setCurrentView, setError as setAppError, setLoading } from '../../store/slices/appSlice'
 import { ensurePagesTreeExpanded, requestNavigate } from '../../store/slices/browserSlice'
@@ -169,7 +169,49 @@ export function SiteMapView() {
   const expandedIds = useAppSelector((s) => s.sitemap.expandedIds)
   const scrollTop = useAppSelector((s) => s.sitemap.scrollTop)
 
-  const tree = useMemo(() => buildUrlTree(urls), [urls])
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const uniqueHostsCount = useMemo(() => {
+    const hosts = new Set<string>()
+    for (const raw of urls) {
+      const uStr = String(raw || '').trim()
+      if (!uStr) continue
+      try {
+        const u = new URL(uStr)
+        hosts.add(u.hostname.toLowerCase())
+      } catch {
+        void 0
+      }
+    }
+    return hosts.size
+  }, [urls])
+
+  const sectionSummary = useMemo(() => {
+    const bySegment = new Map<string, number>()
+    for (const raw of urls) {
+      const uStr = String(raw || '').trim()
+      if (!uStr) continue
+      try {
+        const u = new URL(uStr)
+        const segments = u.pathname.split('/').filter(Boolean)
+        const segment = segments.length === 0 ? '/' : `/${segments[0]}`
+        bySegment.set(segment, (bySegment.get(segment) || 0) + 1)
+      } catch {
+        void 0
+      }
+    }
+    return Array.from(bySegment.entries())
+      .map(([segment, count]) => ({ segment, count }))
+      .sort((a, b) => b.count - a.count)
+  }, [urls])
+
+  const filteredUrls = useMemo(() => {
+    const q = String(searchQuery || '').trim().toLowerCase()
+    if (!q) return urls
+    return urls.filter((u) => String(u || '').toLowerCase().includes(q))
+  }, [urls, searchQuery])
+
+  const tree = useMemo(() => buildUrlTree(filteredUrls), [filteredUrls])
   const expanded = useMemo(() => new Set(expandedIds || []), [expandedIds])
   const contentRef = useRef<HTMLDivElement | null>(null)
   const rafRef = useRef<number | null>(null)
@@ -258,13 +300,40 @@ export function SiteMapView() {
         <button type="button" className="sitemap-view__button" onClick={() => void handleBuild()} disabled={isBuilding}>
           {isBuilding ? 'Построение…' : 'Построить карту сайта'}
         </button>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-          Базовый URL: <span style={{ color: '#fff' }}>{startUrl || '—'}</span>
+        <div className="sitemap-view__sidebar-line">
+          Базовый URL: <span className="sitemap-view__sidebar-val">{startUrl || '—'}</span>
         </div>
-        {sitemaps.length > 0 && (
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-            Sitemap файлов: <span style={{ color: '#fff' }}>{sitemaps.length}</span>
+        {urls.length > 0 && (
+          <div className="sitemap-view__sidebar-line">
+            Хостов: <span className="sitemap-view__sidebar-val">{uniqueHostsCount}</span>
           </div>
+        )}
+        {sitemaps.length > 0 && (
+          <details className="sitemap-view__details">
+            <summary className="sitemap-view__details-summary">
+              Sitemap файлов: <span className="sitemap-view__sidebar-val">{sitemaps.length}</span>
+            </summary>
+            <ul className="sitemap-view__list">
+              {sitemaps.map((sm, idx) => (
+                <li key={`${sm}-${idx}`} className="sitemap-view__list-item" title={sm}>
+                  <span className="sitemap-view__list-item-text">{sm}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {sectionSummary.length > 0 && (
+          <details className="sitemap-view__details">
+            <summary className="sitemap-view__details-summary">Разделы (по первому сегменту)</summary>
+            <ul className="sitemap-view__list">
+              {sectionSummary.map(({ segment, count }) => (
+                <li key={segment} className="sitemap-view__list-item sitemap-view__list-item--row">
+                  <span className="sitemap-view__list-item-text">{segment}</span>
+                  <span className="sitemap-view__sidebar-val">{count}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </div>
 
@@ -283,12 +352,31 @@ export function SiteMapView() {
       >
         <div className="sitemap-view__header">
           <div className="sitemap-view__title">Карта сайта</div>
-          <div className="sitemap-view__subtitle">URL: {urls.length}</div>
+          <div className="sitemap-view__header-right">
+            <input
+              type="text"
+              className="sitemap-view__search"
+              placeholder="Поиск по URL…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              disabled={urls.length === 0}
+            />
+            <div className="sitemap-view__subtitle">
+              {urls.length === 0
+                ? 'URL: 0'
+                : searchQuery.trim()
+                  ? `URL: ${filteredUrls.length} из ${urls.length}`
+                  : `URL: ${urls.length}`}
+            </div>
+          </div>
         </div>
 
         {error && <div className="sitemap-view__empty">Ошибка: {error}</div>}
         {!error && urls.length === 0 && <div className="sitemap-view__empty">Нажми “Построить карту сайта”.</div>}
-        {!error && urls.length > 0 && (
+        {!error && urls.length > 0 && filteredUrls.length === 0 && (
+          <div className="sitemap-view__empty">Нет URL по запросу «{searchQuery.trim()}».</div>
+        )}
+        {!error && urls.length > 0 && filteredUrls.length > 0 && (
           <TreeItem node={tree} level={0} expanded={expanded} toggle={toggle} onOpen={(u) => void openInBrowser(u)} />
         )}
       </div>
