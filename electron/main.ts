@@ -973,6 +973,113 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
   }
 })
 
+ipcMain.handle('browser:highlight-link', async (_event, url: string) => {
+  if (!browserView) {
+    return { success: false, error: 'Browser view not created' }
+  }
+  const target = typeof url === 'string' ? url.trim() : ''
+  if (!target) {
+    return { success: false, error: 'Empty URL' }
+  }
+  try {
+    const js = `
+      (function() {
+        try {
+          const targetRaw = ${JSON.stringify(target)};
+          const normalize = (s) => String(s || '').trim().replace(/\\s+/g, ' ');
+          const target = normalize(targetRaw);
+          const list = Array.from(document.querySelectorAll('a[href]'));
+          const exact = list.find((a) => normalize(a && a.href) === target) || null;
+          const partial = exact ? exact : (list.find((a) => normalize(a && a.href).includes(target)) || null);
+          const el = partial;
+          if (!el) return false;
+
+          const prev = {
+            outline: el.style.outline,
+            backgroundColor: el.style.backgroundColor,
+            scrollMarginTop: el.style.scrollMarginTop,
+          };
+
+          el.style.scrollMarginTop = '120px';
+          try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { el.scrollIntoView(); }
+          el.style.outline = '2px solid rgba(74, 163, 255, 0.95)';
+          el.style.backgroundColor = 'rgba(74, 163, 255, 0.18)';
+
+          setTimeout(() => {
+            try {
+              el.style.outline = prev.outline;
+              el.style.backgroundColor = prev.backgroundColor;
+              el.style.scrollMarginTop = prev.scrollMarginTop;
+            } catch (e) { /* noop */ }
+          }, 1400);
+
+          return true;
+        } catch (e) {
+          return false;
+        }
+      })()
+    `
+    const ok = await browserView.webContents.executeJavaScript(js, true)
+    return { success: Boolean(ok) }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
+  if (!browserView) {
+    return { success: false, error: 'Browser view not created' }
+  }
+  const target = typeof url === 'string' ? url.trim() : ''
+  if (!target) {
+    return { success: false, error: 'Empty URL' }
+  }
+  try {
+    const js = `
+      (function() {
+        try {
+          const targetRaw = ${JSON.stringify(target)};
+          const normalize = (s) => String(s || '').trim().replace(/\\s+/g, ' ');
+          const target = normalize(targetRaw);
+          const list = Array.from(document.querySelectorAll('img'));
+          const pick = (img) => normalize((img && (img.currentSrc || img.src)) || '');
+          const exact = list.find((img) => pick(img) === target) || null;
+          const partial = exact ? exact : (list.find((img) => pick(img).includes(target)) || null);
+          const el = partial;
+          if (!el) return false;
+
+          const prev = {
+            outline: el.style.outline,
+            backgroundColor: el.style.backgroundColor,
+            scrollMarginTop: el.style.scrollMarginTop,
+          };
+
+          el.style.scrollMarginTop = '120px';
+          try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { el.scrollIntoView(); }
+          el.style.outline = '2px solid rgba(74, 163, 255, 0.95)';
+          el.style.backgroundColor = 'rgba(74, 163, 255, 0.18)';
+
+          setTimeout(() => {
+            try {
+              el.style.outline = prev.outline;
+              el.style.backgroundColor = prev.backgroundColor;
+              el.style.scrollMarginTop = prev.scrollMarginTop;
+            } catch (e) { /* noop */ }
+          }, 1400);
+
+          return true;
+        } catch (e) {
+          return false;
+        }
+      })()
+    `
+    const ok = await browserView.webContents.executeJavaScript(js, true)
+    return { success: Boolean(ok) }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
 ipcMain.handle('page:analyze', async (_event, url: string) => {
   const u = safeParseUrl(url)
   if (!u) {

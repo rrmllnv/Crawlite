@@ -27,6 +27,11 @@ function formatSizeKB(valueBytes: number | null) {
   return `${kb.toFixed(2)} KB`
 }
 
+function normalizeHostname(hostname: string): string {
+  const h = String(hostname || '').trim().toLowerCase()
+  return h.startsWith('www.') ? h.slice(4) : h
+}
+
 function useBrowserBounds() {
   const ref = useRef<HTMLDivElement | null>(null)
 
@@ -343,6 +348,35 @@ export function BrowserView() {
     }
   }
 
+  const linkGroups = useMemo(() => {
+    if (!selectedPage?.url) {
+      return { internal: [] as string[], external: [] as string[] }
+    }
+    let base: URL | null = null
+    try {
+      base = new URL(selectedPage.url)
+    } catch {
+      base = null
+    }
+    const baseHost = base ? normalizeHostname(base.hostname) : ''
+    const internal: string[] = []
+    const external: string[] = []
+    for (const raw of selectedPage.links || []) {
+      const href = String(raw || '').trim()
+      if (!href) continue
+      try {
+        const u = new URL(href)
+        const host = normalizeHostname(u.hostname)
+        const isHttp = u.protocol === 'http:' || u.protocol === 'https:'
+        if (isHttp && baseHost && host === baseHost) internal.push(href)
+        else external.push(href)
+      } catch {
+        external.push(href)
+      }
+    }
+    return { internal, external }
+  }, [selectedPage])
+
   useEffect(() => {
     if (!requestedUrl) {
       return
@@ -644,16 +678,66 @@ export function BrowserView() {
           {selectedPage && activeTab === 'links' && (
             <div className="browser-view__list">
               {selectedPage.links.length === 0 && <div className="browser-view__empty">Нет ссылок.</div>}
-              {selectedPage.links.map((x) => (
-                <button
-                  type="button"
-                  key={x}
-                  className="browser-view__list-item browser-view__list-item--button"
-                  onClick={() => void openLinkSafely(x)}
-                >
-                  {x}
-                </button>
-              ))}
+
+              {selectedPage.links.length > 0 && (
+                <details className="browser-view__group" open>
+                  <summary className="browser-view__group-summary">
+                    <span className="browser-view__group-title">Внутренние</span>
+                    <span className="browser-view__group-count">{linkGroups.internal.length}</span>
+                  </summary>
+                  <div className="browser-view__group-body">
+                    {linkGroups.internal.length === 0 && <div className="browser-view__empty">Нет.</div>}
+                    {linkGroups.internal.map((x) => (
+                      <div key={x} className="browser-view__row">
+                        <div className="browser-view__row-text">{x}</div>
+                        <div className="browser-view__row-actions">
+                          <button
+                            type="button"
+                            className="browser-view__action"
+                            onClick={() => void browserService.highlightLink(x).catch(() => void 0)}
+                            title="Подсветить в браузере"
+                          >
+                            Подсветить
+                          </button>
+                          <button type="button" className="browser-view__action browser-view__action--primary" onClick={() => void openLinkSafely(x)} title="Открыть">
+                            Открыть
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {selectedPage.links.length > 0 && (
+                <details className="browser-view__group">
+                  <summary className="browser-view__group-summary">
+                    <span className="browser-view__group-title">Внешние</span>
+                    <span className="browser-view__group-count">{linkGroups.external.length}</span>
+                  </summary>
+                  <div className="browser-view__group-body">
+                    {linkGroups.external.length === 0 && <div className="browser-view__empty">Нет.</div>}
+                    {linkGroups.external.map((x) => (
+                      <div key={x} className="browser-view__row">
+                        <div className="browser-view__row-text">{x}</div>
+                        <div className="browser-view__row-actions">
+                          <button
+                            type="button"
+                            className="browser-view__action"
+                            onClick={() => void browserService.highlightLink(x).catch(() => void 0)}
+                            title="Подсветить в браузере"
+                          >
+                            Подсветить
+                          </button>
+                          <button type="button" className="browser-view__action browser-view__action--primary" onClick={() => void openLinkSafely(x)} title="Открыть">
+                            Открыть
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
           )}
 
@@ -661,9 +745,27 @@ export function BrowserView() {
             <div className="browser-view__list">
               {selectedPage.images.length === 0 && <div className="browser-view__empty">Нет картинок.</div>}
               {selectedPage.images.map((x) => (
-                <button type="button" key={x} className="browser-view__list-item browser-view__list-item--button" onClick={() => setImageModalUrl(x)}>
-                  {x}
-                </button>
+                <div key={x} className="browser-view__row">
+                  <div className="browser-view__row-text">{x}</div>
+                  <div className="browser-view__row-actions">
+                    <button
+                      type="button"
+                      className="browser-view__action"
+                      onClick={() => void browserService.highlightImage(x).catch(() => void 0)}
+                      title="Подсветить в браузере"
+                    >
+                      Подсветить
+                    </button>
+                    <button
+                      type="button"
+                      className="browser-view__action browser-view__action--primary"
+                      onClick={() => setImageModalUrl(x)}
+                      title="Открыть"
+                    >
+                      Открыть
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           )}

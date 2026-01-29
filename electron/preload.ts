@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   browserSetVisible: (visible: boolean) => ipcRenderer.invoke('browser:set-visible', visible),
   browserNavigate: (url: string) => ipcRenderer.invoke('browser:navigate', url),
   browserHighlightHeading: (payload: { level: number; text: string }) => ipcRenderer.invoke('browser:highlight-heading', payload),
+  browserHighlightLink: (url: string) => ipcRenderer.invoke('browser:highlight-link', url),
+  browserHighlightImage: (url: string) => ipcRenderer.invoke('browser:highlight-image', url),
 
   crawlStart: (params: CrawlStartParams) => ipcRenderer.invoke('crawl:start', params),
   crawlCancel: (runId: string) => ipcRenderer.invoke('crawl:cancel', runId),

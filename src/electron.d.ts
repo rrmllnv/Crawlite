@@ -81,6 +81,8 @@ export interface ElectronAPI {
   browserSetVisible: (visible: boolean) => Promise<ElectronResult>
   browserNavigate: (url: string) => Promise<ElectronResult>
   browserHighlightHeading: (payload: { level: number; text: string }) => Promise<ElectronResult>
+  browserHighlightLink: (url: string) => Promise<ElectronResult>
+  browserHighlightImage: (url: string) => Promise<ElectronResult>
 
   crawlStart: (params: CrawlStartParams) => Promise<ElectronResult<{ runId?: string }>>
   crawlCancel: (runId: string) => Promise<ElectronResult>

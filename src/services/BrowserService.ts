@@ -20,6 +20,14 @@ class BrowserService {
   async highlightHeading(level: number, text: string) {
     return await window.electronAPI.browserHighlightHeading({ level, text })
   }
+
+  async highlightLink(url: string) {
+    return await window.electronAPI.browserHighlightLink(url)
+  }
+
+  async highlightImage(url: string) {
+    return await window.electronAPI.browserHighlightImage(url)
+  }
 }
 
 export const browserService = new BrowserService()
