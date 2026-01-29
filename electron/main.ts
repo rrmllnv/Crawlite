@@ -98,6 +98,7 @@ let crawlView: WebContentsView | null = null
 let browserViewLastBounds: BrowserBounds | null = null
 let browserViewIsVisible = true
 let browserViewDesktopUserAgent: string | null = null
+let browserViewDeviceMode: 'desktop' | 'mobile' | 'tablet' = 'desktop'
 
 let activeCrawl: { runId: string; cancelled: boolean } | null = null
 let crawlMainFrameMetaByUrl = new Map<string, { statusCode: number | null; contentLength: number | null }>()
@@ -661,6 +662,22 @@ function ensureBrowserView(bounds: BrowserBounds) {
     return
   }
   browserView.setBounds(bounds)
+  // В режиме mobile/tablet эмуляция viewport должна совпадать с размерами view при ресайзе.
+  if (browserViewDeviceMode === 'mobile' || browserViewDeviceMode === 'tablet') {
+    try {
+      const size = { width: bounds.width, height: bounds.height }
+      browserView.webContents.enableDeviceEmulation({
+        screenPosition: 'mobile',
+        screenSize: size,
+        viewPosition: { x: 0, y: 0 },
+        deviceScaleFactor: 0,
+        viewSize: size,
+        scale: 1,
+      })
+    } catch {
+      void 0
+    }
+  }
 }
 
 function ensureCrawlView() {
@@ -1474,6 +1491,8 @@ ipcMain.handle('browser:set-device-mode', async (_event, rawMode: unknown) => {
     }
   }
 
+  browserViewDeviceMode = mode
+
   try {
     if (mode === 'desktop') {
       try {
@@ -1490,10 +1509,15 @@ ipcMain.handle('browser:set-device-mode', async (_event, rawMode: unknown) => {
       return { success: true }
     }
 
-    const size =
+    // Размеры view задаёт renderer через ensure/resize; здесь ставим эмуляцию по lastBounds или дефолту.
+    const fallback =
       mode === 'mobile'
         ? { width: 390, height: 844 }
         : { width: 768, height: 1024 }
+    const size =
+      browserViewLastBounds && browserViewLastBounds.width > 0 && browserViewLastBounds.height > 0
+        ? { width: browserViewLastBounds.width, height: browserViewLastBounds.height }
+        : fallback
 
     try {
       // `screenPosition: 'mobile'` + размеры определяют mobile/tablet режим.

@@ -94,23 +94,31 @@ function useBrowserBounds(deviceMode: 'desktop' | 'mobile' | 'tablet') {
       const top = Math.max(0, Math.floor(rect.top))
 
       let width: number
+      let height: number
       let x: number
+      let y: number
       if (deviceMode === 'mobile') {
         width = Math.min(EMULATED_WIDTH_MOBILE, fullWidth)
+        height = Math.min(EMULATED_HEIGHT_MOBILE, fullHeight)
         x = left + Math.max(0, Math.floor((fullWidth - width) / 2))
+        y = top + Math.max(0, Math.floor((fullHeight - height) / 2))
       } else if (deviceMode === 'tablet') {
         width = Math.min(EMULATED_WIDTH_TABLET, fullWidth)
+        height = Math.min(EMULATED_HEIGHT_TABLET, fullHeight)
         x = left + Math.max(0, Math.floor((fullWidth - width) / 2))
+        y = top + Math.max(0, Math.floor((fullHeight - height) / 2))
       } else {
         width = fullWidth
+        height = fullHeight
         x = left
+        y = top
       }
 
       const bounds = {
         x,
-        y: top,
+        y,
         width,
-        height: fullHeight,
+        height,
       }
       await browserService.ensure(bounds)
       await browserService.resize(bounds)
@@ -739,8 +747,8 @@ export function BrowserView() {
               {deviceMode === 'desktop'
                 ? (viewSize.width > 0 || viewSize.height > 0 ? `${viewSize.width} × ${viewSize.height}` : '—')
                 : deviceMode === 'mobile'
-                  ? `${EMULATED_WIDTH_MOBILE} × ${EMULATED_HEIGHT_MOBILE}`
-                  : `${EMULATED_WIDTH_TABLET} × ${EMULATED_HEIGHT_TABLET}`}
+                  ? `${EMULATED_WIDTH_MOBILE} × ${viewSize.height > 0 ? Math.min(viewSize.height, EMULATED_HEIGHT_MOBILE) : EMULATED_HEIGHT_MOBILE}`
+                  : `${EMULATED_WIDTH_TABLET} × ${viewSize.height > 0 ? Math.min(viewSize.height, EMULATED_HEIGHT_TABLET) : EMULATED_HEIGHT_TABLET}`}
             </div>
           </div>
         </div>
