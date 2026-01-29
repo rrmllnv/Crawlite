@@ -1462,7 +1462,7 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
               clearOverlay();
               const dim = document.createElement('div');
               dim.id = '__crawlite_overlay_dim';
-              dim.style.position = 'fixed';
+              dim.style.setProperty('position', 'fixed', 'important');
               dim.style.inset = '0';
               dim.style.background = 'rgba(0,0,0,0.65)';
               dim.style.pointerEvents = 'none';
@@ -1470,7 +1470,7 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
 
               const box = document.createElement('div');
               box.id = '__crawlite_overlay_box';
-              box.style.position = 'fixed';
+              box.style.setProperty('position', 'fixed', 'important');
               box.style.pointerEvents = 'none';
               box.style.zIndex = '2147483647';
               box.style.border = '2px solid rgba(74, 163, 255, 0.95)';
@@ -1555,12 +1555,11 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
             const ov = ensureOverlay();
             if (ov && ov.box) {
               positionBox(ov.box, el);
-              setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
             }
 
             setTimeout(() => {
               clearOverlay();
-            }, 1400);
+            }, 3000);
           })();
 
           return true;
@@ -1601,7 +1600,7 @@ ipcMain.handle('browser:highlight-link', async (_event, url: string) => {
               clearOverlay();
               const dim = document.createElement('div');
               dim.id = '__crawlite_overlay_dim';
-              dim.style.position = 'fixed';
+              dim.style.setProperty('position', 'fixed', 'important');
               dim.style.inset = '0';
               dim.style.background = 'rgba(0,0,0,0.65)';
               dim.style.pointerEvents = 'none';
@@ -1609,7 +1608,7 @@ ipcMain.handle('browser:highlight-link', async (_event, url: string) => {
 
               const box = document.createElement('div');
               box.id = '__crawlite_overlay_box';
-              box.style.position = 'fixed';
+              box.style.setProperty('position', 'fixed', 'important');
               box.style.pointerEvents = 'none';
               box.style.zIndex = '2147483647';
               box.style.border = '2px solid rgba(74, 163, 255, 0.95)';
@@ -1752,7 +1751,6 @@ ipcMain.handle('browser:highlight-link', async (_event, url: string) => {
             const ov = ensureOverlay();
             if (ov && ov.box) {
               positionBox(ov.box, el);
-              setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
             }
 
             setTimeout(() => {
@@ -1798,7 +1796,7 @@ ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
               clearOverlay();
               const dim = document.createElement('div');
               dim.id = '__crawlite_overlay_dim';
-              dim.style.position = 'fixed';
+              dim.style.setProperty('position', 'fixed', 'important');
               dim.style.inset = '0';
               dim.style.background = 'rgba(0,0,0,0.65)';
               dim.style.pointerEvents = 'none';
@@ -1806,7 +1804,7 @@ ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
 
               const box = document.createElement('div');
               box.id = '__crawlite_overlay_box';
-              box.style.position = 'fixed';
+              box.style.setProperty('position', 'fixed', 'important');
               box.style.pointerEvents = 'none';
               box.style.zIndex = '2147483647';
               box.style.border = '2px solid rgba(74, 163, 255, 0.95)';
@@ -1948,7 +1946,6 @@ ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
             const ov = ensureOverlay();
             if (ov && ov.box) {
               positionBox(ov.box, el);
-              setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
             }
 
             setTimeout(() => {
