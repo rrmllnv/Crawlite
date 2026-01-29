@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { setCrawlSettings } from '../../store/slices/crawlSlice'
+import { browserService } from '../../services/BrowserService'
 import './SettingsCrawling.scss'
 
 type Props = {
@@ -20,6 +21,17 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
 
   const maxDepthValue = useMemo(() => String(settings.maxDepth), [settings.maxDepth])
   const maxPagesValue = useMemo(() => String(settings.maxPages), [settings.maxPages])
+
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+    // `WebContentsView` рисуется поверх DOM, поэтому временно скрываем браузерный view.
+    void browserService.setVisible(false).catch(() => void 0)
+    return () => {
+      void browserService.setVisible(true).catch(() => void 0)
+    }
+  }, [isOpen])
 
   if (!isOpen) {
     return null

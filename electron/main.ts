@@ -62,6 +62,9 @@ let mainWindow: BrowserWindow | null = null
 let browserView: WebContentsView | null = null
 let crawlView: WebContentsView | null = null
 
+let browserViewLastBounds: BrowserBounds | null = null
+let browserViewIsVisible = true
+
 let activeCrawl: { runId: string; cancelled: boolean } | null = null
 let crawlMainFrameMetaByUrl = new Map<string, { statusCode: number | null; contentLength: number | null }>()
 let crawlWebRequestAttachedForWebContentsId: number | null = null
@@ -204,7 +207,7 @@ function createWindow() {
     try {
       const parsed = new URL(url)
       if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-        void shell.openExternal(url)
+        void shell.openExternal(url).catch(() => void 0)
       }
     } catch {
       void 0
@@ -235,6 +238,13 @@ function ensureBrowserView(bounds: BrowserBounds) {
       },
     })
     mainWindow.contentView.addChildView(browserView)
+  }
+  // `WebContentsView` рисуется поверх DOM, поэтому при показе модалок его нужно уметь скрывать.
+  // При скрытии мы не меняем `lastBounds`, чтобы восстановить исходное положение.
+  browserViewLastBounds = bounds
+  if (!browserViewIsVisible) {
+    browserView.setBounds({ x: 0, y: 0, width: 1, height: 1 })
+    return
   }
   browserView.setBounds(bounds)
 }
@@ -711,12 +721,29 @@ ipcMain.handle('browser:ensure', async (_event, bounds: BrowserBounds) => {
 })
 
 ipcMain.handle('browser:resize', async (_event, bounds: BrowserBounds) => {
+  ensureBrowserView(bounds)
+  return { success: true }
+})
+
+ipcMain.handle('browser:set-visible', async (_event, visible: boolean) => {
+  browserViewIsVisible = Boolean(visible)
   if (!browserView) {
-    ensureBrowserView(bounds)
     return { success: true }
   }
-  browserView.setBounds(bounds)
-  return { success: true }
+  try {
+    if (!browserViewIsVisible) {
+      browserView.setBounds({ x: 0, y: 0, width: 1, height: 1 })
+      return { success: true }
+    }
+    if (browserViewLastBounds) {
+      browserView.setBounds(browserViewLastBounds)
+      return { success: true }
+    }
+    // Если bounds ещё не задавались — просто оставляем как есть.
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
 })
 
 ipcMain.handle('browser:navigate', async (_event, url: string) => {

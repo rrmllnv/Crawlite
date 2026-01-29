@@ -77,6 +77,7 @@ export type CrawlPageData = {
 export interface ElectronAPI {
   browserEnsure: (bounds: BrowserBounds) => Promise<ElectronResult>
   browserResize: (bounds: BrowserBounds) => Promise<ElectronResult>
+  browserSetVisible: (visible: boolean) => Promise<ElectronResult>
   browserNavigate: (url: string) => Promise<ElectronResult>
 
   crawlStart: (params: CrawlStartParams) => Promise<ElectronResult<{ runId?: string }>>

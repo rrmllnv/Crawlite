@@ -25,6 +25,7 @@ export type ElectronResult<T = unknown> = {
 contextBridge.exposeInMainWorld('electronAPI', {
   browserEnsure: (bounds: BrowserBounds) => ipcRenderer.invoke('browser:ensure', bounds),
   browserResize: (bounds: BrowserBounds) => ipcRenderer.invoke('browser:resize', bounds),
+  browserSetVisible: (visible: boolean) => ipcRenderer.invoke('browser:set-visible', visible),
   browserNavigate: (url: string) => ipcRenderer.invoke('browser:navigate', url),
 
   crawlStart: (params: CrawlStartParams) => ipcRenderer.invoke('crawl:start', params),

@@ -9,6 +9,10 @@ class BrowserService {
     return await window.electronAPI.browserResize(bounds)
   }
 
+  async setVisible(visible: boolean) {
+    return await window.electronAPI.browserSetVisible(visible)
+  }
+
   async navigate(url: string) {
     return await window.electronAPI.browserNavigate(url)
   }

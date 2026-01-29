@@ -5,6 +5,8 @@ import { selectPage } from '../../store/slices/crawlSlice'
 import { clearRequestedNavigate, setCurrentUrl } from '../../store/slices/browserSlice'
 import type { CrawlPageData } from '../../electron'
 import { Separate } from '../../components/Separate/Separate'
+import { ImageModal } from '../../components/ImageModal/ImageModal'
+import { ResourceModal } from '../../components/ResourceModal/ResourceModal'
 import './BrowserView.scss'
 
 type TabId = 'meta' | 'links' | 'images' | 'js' | 'css'
@@ -251,6 +253,8 @@ export function BrowserView() {
   const requestedUrl = useAppSelector((s) => s.browser.requestedUrl)
 
   const [activeTab, setActiveTab] = useState<TabId>('meta')
+  const [imageModalUrl, setImageModalUrl] = useState<string>('')
+  const [resourceModal, setResourceModal] = useState<{ type: 'js' | 'css'; url: string } | null>(null)
 
   const pages = useMemo(() => {
     return pageOrder
@@ -481,18 +485,30 @@ export function BrowserView() {
 
               <Separate title="Сводка по странице" />
 
-              <details className="browser-view__details-block">
-                <summary className="browser-view__details-summary">
+              <div className="browser-view__details-block">
+                <div className="browser-view__details-summary">
                   <span className="browser-view__details-summary-title">Заголовки</span>
-                  <span className="browser-view__details-summary-value">
-                    {summary ? `всего ${summary.totalHeadings}` : '—'}
-                  </span>
-                </summary>
+                  <span className="browser-view__details-summary-value">{summary ? `всего ${summary.totalHeadings}` : '—'}</span>
+                </div>
 
                 {summary && (
                   <div className="browser-view__headings">
+                    <div className="browser-view__headings-level browser-view__headings-level--open">
+                      <div className="browser-view__headings-summary">
+                        <span className="browser-view__headings-title">H1</span>
+                        <span className="browser-view__headings-count">{summary.headingsText.h1.length || summary.headings.h1}</span>
+                      </div>
+                      <div className="browser-view__headings-list">
+                        {summary.headingsText.h1.length === 0 && <div className="browser-view__headings-empty">Нет</div>}
+                        {summary.headingsText.h1.map((t) => (
+                          <div key={`h1:${t}`} className="browser-view__headings-item">
+                            {t}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     {([
-                      ['h1', 'H1'],
                       ['h2', 'H2'],
                       ['h3', 'H3'],
                       ['h4', 'H4'],
@@ -508,9 +524,7 @@ export function BrowserView() {
                             <span className="browser-view__headings-count">{count}</span>
                           </summary>
                           <div className="browser-view__headings-list">
-                            {items.length === 0 && (
-                              <div className="browser-view__headings-empty">Нет</div>
-                            )}
+                            {items.length === 0 && <div className="browser-view__headings-empty">Нет</div>}
                             {items.map((t) => (
                               <div key={`${key}:${t}`} className="browser-view__headings-item">
                                 {t}
@@ -523,10 +537,8 @@ export function BrowserView() {
                   </div>
                 )}
 
-                {!summary && (
-                  <div className="browser-view__empty">—</div>
-                )}
-              </details>
+                {!summary && <div className="browser-view__empty">—</div>}
+              </div>
 
               <div className="browser-view__kv-row">
                 <div className="browser-view__kv-key">Всего ссылок</div>
@@ -562,9 +574,9 @@ export function BrowserView() {
             <div className="browser-view__list">
               {selectedPage.images.length === 0 && <div className="browser-view__empty">Нет картинок.</div>}
               {selectedPage.images.map((x) => (
-                <div key={x} className="browser-view__list-item">
+                <button type="button" key={x} className="browser-view__list-item browser-view__list-item--button" onClick={() => setImageModalUrl(x)}>
                   {x}
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -573,9 +585,14 @@ export function BrowserView() {
             <div className="browser-view__list">
               {selectedPage.scripts.length === 0 && <div className="browser-view__empty">Нет JS.</div>}
               {selectedPage.scripts.map((x) => (
-                <div key={x} className="browser-view__list-item">
+                <button
+                  type="button"
+                  key={x}
+                  className="browser-view__list-item browser-view__list-item--button"
+                  onClick={() => setResourceModal({ type: 'js', url: x })}
+                >
                   {x}
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -584,14 +601,27 @@ export function BrowserView() {
             <div className="browser-view__list">
               {selectedPage.stylesheets.length === 0 && <div className="browser-view__empty">Нет CSS.</div>}
               {selectedPage.stylesheets.map((x) => (
-                <div key={x} className="browser-view__list-item">
+                <button
+                  type="button"
+                  key={x}
+                  className="browser-view__list-item browser-view__list-item--button"
+                  onClick={() => setResourceModal({ type: 'css', url: x })}
+                >
                   {x}
-                </div>
+                </button>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      <ImageModal isOpen={Boolean(imageModalUrl)} url={imageModalUrl} onClose={() => setImageModalUrl('')} />
+      <ResourceModal
+        isOpen={Boolean(resourceModal)}
+        type={resourceModal?.type || 'js'}
+        url={resourceModal?.url || ''}
+        onClose={() => setResourceModal(null)}
+      />
     </div>
   )
 }

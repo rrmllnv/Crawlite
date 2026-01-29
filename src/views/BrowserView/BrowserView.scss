@@ -207,7 +207,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  cursor: pointer;
+  cursor: default;
   list-style: none;
   padding: 6px 6px;
   border-radius: $border-radius;
@@ -284,6 +284,16 @@
   padding: 6px 6px 8px 6px;
 }
 
+.browser-view__headings-level--open {
+  .browser-view__headings-summary {
+    cursor: default;
+
+    &:hover {
+      background-color: transparent;
+    }
+  }
+}
+
 .browser-view__headings-item {
   font-size: $font-size-sm;
   color: $text-primary;
@@ -298,6 +308,21 @@
   font-size: $font-size-sm;
   color: $text-secondary;
   padding: 4px 6px;
+}
+
+.browser-view__list-item--button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: $border-radius;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: $text-primary;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .browser-view__kv {
