@@ -2,9 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { browserService } from '../../services/BrowserService'
 import { crawlService } from '../../services/CrawlService'
-import { selectPage, resetCrawl, setCrawlStatus, setRunId, setStartUrl } from '../../store/slices/crawlSlice'
+import { selectPage, upsertPage } from '../../store/slices/crawlSlice'
 import { clearRequestedNavigate, setCurrentUrl } from '../../store/slices/browserSlice'
-import { setError, setLoading } from '../../store/slices/appSlice'
 import type { CrawlPageData } from '../../electron'
 import { Separate } from '../../components/Separate/Separate'
 import { ImageModal } from '../../components/ImageModal/ImageModal'
@@ -18,6 +17,14 @@ function formatNumber(value: number | null) {
     return '—'
   }
   return value.toString()
+}
+
+function formatSizeKB(valueBytes: number | null) {
+  if (typeof valueBytes !== 'number' || !Number.isFinite(valueBytes)) {
+    return '—'
+  }
+  const kb = valueBytes / 1024
+  return `${kb.toFixed(2)} KB`
 }
 
 function useBrowserBounds() {
@@ -257,6 +264,7 @@ export function BrowserView() {
   const [activeTab, setActiveTab] = useState<TabId>('meta')
   const [imageModalUrl, setImageModalUrl] = useState<string>('')
   const [resourceModal, setResourceModal] = useState<{ type: 'js' | 'css'; url: string } | null>(null)
+  const [openHeadingLevels, setOpenHeadingLevels] = useState<Set<string>>(() => new Set())
 
   const pages = useMemo(() => {
     return pageOrder
@@ -304,17 +312,11 @@ export function BrowserView() {
     return pagesByUrl[key] || null
   }, [pagesByUrl, selectedUrl])
 
-  const startSinglePageCrawlAndOpen = async (url: string) => {
+  const openLinkSafely = async (url: string) => {
     const target = String(url || '').trim()
     if (!target) {
       return
     }
-
-    dispatch(setError(null))
-    dispatch(setLoading(true))
-    dispatch(resetCrawl())
-    dispatch(setStartUrl(target))
-    dispatch(setCrawlStatus('running'))
 
     try {
       const navRes = await browserService.navigate(target)
@@ -323,33 +325,21 @@ export function BrowserView() {
       }
       dispatch(setCurrentUrl(target))
     } catch {
-      dispatch(setCrawlStatus('error'))
-      dispatch(setError('Не удалось открыть URL (проверьте домен/DNS)'))
-      dispatch(setLoading(false))
       return
     }
 
+    // “Безопасный” анализ: без resetCrawl, без событий crawl, без изменения processed/queued.
     try {
-      const res = await crawlService.start({
-        startUrl: target,
-        options: {
-          maxDepth: 0,
-          maxPages: 1,
-          delayMs: 0,
-          jitterMs: 0,
-        },
-      })
-      if (!res.success) {
-        dispatch(setCrawlStatus('error'))
-        dispatch(setError(res.error || 'Crawl start failed'))
-        return
+      const res = await crawlService.analyzePage(target)
+      if (res?.success && res.page) {
+        dispatch(upsertPage(res.page))
+        const key = res.page.normalizedUrl || res.page.url
+        if (key) {
+          dispatch(selectPage(key))
+        }
       }
-      dispatch(setRunId(typeof (res as any).runId === 'string' ? (res as any).runId : null))
-    } catch (error) {
-      dispatch(setCrawlStatus('error'))
-      dispatch(setError(String(error)))
-    } finally {
-      dispatch(setLoading(false))
+    } catch {
+      void 0
     }
   }
 
@@ -415,8 +405,7 @@ export function BrowserView() {
     const images = selectedPage.images?.length || 0
     const js = selectedPage.scripts?.length || 0
     const css = selectedPage.stylesheets?.length || 0
-    const miscRaw = (selectedPage as any).misc as string[] | undefined
-    const miscList = Array.isArray(miscRaw) ? miscRaw : []
+    const miscList = Array.isArray(selectedPage.misc) ? selectedPage.misc : []
     const seen = new Set<string>([...selectedPage.links, ...selectedPage.images, ...selectedPage.scripts, ...selectedPage.stylesheets].map((x) => String(x)))
     const misc = miscList.filter((x) => x && !seen.has(String(x))).length
     return { links, images, js, css, misc }
@@ -544,8 +533,8 @@ export function BrowserView() {
                 <div className="browser-view__kv-val">{selectedPage.statusCode === null ? '—' : String(selectedPage.statusCode)}</div>
               </div>
               <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Размер (bytes)</div>
-                <div className="browser-view__kv-val">{formatNumber(selectedPage.contentLength)}</div>
+                <div className="browser-view__kv-key">Размер (KB)</div>
+                <div className="browser-view__kv-val">{formatSizeKB(selectedPage.contentLength)}</div>
               </div>
               <div className="browser-view__kv-row">
                 <div className="browser-view__kv-key">Время открытия (ms)</div>
@@ -562,6 +551,23 @@ export function BrowserView() {
 
                 {summary && (
                   <div className="browser-view__headings">
+                    <div className="browser-view__headings-controls">
+                      <button
+                        type="button"
+                        className="browser-view__headings-control"
+                        onClick={() => setOpenHeadingLevels(new Set(['h2', 'h3', 'h4', 'h5', 'h6']))}
+                      >
+                        Раскрыть
+                      </button>
+                      <button
+                        type="button"
+                        className="browser-view__headings-control browser-view__headings-control--secondary"
+                        onClick={() => setOpenHeadingLevels(new Set())}
+                      >
+                        Скрыть
+                      </button>
+                    </div>
+
                     <div className="browser-view__headings-level browser-view__headings-level--open">
                       <div className="browser-view__headings-summary">
                         <span className="browser-view__headings-title">H1</span>
@@ -570,9 +576,14 @@ export function BrowserView() {
                       <div className="browser-view__headings-list">
                         {summary.headingsText.h1.length === 0 && <div className="browser-view__headings-empty">Нет</div>}
                         {summary.headingsText.h1.map((t) => (
-                          <div key={`h1:${t}`} className="browser-view__headings-item">
+                          <button
+                            type="button"
+                            key={`h1:${t}`}
+                            className="browser-view__headings-item browser-view__headings-item--button"
+                            onClick={() => void browserService.highlightHeading(1, t)}
+                          >
                             {t}
-                          </div>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -587,7 +598,20 @@ export function BrowserView() {
                       const items = summary.headingsText[key]
                       const count = items.length || summary.headings[key]
                       return (
-                        <details key={key} className="browser-view__headings-level">
+                        <details
+                          key={key}
+                          className="browser-view__headings-level"
+                          open={openHeadingLevels.has(key)}
+                          onToggle={(e) => {
+                            const nextOpen = (e.currentTarget as HTMLDetailsElement).open
+                            setOpenHeadingLevels((prev) => {
+                              const next = new Set(prev)
+                              if (nextOpen) next.add(key)
+                              else next.delete(key)
+                              return next
+                            })
+                          }}
+                        >
                           <summary className="browser-view__headings-summary">
                             <span className="browser-view__headings-title">{label}</span>
                             <span className="browser-view__headings-count">{count}</span>
@@ -595,9 +619,14 @@ export function BrowserView() {
                           <div className="browser-view__headings-list">
                             {items.length === 0 && <div className="browser-view__headings-empty">Нет</div>}
                             {items.map((t) => (
-                              <div key={`${key}:${t}`} className="browser-view__headings-item">
+                              <button
+                                type="button"
+                                key={`${key}:${t}`}
+                                className="browser-view__headings-item browser-view__headings-item--button"
+                                onClick={() => void browserService.highlightHeading(Number(key.slice(1)), t)}
+                              >
                                 {t}
-                              </div>
+                              </button>
                             ))}
                           </div>
                         </details>
@@ -620,7 +649,7 @@ export function BrowserView() {
                   type="button"
                   key={x}
                   className="browser-view__list-item browser-view__list-item--button"
-                  onClick={() => void startSinglePageCrawlAndOpen(x)}
+                  onClick={() => void openLinkSafely(x)}
                 >
                   {x}
                 </button>
@@ -674,8 +703,7 @@ export function BrowserView() {
           {selectedPage && activeTab === 'misc' && (
             <div className="browser-view__list">
               {(() => {
-                const miscRaw = (selectedPage as any).misc as string[] | undefined
-                const miscList = Array.isArray(miscRaw) ? miscRaw : []
+                const miscList = Array.isArray(selectedPage.misc) ? selectedPage.misc : []
                 const seen = new Set<string>([...selectedPage.links, ...selectedPage.images, ...selectedPage.scripts, ...selectedPage.stylesheets].map((x) => String(x)))
                 const list = miscList.filter((x) => x && !seen.has(String(x)))
                 if (list.length === 0) {

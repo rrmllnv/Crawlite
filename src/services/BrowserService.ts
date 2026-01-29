@@ -16,6 +16,10 @@ class BrowserService {
   async navigate(url: string) {
     return await window.electronAPI.browserNavigate(url)
   }
+
+  async highlightHeading(level: number, text: string) {
+    return await window.electronAPI.browserHighlightHeading({ level, text })
+  }
 }
 
 export const browserService = new BrowserService()

@@ -80,9 +80,12 @@ export interface ElectronAPI {
   browserResize: (bounds: BrowserBounds) => Promise<ElectronResult>
   browserSetVisible: (visible: boolean) => Promise<ElectronResult>
   browserNavigate: (url: string) => Promise<ElectronResult>
+  browserHighlightHeading: (payload: { level: number; text: string }) => Promise<ElectronResult>
 
   crawlStart: (params: CrawlStartParams) => Promise<ElectronResult<{ runId?: string }>>
   crawlCancel: (runId: string) => Promise<ElectronResult>
+
+  pageAnalyze: (url: string) => Promise<ElectronResult<{ page?: CrawlPageData }>>
 
   loadUserConfig: () => Promise<any>
   saveUserConfig: (userConfig: any) => Promise<boolean>

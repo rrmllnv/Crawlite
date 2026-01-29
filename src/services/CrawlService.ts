@@ -5,6 +5,10 @@ class CrawlService {
     return await window.electronAPI.crawlStart(params)
   }
 
+  async analyzePage(url: string) {
+    return await window.electronAPI.pageAnalyze(url)
+  }
+
   async cancel(runId: string) {
     return await window.electronAPI.crawlCancel(runId)
   }

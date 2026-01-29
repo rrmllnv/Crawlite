@@ -27,9 +27,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   browserResize: (bounds: BrowserBounds) => ipcRenderer.invoke('browser:resize', bounds),
   browserSetVisible: (visible: boolean) => ipcRenderer.invoke('browser:set-visible', visible),
   browserNavigate: (url: string) => ipcRenderer.invoke('browser:navigate', url),
+  browserHighlightHeading: (payload: { level: number; text: string }) => ipcRenderer.invoke('browser:highlight-heading', payload),
 
   crawlStart: (params: CrawlStartParams) => ipcRenderer.invoke('crawl:start', params),
   crawlCancel: (runId: string) => ipcRenderer.invoke('crawl:cancel', runId),
+
+  pageAnalyze: (url: string) => ipcRenderer.invoke('page:analyze', url),
 
   loadUserConfig: () => ipcRenderer.invoke('load-user-config'),
   saveUserConfig: (userConfig: any) => ipcRenderer.invoke('save-user-config', userConfig),

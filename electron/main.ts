@@ -914,6 +914,133 @@ ipcMain.handle('browser:navigate', async (_event, url: string) => {
   }
 })
 
+ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: number; text: string }) => {
+  if (!browserView) {
+    return { success: false, error: 'Browser view not created' }
+  }
+  const level = typeof payload?.level === 'number' ? Math.floor(payload.level) : 0
+  const text = typeof payload?.text === 'string' ? payload.text : ''
+  if (level < 1 || level > 6) {
+    return { success: false, error: 'Invalid heading level' }
+  }
+  if (!text.trim()) {
+    return { success: false, error: 'Empty heading text' }
+  }
+
+  try {
+    const js = `
+      (function() {
+        try {
+          const level = ${level};
+          const targetRaw = ${JSON.stringify(text)};
+          const normalize = (s) => String(s || '').trim().replace(/\\s+/g, ' ').slice(0, 300);
+          const target = normalize(targetRaw);
+          const list = Array.from(document.querySelectorAll('h' + level));
+          const exact = list.find((el) => normalize(el && el.textContent) === target) || null;
+          const partial = exact ? exact : (list.find((el) => normalize(el && el.textContent).includes(target)) || null);
+          const el = partial;
+          if (!el) return false;
+
+          const prev = {
+            outline: el.style.outline,
+            backgroundColor: el.style.backgroundColor,
+            scrollMarginTop: el.style.scrollMarginTop,
+          };
+
+          el.style.scrollMarginTop = '120px';
+          try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { el.scrollIntoView(); }
+          el.style.outline = '2px solid rgba(74, 163, 255, 0.95)';
+          el.style.backgroundColor = 'rgba(74, 163, 255, 0.18)';
+
+          setTimeout(() => {
+            try {
+              el.style.outline = prev.outline;
+              el.style.backgroundColor = prev.backgroundColor;
+              el.style.scrollMarginTop = prev.scrollMarginTop;
+            } catch (e) { /* noop */ }
+          }, 1400);
+
+          return true;
+        } catch (e) {
+          return false;
+        }
+      })()
+    `
+    const ok = await browserView.webContents.executeJavaScript(js, true)
+    return { success: Boolean(ok) }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('page:analyze', async (_event, url: string) => {
+  const u = safeParseUrl(url)
+  if (!u) {
+    return { success: false, error: 'Invalid URL' }
+  }
+
+  ensureCrawlView()
+  if (!crawlView) {
+    return { success: false, error: 'Crawler view not available' }
+  }
+
+  const startedAt = Date.now()
+  let loadOk = true
+  try {
+    await crawlView.webContents.loadURL(u.toString())
+  } catch {
+    loadOk = false
+  }
+
+  // небольшой буфер для динамического DOM
+  try {
+    await crawlView.webContents.executeJavaScript(`
+      (function() {
+        return new Promise((resolve) => {
+          try { requestAnimationFrame(() => setTimeout(resolve, 250)); } catch (e) { setTimeout(resolve, 250); }
+        });
+      })()
+    `)
+  } catch {
+    void 0
+  }
+
+  const finishedAt = Date.now()
+
+  let extracted: (Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt'> & { htmlBytes: number | null }) | null = null
+  try {
+    extracted = await extractPageDataFromView(crawlView)
+  } catch {
+    extracted = null
+  }
+
+  const finalUrlRaw = (extracted?.url || crawlView.webContents.getURL() || u.toString())
+  const finalNormalized = normalizeUrl(finalUrlRaw) || normalizeUrl(u.toString())
+  const meta = finalNormalized ? crawlMainFrameMetaByUrl.get(finalNormalized) : undefined
+
+  const page: CrawlPageData = {
+    url: finalUrlRaw,
+    normalizedUrl: finalNormalized,
+    title: extracted?.title || '',
+    h1: extracted?.h1 || '',
+    headingsText: extracted?.headingsText || { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
+    headingsCount: extracted?.headingsCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+    description: extracted?.description || '',
+    keywords: extracted?.keywords || '',
+    statusCode: meta?.statusCode ?? null,
+    contentLength: meta?.contentLength ?? (extracted?.htmlBytes ?? null),
+    loadTimeMs: loadOk ? (finishedAt - startedAt) : null,
+    discoveredAt: startedAt,
+    links: extracted?.links || [],
+    images: extracted?.images || [],
+    scripts: extracted?.scripts || [],
+    stylesheets: extracted?.stylesheets || [],
+    misc: (extracted as any)?.misc || [],
+  }
+
+  return { success: true, page }
+})
+
 ipcMain.handle('download:file', async (_event, url: string) => {
   const u = safeParseUrl(url)
   if (!u) {
