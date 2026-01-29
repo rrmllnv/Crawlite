@@ -195,7 +195,8 @@
   }
 }
 
-.browser-view__tab-count {
+.browser-view__tab[data-count]::after {
+  content: attr(data-count);
   display: inline-flex;
   align-items: center;
   justify-content: center;

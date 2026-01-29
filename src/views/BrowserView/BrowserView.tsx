@@ -33,6 +33,18 @@ function isMailtoOrTel(value: string) {
   return v.startsWith('mailto:') || v.startsWith('tel:')
 }
 
+function normalizeContactValue(value: string) {
+  const raw = String(value || '').trim()
+  const lower = raw.toLowerCase()
+  if (lower.startsWith('tel:')) {
+    return { label: 'Телефон', value: raw.slice(4).split('?')[0].trim() }
+  }
+  if (lower.startsWith('mailto:')) {
+    return { label: 'Email', value: raw.slice(7).split('?')[0].trim() }
+  }
+  return { label: 'Контакт', value: raw }
+}
+
 function normalizeHostname(hostname: string): string {
   const h = String(hostname || '').trim().toLowerCase()
   return h.startsWith('www.') ? h.slice(4) : h
@@ -488,9 +500,15 @@ export function BrowserView() {
     if (title && h1 && title.toLowerCase() === h1.toLowerCase()) {
       issues.push('Одинаковый H1 и Title: Лучше их различать для расширения семантики.')
     }
-    const emptyTotal = (empty.h1 || 0) + (empty.h2 || 0) + (empty.h3 || 0) + (empty.h4 || 0) + (empty.h5 || 0) + (empty.h6 || 0)
-    if (emptyTotal > 0) {
-      issues.push(`Пустые заголовки: Найдено ${emptyTotal} пустых тегов H1–H6.`)
+    const emptyParts: string[] = []
+    ;(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const).forEach((k) => {
+      const n = empty[k] || 0
+      if (n > 0) {
+        emptyParts.push(`${k.toUpperCase()}: ${n}`)
+      }
+    })
+    if (emptyParts.length > 0) {
+      issues.push(`Пустые заголовки: ${emptyParts.join(', ')}.`)
     }
     if (nested.length > 0) {
       issues.push(`Вложенные заголовки: ${nested.join(', ')}`)
@@ -581,29 +599,33 @@ export function BrowserView() {
             type="button"
             className={`browser-view__tab ${activeTab === 'links' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('links')}
+            data-count={selectedPage ? String(tabsCount.links) : '—'}
           >
-            Ссылки <span className="browser-view__tab-count">{selectedPage ? tabsCount.links : '—'}</span>
+            Ссылки
           </button>
           <button
             type="button"
             className={`browser-view__tab ${activeTab === 'images' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('images')}
+            data-count={selectedPage ? String(tabsCount.images) : '—'}
           >
-            Картинки <span className="browser-view__tab-count">{selectedPage ? tabsCount.images : '—'}</span>
+            Картинки
           </button>
           <button
             type="button"
             className={`browser-view__tab ${activeTab === 'resources' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('resources')}
+            data-count={selectedPage ? String(tabsCount.resources) : '—'}
           >
-            Ресурсы <span className="browser-view__tab-count">{selectedPage ? tabsCount.resources : '—'}</span>
+            Ресурсы
           </button>
           <button
             type="button"
             className={`browser-view__tab ${activeTab === 'errors' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('errors')}
+            data-count={String(tabsCount.errors)}
           >
-            Ошибки <span className="browser-view__tab-count">{tabsCount.errors}</span>
+            Ошибки
           </button>
         </div>
 
@@ -654,8 +676,8 @@ export function BrowserView() {
                   <Separate title="Контакты на странице" />
                   {contacts.map((x) => (
                     <div key={x} className="browser-view__kv-row">
-                      <div className="browser-view__kv-key">Контакт</div>
-                      <div className="browser-view__kv-val">{x}</div>
+                      <div className="browser-view__kv-key">{normalizeContactValue(x).label}</div>
+                      <div className="browser-view__kv-val">{normalizeContactValue(x).value}</div>
                     </div>
                   ))}
                 </>

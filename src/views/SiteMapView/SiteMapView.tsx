@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { setCurrentView } from '../../store/slices/appSlice'
 import { requestNavigate } from '../../store/slices/browserSlice'
 import { crawlService } from '../../services/CrawlService'
 import { selectPage, upsertPage } from '../../store/slices/crawlSlice'
+import { setBuilding, setData, setError as setSitemapError, toggleExpanded } from '../../store/slices/sitemapSlice'
 import './SiteMapView.scss'
 
 type TreeNode = {
@@ -132,46 +133,40 @@ export function SiteMapView() {
   const dispatch = useAppDispatch()
   const startUrl = useAppSelector((s) => s.crawl.startUrl) || useAppSelector((s) => s.browser.currentUrl)
 
-  const [isBuilding, setIsBuilding] = useState(false)
-  const [error, setError] = useState<string>('')
-  const [urls, setUrls] = useState<string[]>([])
-  const [sitemaps, setSitemaps] = useState<string[]>([])
+  const isBuilding = useAppSelector((s) => s.sitemap.isBuilding)
+  const error = useAppSelector((s) => s.sitemap.error)
+  const urls = useAppSelector((s) => s.sitemap.urls)
+  const sitemaps = useAppSelector((s) => s.sitemap.sitemaps)
+  const expandedIds = useAppSelector((s) => s.sitemap.expandedIds)
+
   const tree = useMemo(() => buildUrlTree(urls), [urls])
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['root']))
+  const expanded = useMemo(() => new Set(expandedIds || []), [expandedIds])
 
   const toggle = (id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    dispatch(toggleExpanded(id))
   }
 
   const handleBuild = async () => {
     if (!startUrl) {
-      setError('Нет стартового URL. Сначала открой страницу через "Перейти".')
+      dispatch(setSitemapError('Нет стартового URL. Сначала открой страницу через "Перейти".'))
       return
     }
-    setError('')
-    setIsBuilding(true)
+    dispatch(setSitemapError(''))
+    dispatch(setBuilding(true))
     try {
       const res = await window.electronAPI.sitemapBuild(startUrl)
       if (!res?.success) {
-        setError(res?.error || 'Не удалось построить sitemap')
-        setUrls([])
-        setSitemaps([])
+        dispatch(setSitemapError(res?.error || 'Не удалось построить sitemap'))
+        dispatch(setData({ urls: [], sitemaps: [] }))
         return
       }
       const list = Array.isArray((res as any).urls) ? (res as any).urls : []
       const sm = Array.isArray((res as any).sitemaps) ? (res as any).sitemaps : []
-      setUrls(list)
-      setSitemaps(sm)
-      setExpanded(new Set(['root']))
+      dispatch(setData({ urls: list, sitemaps: sm }))
     } catch (e) {
-      setError(String(e))
+      dispatch(setSitemapError(String(e)))
     } finally {
-      setIsBuilding(false)
+      dispatch(setBuilding(false))
     }
   }
 
