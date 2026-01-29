@@ -29,6 +29,10 @@ class BrowserService {
     return await window.electronAPI.browserReload()
   }
 
+  async setDeviceMode(mode: 'desktop' | 'mobile' | 'tablet') {
+    return await window.electronAPI.browserSetDeviceMode(mode)
+  }
+
   async highlightHeading(level: number, text: string) {
     return await window.electronAPI.browserHighlightHeading({ level, text })
   }

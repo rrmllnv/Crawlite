@@ -8,6 +8,7 @@ interface BrowserState {
   canGoBack: boolean
   canGoForward: boolean
   pagesTreeExpandedIds: string[]
+  deviceMode: 'desktop' | 'mobile' | 'tablet'
 }
 
 const initialState: BrowserState = {
@@ -18,6 +19,7 @@ const initialState: BrowserState = {
   canGoBack: false,
   canGoForward: false,
   pagesTreeExpandedIds: ['root'],
+  deviceMode: 'desktop',
 }
 
 export const browserSlice = createSlice({
@@ -45,6 +47,13 @@ export const browserSlice = createSlice({
       if (typeof action.payload?.url === 'string') {
         state.currentUrl = action.payload.url
       }
+    },
+    setDeviceMode: (state, action: PayloadAction<'desktop' | 'mobile' | 'tablet'>) => {
+      const mode = action.payload
+      if (mode !== 'desktop' && mode !== 'mobile' && mode !== 'tablet') {
+        return
+      }
+      state.deviceMode = mode
     },
     togglePagesTreeExpanded: (state, action: PayloadAction<string>) => {
       const id = String(action.payload || '')
@@ -74,6 +83,7 @@ export const {
   clearRequestedNavigate,
   setPageLoading,
   setNavState,
+  setDeviceMode,
   togglePagesTreeExpanded,
   ensurePagesTreeExpanded,
 } = browserSlice.actions

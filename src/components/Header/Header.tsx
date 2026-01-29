@@ -143,7 +143,7 @@ export function Header() {
     <header className="app__header">
       <div className="header__brand">
         <div className="header__title">Crawlite</div>
-        <div className="header__subtitle">Crawling / Scraping</div>
+        <div className="header__subtitle">Crawling <i className="fa-solid fa-spider"></i> Scraping</div>
       </div>
 
       <div className="header__toolbar">

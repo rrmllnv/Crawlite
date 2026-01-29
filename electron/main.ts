@@ -97,6 +97,7 @@ let crawlView: WebContentsView | null = null
 
 let browserViewLastBounds: BrowserBounds | null = null
 let browserViewIsVisible = true
+let browserViewDesktopUserAgent: string | null = null
 
 let activeCrawl: { runId: string; cancelled: boolean } | null = null
 let crawlMainFrameMetaByUrl = new Map<string, { statusCode: number | null; contentLength: number | null }>()
@@ -140,6 +141,22 @@ function safeParseUrl(raw: string): URL | null {
   } catch {
     return null
   }
+}
+
+function pickChromeVersionFromUserAgent(userAgent: string): string | null {
+  const ua = String(userAgent || '')
+  const m = ua.match(/Chrome\/([0-9.]+)/)
+  return m && typeof m[1] === 'string' && m[1] ? m[1] : null
+}
+
+function buildMobileUserAgent(desktopUserAgent: string): string {
+  const chromeVersion = pickChromeVersionFromUserAgent(desktopUserAgent)
+  // Если не удалось извлечь версию Chromium — не ломаем UA вовсе.
+  if (!chromeVersion) {
+    return String(desktopUserAgent || '')
+  }
+  // Mobile UA: используем версию Chromium из текущего desktop UA.
+  return `Mozilla/5.0 (Linux; Android 10; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Mobile Safari/537.36`
 }
 
 function normalizeHostname(hostname: string): string {
@@ -580,6 +597,11 @@ function ensureBrowserView(bounds: BrowserBounds) {
       },
     })
     mainWindow.contentView.addChildView(browserView)
+    try {
+      browserViewDesktopUserAgent = browserView.webContents.getUserAgent()
+    } catch {
+      browserViewDesktopUserAgent = null
+    }
     try {
       const sendNavState = () => {
         try {
@@ -1426,6 +1448,82 @@ ipcMain.handle('browser:reload', async () => {
   }
   try {
     browserView.webContents.reload()
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('browser:set-device-mode', async (_event, rawMode: unknown) => {
+  if (!browserView) {
+    return { success: false, error: 'Browser view not created' }
+  }
+
+  const mode = typeof rawMode === 'string' ? rawMode : ''
+  if (mode !== 'desktop' && mode !== 'mobile' && mode !== 'tablet') {
+    return { success: false, error: 'Invalid device mode' }
+  }
+
+  const applyUserAgent = (ua: string | null) => {
+    const next = typeof ua === 'string' ? ua : ''
+    if (!next) return
+    try {
+      browserView?.webContents.setUserAgent(next)
+    } catch {
+      void 0
+    }
+  }
+
+  try {
+    if (mode === 'desktop') {
+      try {
+        browserView.webContents.disableDeviceEmulation()
+      } catch {
+        void 0
+      }
+      applyUserAgent(browserViewDesktopUserAgent)
+      try {
+        browserView.webContents.reload()
+      } catch {
+        void 0
+      }
+      return { success: true }
+    }
+
+    const size =
+      mode === 'mobile'
+        ? { width: 390, height: 844 }
+        : { width: 768, height: 1024 }
+
+    try {
+      // `screenPosition: 'mobile'` + размеры определяют mobile/tablet режим.
+      browserView.webContents.enableDeviceEmulation({
+        screenPosition: 'mobile',
+        screenSize: size,
+        viewPosition: { x: 0, y: 0 },
+        deviceScaleFactor: 0,
+        viewSize: size,
+        scale: 1,
+      })
+    } catch {
+      void 0
+    }
+
+    const baseUa = browserViewDesktopUserAgent || (() => {
+      try {
+        return browserView.webContents.getUserAgent()
+      } catch {
+        return ''
+      }
+    })()
+    applyUserAgent(buildMobileUserAgent(baseUa))
+
+    try {
+      browserView.webContents.reload()
+    } catch {
+      void 0
+    }
+
     return { success: true }
   } catch (error) {
     return { success: false, error: String(error) }

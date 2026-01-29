@@ -20,6 +20,8 @@ export type ElectronResult<T = unknown> = {
   error?: string
 } & T
 
+export type BrowserDeviceMode = 'desktop' | 'mobile' | 'tablet'
+
 export type BrowserEvent =
   | { type: 'loading'; isLoading: boolean }
   | { type: 'nav'; canGoBack: boolean; canGoForward: boolean; url?: string }
@@ -97,6 +99,7 @@ export interface ElectronAPI {
   browserGoBack: () => Promise<ElectronResult>
   browserGoForward: () => Promise<ElectronResult>
   browserReload: () => Promise<ElectronResult>
+  browserSetDeviceMode: (mode: BrowserDeviceMode) => Promise<ElectronResult>
   browserHighlightHeading: (payload: { level: number; text: string }) => Promise<ElectronResult>
   browserHighlightLink: (url: string) => Promise<ElectronResult>
   browserHighlightImage: (url: string) => Promise<ElectronResult>

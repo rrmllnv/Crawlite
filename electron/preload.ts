@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   browserGoBack: () => ipcRenderer.invoke('browser:go-back'),
   browserGoForward: () => ipcRenderer.invoke('browser:go-forward'),
   browserReload: () => ipcRenderer.invoke('browser:reload'),
+  browserSetDeviceMode: (mode: 'desktop' | 'mobile' | 'tablet') => ipcRenderer.invoke('browser:set-device-mode', mode),
   browserHighlightHeading: (payload: { level: number; text: string }) => ipcRenderer.invoke('browser:highlight-heading', payload),
   browserHighlightLink: (url: string) => ipcRenderer.invoke('browser:highlight-link', url),
   browserHighlightImage: (url: string) => ipcRenderer.invoke('browser:highlight-image', url),

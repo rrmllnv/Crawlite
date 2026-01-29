@@ -3,7 +3,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { browserService } from '../../services/BrowserService'
 import { crawlService } from '../../services/CrawlService'
 import { selectPage, upsertPage } from '../../store/slices/crawlSlice'
-import { clearRequestedNavigate, ensurePagesTreeExpanded, setCurrentUrl, setPageLoading, togglePagesTreeExpanded } from '../../store/slices/browserSlice'
+import { clearRequestedNavigate, ensurePagesTreeExpanded, setCurrentUrl, setDeviceMode, setPageLoading, togglePagesTreeExpanded } from '../../store/slices/browserSlice'
 import type { CrawlPageData } from '../../electron'
 import { Separate } from '../../components/Separate/Separate'
 import { ImageModal } from '../../components/ImageModal/ImageModal'
@@ -303,6 +303,7 @@ export function BrowserView() {
   const errors = useAppSelector((s) => s.crawl.errors)
   const isPageLoading = useAppSelector((s) => s.browser.isPageLoading)
   const pagesTreeExpandedIds = useAppSelector((s) => s.browser.pagesTreeExpandedIds)
+  const deviceMode = useAppSelector((s) => s.browser.deviceMode)
 
   const [activeTab, setActiveTab] = useState<TabId>('meta')
   const [imageModalUrl, setImageModalUrl] = useState<string>('')
@@ -336,6 +337,20 @@ export function BrowserView() {
 
   const toggle = (id: string) => {
     dispatch(togglePagesTreeExpanded(id))
+  }
+
+  const handleSetDeviceMode = async (mode: 'desktop' | 'mobile' | 'tablet') => {
+    if (mode === deviceMode) {
+      return
+    }
+    try {
+      const res = await browserService.setDeviceMode(mode)
+      if (res?.success) {
+        dispatch(setDeviceMode(mode))
+      }
+    } catch {
+      void 0
+    }
   }
 
   const selectedPage = useMemo(() => {
@@ -618,7 +633,7 @@ export function BrowserView() {
         <div className="browser-view__pages browser-tree">
           {pages.length === 0 && (
             <div className="browser-view__empty">
-              Пока нет страниц. Запустите crawling в Header.
+              Пока нет страниц. Запустите crawling.
             </div>
           )}
           {pages.length > 0 && (
@@ -637,7 +652,38 @@ export function BrowserView() {
 
       <div className="browser-view__col browser-view__col--browser">
         <div className="browser-view__browser-header">
-          <div className="browser-view__col-title">Браузер</div>
+          <div className="browser-view__browser-header-top">
+            <div className="browser-view__col-title">Браузер</div>
+            <div className="browser-view__device-toggle" role="group" aria-label="Режим отображения">
+              <button
+                type="button"
+                className={`browser-view__device-button ${deviceMode === 'desktop' ? 'browser-view__device-button--active' : ''}`}
+                onClick={() => void handleSetDeviceMode('desktop')}
+                title="Десктоп"
+                aria-label="Десктоп"
+              >
+                <i className="fa-solid fa-desktop" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className={`browser-view__device-button ${deviceMode === 'mobile' ? 'browser-view__device-button--active' : ''}`}
+                onClick={() => void handleSetDeviceMode('mobile')}
+                title="Мобильная"
+                aria-label="Мобильная"
+              >
+                <i className="fa-solid fa-mobile-screen" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className={`browser-view__device-button ${deviceMode === 'tablet' ? 'browser-view__device-button--active' : ''}`}
+                onClick={() => void handleSetDeviceMode('tablet')}
+                title="Планшет"
+                aria-label="Планшет"
+              >
+                <i className="fa-solid fa-tablet" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
           <div className="browser-view__col-subtitle">{selectedPage ? selectedPage.url : '—'}</div>
         </div>
         {isPageLoading && <div className="browser-view__loading-bar">Загрузка страницы…</div>}
