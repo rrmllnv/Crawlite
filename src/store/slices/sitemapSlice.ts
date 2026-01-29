@@ -5,6 +5,7 @@ export interface SiteMapState {
   error: string
   urls: string[]
   sitemaps: string[]
+  urlMetaByUrl: Record<string, { lastmod?: string; changefreq?: string; priority?: string }>
   expandedIds: string[]
   scrollTop: number
 }
@@ -14,6 +15,7 @@ const initialState: SiteMapState = {
   error: '',
   urls: [],
   sitemaps: [],
+  urlMetaByUrl: {},
   expandedIds: ['root'],
   scrollTop: 0,
 }
@@ -28,11 +30,23 @@ export const sitemapSlice = createSlice({
     setError: (state, action: PayloadAction<string>) => {
       state.error = action.payload || ''
     },
-    setData: (state, action: PayloadAction<{ urls: string[]; sitemaps: string[] }>) => {
+    setData: (
+      state,
+      action: PayloadAction<{
+        urls: string[]
+        sitemaps: string[]
+        urlMetaByUrl?: Record<string, { lastmod?: string; changefreq?: string; priority?: string }>
+      }>
+    ) => {
       const urls = Array.isArray(action.payload?.urls) ? action.payload.urls : []
       const sitemaps = Array.isArray(action.payload?.sitemaps) ? action.payload.sitemaps : []
+      const urlMetaByUrl =
+        action.payload?.urlMetaByUrl && typeof action.payload.urlMetaByUrl === 'object'
+          ? (action.payload.urlMetaByUrl as Record<string, { lastmod?: string; changefreq?: string; priority?: string }>)
+          : {}
       state.urls = urls
       state.sitemaps = sitemaps
+      state.urlMetaByUrl = urlMetaByUrl
       state.expandedIds = ['root']
       state.scrollTop = 0
     },

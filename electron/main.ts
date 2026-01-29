@@ -139,7 +139,7 @@ ipcMain.handle('sitemap:build', async (_event, startUrl: string) => {
   }
   try {
     const data = await buildSitemapUrls(u.toString())
-    return { success: true, sitemaps: data.sitemaps, urls: data.urls }
+    return { success: true, sitemaps: data.sitemaps, urls: data.urls, urlMetaByUrl: (data as any).urlMetaByUrl || {} }
   } catch (error) {
     return { success: false, error: String(error) }
   }

@@ -119,9 +119,12 @@
   padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: $border-radius;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-secondary, #252526);
   margin-bottom: 10px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 .sitemap-view__header-right {
@@ -131,11 +134,17 @@
   flex-wrap: wrap;
 }
 
+.sitemap-view__search-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .sitemap-view__search {
   min-width: 180px;
   max-width: 280px;
   height: 28px;
-  padding: 4px 8px;
+  padding: 4px 30px 4px 8px;
   font-size: 12px;
   border: 1px solid $border-color;
   border-radius: $border-radius;
@@ -157,6 +166,34 @@
   }
 }
 
+.sitemap-view__search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: $text-primary;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.sitemap-tree__meta {
+  font-size: 11px;
+  color: $text-secondary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .sitemap-view__title-wrap {
   display: flex;
   flex-direction: column;
@@ -220,6 +257,10 @@
   cursor: pointer;
   padding: 6px 8px;
   border-radius: $border-radius;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: start;
 }
 
 .sitemap-tree__label:hover {
@@ -232,6 +273,35 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sitemap-tree__label-main {
+  min-width: 0;
+}
+
+.sitemap-tree__label-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sitemap-tree__label-count {
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+.sitemap-tree__count {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 0 8px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  color: $text-primary;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sitemap-tree__children {

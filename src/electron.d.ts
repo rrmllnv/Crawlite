@@ -117,7 +117,13 @@ export interface ElectronAPI {
   downloadFile: (url: string) => Promise<ElectronResult>
   resourceHead: (url: string) => Promise<ElectronResult<{ contentLength?: number | null; elapsedMs?: number | null }>>
 
-  sitemapBuild: (startUrl: string) => Promise<ElectronResult<{ sitemaps?: string[]; urls?: string[] }>>
+  sitemapBuild: (startUrl: string) => Promise<
+    ElectronResult<{
+      sitemaps?: string[]
+      urls?: string[]
+      urlMetaByUrl?: Record<string, { lastmod?: string; changefreq?: string; priority?: string }>
+    }>
+  >
 
   onBrowserEvent: (listener: (event: BrowserEvent) => void) => () => void
   onCrawlEvent: (listener: (event: CrawlEvent) => void) => () => void

@@ -46,15 +46,17 @@ export function Header() {
       const res = await window.electronAPI.sitemapBuild(target)
       if (!res?.success) {
         dispatch(setSitemapError(res?.error || 'Не удалось построить sitemap'))
-        dispatch(setSitemapData({ urls: [], sitemaps: [] }))
+        dispatch(setSitemapData({ urls: [], sitemaps: [], urlMetaByUrl: {} }))
         return
       }
       const list = Array.isArray((res as any).urls) ? (res as any).urls : []
       const sm = Array.isArray((res as any).sitemaps) ? (res as any).sitemaps : []
-      dispatch(setSitemapData({ urls: list, sitemaps: sm }))
+      const meta =
+        (res as any).urlMetaByUrl && typeof (res as any).urlMetaByUrl === 'object' ? (res as any).urlMetaByUrl : {}
+      dispatch(setSitemapData({ urls: list, sitemaps: sm, urlMetaByUrl: meta }))
     } catch (e) {
       dispatch(setSitemapError(String(e)))
-      dispatch(setSitemapData({ urls: [], sitemaps: [] }))
+      dispatch(setSitemapData({ urls: [], sitemaps: [], urlMetaByUrl: {} }))
     } finally {
       dispatch(setSitemapBuilding(false))
     }

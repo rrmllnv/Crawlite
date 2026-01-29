@@ -12,10 +12,11 @@ type TreeNode = {
   label: string
   children: TreeNode[]
   url?: string
+  leafCount?: number
 }
 
 function buildUrlTree(urls: string[]) {
-  const root: TreeNode = { id: 'root', label: 'root', children: [] }
+  const root: TreeNode = { id: 'root', label: 'Хосты', children: [] }
   const byId = new Map<string, TreeNode>()
   byId.set(root.id, root)
 
@@ -76,6 +77,17 @@ function buildUrlTree(urls: string[]) {
     for (const c of node.children) sortNode(c)
   }
   sortNode(root)
+
+  const computeLeafCounts = (node: TreeNode): number => {
+    let total = node.url ? 1 : 0
+    for (const c of node.children) {
+      total += computeLeafCounts(c)
+    }
+    node.leafCount = total
+    return total
+  }
+  computeLeafCounts(root)
+
   return root
 }
 
@@ -114,21 +126,71 @@ function TreeItem({
   expanded,
   toggle,
   onOpen,
+  getUrlMeta,
 }: {
   node: TreeNode
   level: number
   expanded: Set<string>
   toggle: (id: string) => void
   onOpen: (url: string) => void
+  getUrlMeta: (url: string) => { lastmod?: string; changefreq?: string; priority?: string } | null
 }) {
   const hasChildren = node.children.length > 0
   const isExpanded = expanded.has(node.id)
   const isLeaf = Boolean(node.url)
+  const nestedUrlsCount = (() => {
+    if (!hasChildren) return 0
+    const total = typeof node.leafCount === 'number' ? node.leafCount : node.children.length
+    // если узел сам является URL (например /blog) — не считаем его как “вложенный”
+    const self = node.url ? 1 : 0
+    return Math.max(0, total - self)
+  })()
+  const meta = isLeaf && node.url ? getUrlMeta(node.url) : null
+  const metaText = (() => {
+    if (!meta) return ''
+    const parts: string[] = []
+    const lastmod = String(meta.lastmod || '').trim()
+    const changefreq = String(meta.changefreq || '').trim()
+    const priority = String(meta.priority || '').trim()
+    if (lastmod) parts.push(lastmod)
+    if (priority) parts.push(`prio ${priority}`)
+    if (changefreq) parts.push(changefreq)
+    return parts.join(' · ')
+  })()
+
+  const titleText = (() => {
+    if (!isLeaf) {
+      const lines: string[] = [node.label]
+      if (hasChildren) {
+        lines.push(`URL: ${nestedUrlsCount}`)
+      }
+      return lines.join('\n')
+    }
+    if (!node.url) return node.label
+    const m = getUrlMeta(node.url)
+    const lines: string[] = [node.url]
+    if (hasChildren) {
+      lines.push(`URL: ${nestedUrlsCount}`)
+    }
+    if (!m) return lines.join('\n')
+    const lastmod = String(m.lastmod || '').trim()
+    const changefreq = String(m.changefreq || '').trim()
+    const priority = String(m.priority || '').trim()
+    if (lastmod) lines.push(`lastmod: ${lastmod}`)
+    if (changefreq) lines.push(`changefreq: ${changefreq}`)
+    if (priority) lines.push(`priority: ${priority}`)
+    return lines.join('\n')
+  })()
   return (
     <div>
       <div className="sitemap-tree__row" style={{ paddingLeft: 8 + level * 14 }}>
         {hasChildren ? (
-          <button type="button" className="sitemap-tree__toggle" onClick={() => toggle(node.id)} title={isExpanded ? 'Свернуть' : 'Раскрыть'}>
+          <button
+            type="button"
+            className="sitemap-tree__toggle"
+            onClick={() => toggle(node.id)}
+            title={`${isExpanded ? 'Свернуть' : 'Раскрыть'} · URL: ${nestedUrlsCount}`}
+          >
             <i className={`fa-solid ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
           </button>
         ) : (
@@ -141,16 +203,32 @@ function TreeItem({
             if (isLeaf && node.url) onOpen(node.url)
             else if (hasChildren) toggle(node.id)
           }}
-          title={node.url || node.label}
+          title={titleText}
         >
-          <div style={{ fontWeight: isLeaf ? 600 : 700 }}>{node.label}</div>
-          {isLeaf && node.url && <div className="sitemap-tree__url">{node.url}</div>}
+          <div className="sitemap-tree__label-main">
+            <div className="sitemap-tree__label-title" style={{ fontWeight: isLeaf ? 600 : 700 }}>
+              {node.label}
+            </div>
+            {isLeaf && node.url && <div className="sitemap-tree__url">{node.url}</div>}
+            {isLeaf && node.url && metaText ? <div className="sitemap-tree__meta">{metaText}</div> : null}
+          </div>
+          <div className="sitemap-tree__label-count">
+            {hasChildren ? <span className="sitemap-tree__count">{nestedUrlsCount}</span> : null}
+          </div>
         </button>
       </div>
       {hasChildren && isExpanded && (
         <div className="sitemap-tree__children">
           {node.children.map((c) => (
-            <TreeItem key={c.id} node={c} level={level + 1} expanded={expanded} toggle={toggle} onOpen={onOpen} />
+            <TreeItem
+              key={c.id}
+              node={c}
+              level={level + 1}
+              expanded={expanded}
+              toggle={toggle}
+              onOpen={onOpen}
+              getUrlMeta={getUrlMeta}
+            />
           ))}
         </div>
       )}
@@ -166,6 +244,7 @@ export function SiteMapView() {
   const error = useAppSelector((s) => s.sitemap.error)
   const urls = useAppSelector((s) => s.sitemap.urls)
   const sitemaps = useAppSelector((s) => s.sitemap.sitemaps)
+  const urlMetaByUrl = useAppSelector((s) => s.sitemap.urlMetaByUrl)
   const expandedIds = useAppSelector((s) => s.sitemap.expandedIds)
   const scrollTop = useAppSelector((s) => s.sitemap.scrollTop)
 
@@ -188,25 +267,6 @@ export function SiteMapView() {
 
   const uniqueHostsCount = hostsList.length
 
-  const sectionSummary = useMemo(() => {
-    const bySegment = new Map<string, number>()
-    for (const raw of urls) {
-      const uStr = String(raw || '').trim()
-      if (!uStr) continue
-      try {
-        const u = new URL(uStr)
-        const segments = u.pathname.split('/').filter(Boolean)
-        const segment = segments.length === 0 ? '/' : `/${segments[0]}`
-        bySegment.set(segment, (bySegment.get(segment) || 0) + 1)
-      } catch {
-        void 0
-      }
-    }
-    return Array.from(bySegment.entries())
-      .map(([segment, count]) => ({ segment, count }))
-      .sort((a, b) => b.count - a.count)
-  }, [urls])
-
   const filteredUrls = useMemo(() => {
     const q = String(searchQuery || '').trim().toLowerCase()
     if (!q) return urls
@@ -217,6 +277,20 @@ export function SiteMapView() {
   const expanded = useMemo(() => new Set(expandedIds || []), [expandedIds])
   const contentRef = useRef<HTMLDivElement | null>(null)
   const rafRef = useRef<number | null>(null)
+
+  const getUrlMeta = useMemo(() => {
+    return (url: string) => {
+      const key = String(url || '').trim()
+      if (!key) return null
+      const meta = (urlMetaByUrl as any)[key]
+      if (!meta || typeof meta !== 'object') return null
+      return {
+        lastmod: typeof (meta as any).lastmod === 'string' ? (meta as any).lastmod : undefined,
+        changefreq: typeof (meta as any).changefreq === 'string' ? (meta as any).changefreq : undefined,
+        priority: typeof (meta as any).priority === 'string' ? (meta as any).priority : undefined,
+      }
+    }
+  }, [urlMetaByUrl])
 
   const toggle = (id: string) => {
     dispatch(toggleExpanded(id))
@@ -306,23 +380,6 @@ export function SiteMapView() {
             </div>
           </details>
         )}
-
-        {sectionSummary.length > 0 && (
-          <details className="sitemap-view__group">
-            <summary className="sitemap-view__group-summary">
-              <span className="sitemap-view__group-title">Разделы</span>
-              <span className="sitemap-view__group-count">{sectionSummary.length}</span>
-            </summary>
-            <div className="sitemap-view__group-body">
-              {sectionSummary.map(({ segment, count }) => (
-                <div key={segment} className="sitemap-view__group-item sitemap-view__group-item--row" title={segment}>
-                  <span className="sitemap-view__group-item-text">{segment}</span>
-                  <span className="sitemap-view__group-item-badge">{count}</span>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
       </div>
 
       <div
@@ -346,14 +403,27 @@ export function SiteMapView() {
             </div>
           </div>
           <div className="sitemap-view__header-right">
-            <input
-              type="text"
-              className="sitemap-view__search"
-              placeholder="Поиск по URL…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              disabled={urls.length === 0}
-            />
+            <div className="sitemap-view__search-wrap">
+              <input
+                type="text"
+                className="sitemap-view__search"
+                placeholder="Поиск по URL…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                disabled={urls.length === 0}
+              />
+              {searchQuery.trim() && (
+                <button
+                  type="button"
+                  className="sitemap-view__search-clear"
+                  onClick={() => setSearchQuery('')}
+                  title="Очистить"
+                  aria-label="Очистить"
+                >
+                  <i className="fa-solid fa-xmark" aria-hidden="true" />
+                </button>
+              )}
+            </div>
             <div className="sitemap-view__subtitle">
               {isBuilding ? 'Построение… · ' : ''}
               {urls.length === 0 ? 'URL: 0' : searchQuery.trim() ? `URL: ${filteredUrls.length} из ${urls.length}` : `URL: ${urls.length}`}
@@ -367,7 +437,14 @@ export function SiteMapView() {
           <div className="sitemap-view__empty">Нет URL по запросу «{searchQuery.trim()}».</div>
         )}
         {!error && urls.length > 0 && filteredUrls.length > 0 && (
-          <TreeItem node={tree} level={0} expanded={expanded} toggle={toggle} onOpen={(u) => void openInBrowser(u)} />
+          <TreeItem
+            node={tree}
+            level={0}
+            expanded={expanded}
+            toggle={toggle}
+            onOpen={(u) => void openInBrowser(u)}
+            getUrlMeta={getUrlMeta}
+          />
         )}
       </div>
     </div>
