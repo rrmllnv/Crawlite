@@ -1,0 +1,187 @@
+@use '../../styles/variables' as *;
+
+.browser-view {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.browser-view__col {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid $border-color;
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.browser-view__col--pages {
+  width: 320px;
+  background-color: $bg-secondary;
+}
+
+.browser-view__col--browser {
+  flex: 1;
+  background-color: $bg-primary;
+}
+
+.browser-view__col--details {
+  width: 420px;
+  background-color: $bg-secondary;
+}
+
+.browser-view__col-header,
+.browser-view__browser-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid $border-color;
+  background-color: $bg-tertiary;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.browser-view__col-title {
+  font-size: $font-size-lg;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.browser-view__col-subtitle {
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-view__pages {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.browser-view__page {
+  text-align: left;
+  padding: 10px 10px;
+  border-radius: $border-radius;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: $text-primary;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.browser-view__page--active {
+  border-color: rgba(74, 163, 255, 0.65);
+  box-shadow: 0 0 0 1px rgba(74, 163, 255, 0.25) inset;
+}
+
+.browser-view__page-title {
+  font-size: $font-size-md;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-view__page-url {
+  margin-top: 4px;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-view__browser-surface {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background-color: #0f0f10;
+}
+
+.browser-view__tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 8px;
+  border-bottom: 1px solid $border-color;
+  background-color: $bg-tertiary;
+}
+
+.browser-view__tab {
+  padding: 6px 10px;
+  border-radius: $border-radius;
+  background-color: rgba(255, 255, 255, 0.06);
+  color: $text-secondary;
+  font-size: $font-size-sm;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.10);
+    color: $text-primary;
+  }
+}
+
+.browser-view__tab--active {
+  background-color: rgba(74, 163, 255, 0.16);
+  color: $text-primary;
+}
+
+.browser-view__details {
+  flex: 1;
+  overflow: auto;
+  padding: 10px 12px;
+}
+
+.browser-view__kv {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.browser-view__kv-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.browser-view__kv-key {
+  font-size: $font-size-sm;
+  color: $text-secondary;
+}
+
+.browser-view__kv-val {
+  font-size: $font-size-sm;
+  color: $text-primary;
+  word-break: break-word;
+}
+
+.browser-view__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.browser-view__list-item {
+  font-size: $font-size-sm;
+  color: $text-primary;
+  padding: 8px 8px;
+  border-radius: $border-radius;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background-color: rgba(255, 255, 255, 0.04);
+  word-break: break-word;
+}
+
+.browser-view__empty {
+  color: $text-secondary;
+  font-size: $font-size-sm;
+  padding: 10px 6px;
+}
+

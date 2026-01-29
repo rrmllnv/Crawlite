@@ -1,0 +1,62 @@
+@use '../../styles/variables' as *;
+
+.sidebar-nav {
+  width: 56px;
+  background-color: $bg-secondary;
+  border-right: 1px solid $border-color;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: $spacing-sm 0;
+  gap: $spacing-xs;
+}
+
+.sidebar-nav__item {
+  width: 40px;
+  height: 40px;
+  border-radius: $border-radius;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: $text-secondary;
+  position: relative;
+  transition: background-color $transition-fast, color $transition-fast;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    color: $text-primary;
+  }
+
+  &--active {
+    background-color: rgba(255, 255, 255, 0.10);
+    color: $text-primary;
+  }
+
+  i {
+    font-size: 16px;
+  }
+
+  &::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 6px 10px;
+    border-radius: $border-radius;
+    background-color: $bg-tertiary;
+    border: 1px solid $border-color;
+    color: $text-primary;
+    font-size: $font-size-sm;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity $transition-fast;
+    z-index: 10;
+  }
+
+  &:hover::after {
+    opacity: 1;
+  }
+}
+

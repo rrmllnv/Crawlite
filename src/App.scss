@@ -1,0 +1,41 @@
+@use './styles/variables' as *;
+
+.app {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: $bg-primary;
+  color: $text-primary;
+  overflow: hidden;
+}
+
+.app__header {
+  height: 50px;
+  background-color: $bg-secondary;
+  border-bottom: 1px solid $border-color;
+  display: flex;
+  align-items: center;
+  padding: 0 $spacing-md;
+  gap: $spacing-md;
+}
+
+.app__content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.app__container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.app__view {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+

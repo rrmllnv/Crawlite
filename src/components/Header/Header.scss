@@ -1,0 +1,98 @@
+@use '../../styles/variables' as *;
+
+.header__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+}
+
+.header__title {
+  font-size: $font-size-xl;
+  font-weight: 700;
+  color: $text-primary;
+  line-height: 1.1;
+}
+
+.header__subtitle {
+  font-size: $font-size-sm;
+  color: $text-secondary;
+}
+
+.header__toolbar {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.header__url-input {
+  height: 32px;
+  padding: 0 $spacing-md;
+  background-color: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+  color: $text-primary;
+  font-size: $font-size-md;
+  width: 420px;
+
+  &:focus {
+    border-color: $primary-color;
+  }
+}
+
+.header__button {
+  height: 32px;
+  padding: 0 $spacing-md;
+  border-radius: $border-radius;
+  font-size: $font-size-md;
+  color: #ffffff;
+  background-color: $primary-color;
+  transition: background-color $transition-fast, opacity $transition-fast;
+
+  &:hover {
+    background-color: darken($primary-color, 10%);
+  }
+}
+
+.header__button--secondary {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: $text-primary;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+  }
+}
+
+.header__button--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.header__progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 32px;
+  border-radius: $border-radius;
+  border: 1px solid $border-color;
+  background-color: $bg-tertiary;
+  color: $text-secondary;
+}
+
+.header__progress-label {
+  font-size: $font-size-sm;
+}
+
+.header__progress-value {
+  font-size: $font-size-sm;
+  color: $text-primary;
+}
+
+.header__progress-sep {
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  padding: 0 2px;
+}
+

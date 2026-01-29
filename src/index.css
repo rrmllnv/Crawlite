@@ -1,0 +1,71 @@
+/* Base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 13px;
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #1e1e1e;
+  color: #cccccc;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar:horizontal {
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #3e3e42;
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #4e4e52;
+}
+
+a {
+  color: #4aa3ff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+a:hover,
+a:focus {
+  color: #77baff;
+  text-decoration: underline;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: inherit;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  outline: none;
+}
+
