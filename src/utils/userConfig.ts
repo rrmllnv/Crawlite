@@ -71,10 +71,15 @@ export class UserConfigManager {
   }
 
   private mergeWithDefaults(config: Partial<UserConfig>): UserConfig {
+    const appPart = config.app || {}
     return {
       app: {
         ...defaultUserConfig.app,
-        ...(config.app || {}),
+        ...(appPart || {}),
+        browserViewLayout: {
+          ...defaultUserConfig.app.browserViewLayout,
+          ...(((appPart as any)?.browserViewLayout || {}) as Partial<UserConfig['app']['browserViewLayout']>),
+        },
       },
       crawling: {
         ...defaultUserConfig.crawling,

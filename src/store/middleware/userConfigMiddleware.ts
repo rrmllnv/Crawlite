@@ -5,7 +5,7 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
   const result = next(action)
 
   const actionType = action && typeof action === 'object' && 'type' in action ? action.type : null
-  const actionsToSave = ['app/setCurrentView', 'crawl/setCrawlSettings']
+  const actionsToSave = ['app/setCurrentView', 'crawl/setCrawlSettings', 'app/commitBrowserViewLayout']
 
   if (actionType && actionsToSave.includes(actionType as string)) {
     const state = store.getState()
@@ -14,6 +14,7 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
         theme: state.app.theme,
         locale: state.app.locale,
         currentView: state.app.currentView,
+        browserViewLayout: state.app.browserViewLayout,
       },
       crawling: {
         maxDepth: state.crawl.settings.maxDepth,

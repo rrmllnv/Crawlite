@@ -9,6 +9,10 @@ interface AppState {
   currentView: AppView
   theme: Theme
   locale: string
+  browserViewLayout: {
+    pagesColWidthPx: number
+    detailsColWidthPx: number
+  }
 }
 
 const initialState: AppState = {
@@ -17,6 +21,10 @@ const initialState: AppState = {
   currentView: 'browser',
   theme: 'dark',
   locale: 'ru',
+  browserViewLayout: {
+    pagesColWidthPx: 320,
+    detailsColWidthPx: 420,
+  },
 }
 
 export const appSlice = createSlice({
@@ -32,6 +40,22 @@ export const appSlice = createSlice({
     setCurrentView: (state, action: PayloadAction<AppView>) => {
       state.currentView = action.payload
     },
+    setBrowserViewLayout: (state, action: PayloadAction<Partial<AppState['browserViewLayout']>>) => {
+      state.browserViewLayout = {
+        ...state.browserViewLayout,
+        ...(action.payload || {}),
+      }
+    },
+    commitBrowserViewLayout: (state, action: PayloadAction<AppState['browserViewLayout']>) => {
+      const payload = action.payload
+      if (!payload || typeof payload !== 'object') {
+        return
+      }
+      state.browserViewLayout = {
+        ...state.browserViewLayout,
+        ...payload,
+      }
+    },
     hydrateFromConfig: (state, action: PayloadAction<UserConfig | null>) => {
       const cfg = action.payload
       if (!cfg) {
@@ -46,10 +70,28 @@ export const appSlice = createSlice({
       if (cfg?.app?.currentView) {
         state.currentView = cfg.app.currentView
       }
+      const layout = (cfg?.app as any)?.browserViewLayout
+      if (layout && typeof layout === 'object') {
+        const pagesRaw = (layout as any).pagesColWidthPx
+        const detailsRaw = (layout as any).detailsColWidthPx
+        if (typeof pagesRaw === 'number' && Number.isFinite(pagesRaw) && pagesRaw > 0) {
+          state.browserViewLayout.pagesColWidthPx = Math.floor(pagesRaw)
+        }
+        if (typeof detailsRaw === 'number' && Number.isFinite(detailsRaw) && detailsRaw > 0) {
+          state.browserViewLayout.detailsColWidthPx = Math.floor(detailsRaw)
+        }
+      }
     },
   },
 })
 
-export const { setLoading, setError, setCurrentView, hydrateFromConfig } = appSlice.actions
+export const {
+  setLoading,
+  setError,
+  setCurrentView,
+  setBrowserViewLayout,
+  commitBrowserViewLayout,
+  hydrateFromConfig,
+} = appSlice.actions
 export default appSlice.reducer
 

@@ -1,9 +1,11 @@
-import { useState } from 'react'
-import { useAppSelector } from '../../store/hooks'
+import { useMemo, useRef, useState } from 'react'
+import { useAppDispatch, useAppSelector } from '../../store/hooks'
+import { commitBrowserViewLayout, setBrowserViewLayout } from '../../store/slices/appSlice'
 import { TreeItem } from '../TreeItem/TreeItem'
 import { BrowserProperties, type TabId } from '../BrowserProperties/BrowserProperties'
 import { ImageModal } from '../ImageModal/ImageModal'
 import { ResourceModal } from '../ResourceModal/ResourceModal'
+import { PanelResizer } from '../PanelResizer/PanelResizer'
 import { useBrowserBounds } from './hooks/useBrowserBounds'
 import { useBrowserViewData } from './hooks/useBrowserViewData'
 import { useBrowserEffects } from './hooks/useBrowserEffects'
@@ -13,8 +15,17 @@ import type { ResourceHeadInfo } from './types'
 import './BrowserView.scss'
 
 export function BrowserView() {
+  const dispatch = useAppDispatch()
   const deviceMode = useAppSelector((s) => s.browser.deviceMode)
   const isPageLoading = useAppSelector((s) => s.browser.isPageLoading)
+  const pagesColWidthPx = useAppSelector((s) => s.app.browserViewLayout.pagesColWidthPx)
+  const detailsColWidthPx = useAppSelector((s) => s.app.browserViewLayout.detailsColWidthPx)
+
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const resizerWidthPx = 10
+  const minBrowserPx = 360
+  const minPagesPx = 220
+  const minDetailsPx = 280
 
   const [activeTab, setActiveTab] = useState<TabId>('meta')
   const [imageModalUrl, setImageModalUrl] = useState<string>('')
@@ -60,9 +71,56 @@ export function BrowserView() {
     pagesByUrl,
   })
 
+  const clamp = useMemo(() => {
+    return (value: number, min: number, max: number) => {
+      const v = Math.floor(Number(value))
+      if (!Number.isFinite(v)) return min
+      if (v < min) return min
+      if (v > max) return max
+      return v
+    }
+  }, [])
+
+  const getContainerWidth = () => {
+    try {
+      return Math.floor(rootRef.current?.getBoundingClientRect().width || 0)
+    } catch {
+      return 0
+    }
+  }
+
+  const onLeftResizerDeltaX = (deltaX: number) => {
+    const containerWidth = getContainerWidth()
+    const resizersTotal = resizerWidthPx * 2
+    const maxPagesPx =
+      containerWidth > 0
+        ? Math.max(minPagesPx, containerWidth - detailsColWidthPx - minBrowserPx - resizersTotal)
+        : Math.max(minPagesPx, pagesColWidthPx + 800)
+    const nextPages = clamp(pagesColWidthPx + deltaX, minPagesPx, maxPagesPx)
+    dispatch(setBrowserViewLayout({ pagesColWidthPx: nextPages }))
+  }
+
+  const onRightResizerDeltaX = (deltaX: number) => {
+    const containerWidth = getContainerWidth()
+    const resizersTotal = resizerWidthPx * 2
+    const maxDetailsPx =
+      containerWidth > 0
+        ? Math.max(minDetailsPx, containerWidth - pagesColWidthPx - minBrowserPx - resizersTotal)
+        : Math.max(minDetailsPx, detailsColWidthPx + 800)
+    const nextDetails = clamp(detailsColWidthPx - deltaX, minDetailsPx, maxDetailsPx)
+    dispatch(setBrowserViewLayout({ detailsColWidthPx: nextDetails }))
+  }
+
+  const commitLayout = () => {
+    dispatch(commitBrowserViewLayout({ pagesColWidthPx, detailsColWidthPx }))
+  }
+
   return (
-    <div className="browser-view">
-      <div className="browser-view__col browser-view__col--pages">
+    <div className="browser-view" ref={rootRef}>
+      <div
+        className="browser-view__col browser-view__col--pages"
+        style={{ width: `${pagesColWidthPx}px` }}
+      >
         <div className="browser-view__col-header">
           <div className="browser-view__col-title">Страницы</div>
           <div className="browser-view__col-subtitle">{pages.length}</div>
@@ -86,6 +144,12 @@ export function BrowserView() {
           )}
         </div>
       </div>
+
+      <PanelResizer
+        ariaLabel="Изменение ширины колонок: страницы/браузер"
+        onDeltaX={onLeftResizerDeltaX}
+        onDragEnd={commitLayout}
+      />
 
       <div className="browser-view__col browser-view__col--browser">
         <div className="browser-view__browser-header">
@@ -140,7 +204,16 @@ export function BrowserView() {
         </div>
       </div>
 
-      <div className="browser-view__col browser-view__col--details">
+      <PanelResizer
+        ariaLabel="Изменение ширины колонок: браузер/данные"
+        onDeltaX={onRightResizerDeltaX}
+        onDragEnd={commitLayout}
+      />
+
+      <div
+        className="browser-view__col browser-view__col--details"
+        style={{ width: `${detailsColWidthPx}px` }}
+      >
         <div className="browser-view__col-header">
           <div className="browser-view__col-title">Данные</div>
           <div className="browser-view__col-subtitle">{selectedPage ? 'выбрана' : 'нет'}</div>

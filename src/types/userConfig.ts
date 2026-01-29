@@ -5,6 +5,10 @@ export interface UserConfig {
     theme: Theme
     locale: string
     currentView: 'dashboard' | 'browser' | 'sitemap' | 'settings'
+    browserViewLayout: {
+      pagesColWidthPx: number
+      detailsColWidthPx: number
+    }
   }
   crawling: {
     maxDepth: number
@@ -17,6 +21,10 @@ export const defaultUserConfig: UserConfig = {
     theme: 'dark',
     locale: 'ru',
     currentView: 'browser',
+    browserViewLayout: {
+      pagesColWidthPx: 320,
+      detailsColWidthPx: 420,
+    },
   },
   crawling: {
     maxDepth: 2,
