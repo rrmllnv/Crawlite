@@ -811,6 +811,26 @@ export function BrowserView() {
 
           {selectedPage && activeTab === 'meta' && (
             <div className="browser-view__kv">
+              
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Title</div>
+                <div className="browser-view__kv-val">{selectedPage.title || '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Description</div>
+                <div className="browser-view__kv-val">{selectedPage.description || '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Keywords</div>
+                <div className="browser-view__kv-val">{selectedPage.keywords || '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">H1</div>
+                <div className="browser-view__kv-val">{selectedPage.h1 || '—'}</div>
+              </div>
+
+              <Separate title="Индексация страницы" />
+
               <div className="browser-view__kv-row">
                 <div className="browser-view__kv-key">URL</div>
                 <div className="browser-view__kv-val">{selectedPage.url}</div>
@@ -823,54 +843,8 @@ export function BrowserView() {
                 <div className="browser-view__kv-key">Meta robots</div>
                 <div className="browser-view__kv-val">{String((selectedPage as any).metaRobots || '').trim() || '—'}</div>
               </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">IP сайта</div>
-                <div className="browser-view__kv-val">{String((selectedPage as any).ipAddress || '').trim() || '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Title</div>
-                <div className="browser-view__kv-val">{selectedPage.title || '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">H1</div>
-                <div className="browser-view__kv-val">{selectedPage.h1 || '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Description</div>
-                <div className="browser-view__kv-val">{selectedPage.description || '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Keywords</div>
-                <div className="browser-view__kv-val">{selectedPage.keywords || '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Ответ сервера</div>
-                <div className="browser-view__kv-val">{selectedPage.statusCode === null ? '—' : String(selectedPage.statusCode)}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Размер (KB)</div>
-                <div className="browser-view__kv-val">{formatSizeKB(selectedPage.contentLength)}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Время открытия (s)</div>
-                <div className="browser-view__kv-val">{formatSeconds(selectedPage.loadTimeMs)}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Время анализа (s)</div>
-                <div className="browser-view__kv-val">{formatSeconds((selectedPage as any).analysisTimeMs)}</div>
-              </div>
-
-              {contacts.length > 0 && (
-                <>
-                  <Separate title="Контакты на странице" />
-                  {contacts.map((x) => (
-                    <div key={x} className="browser-view__kv-row">
-                      <div className="browser-view__kv-key">{normalizeContactValue(x).label}</div>
-                      <div className="browser-view__kv-val">{normalizeContactValue(x).value}</div>
-                    </div>
-                  ))}
-                </>
-              )}
+              
+              
 
               {seoIssues.length > 0 && (
                 <>
@@ -896,7 +870,7 @@ export function BrowserView() {
                       onClick={() => {
                         setOpenHeadingLevels((prev) => {
                           const isOpen = prev.size > 0
-                          return isOpen ? new Set() : new Set(['h2', 'h3', 'h4', 'h5', 'h6'])
+                          return isOpen ? new Set() : new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
                         })
                       }}
                       disabled={isPageLoading}
@@ -908,28 +882,8 @@ export function BrowserView() {
 
                 {summary && (
                   <div className="browser-view__headings">
-                    <div className="browser-view__headings-level browser-view__headings-level--open">
-                      <div className="browser-view__headings-summary">
-                        <span className="browser-view__headings-title">H1</span>
-                        <span className="browser-view__headings-count">{summary.headingsText.h1.length || summary.headings.h1}</span>
-                      </div>
-                      <div className="browser-view__headings-list">
-                        {summary.headingsText.h1.length === 0 && <div className="browser-view__headings-empty">Нет</div>}
-                        {summary.headingsText.h1.map((t) => (
-                          <button
-                            type="button"
-                            key={`h1:${t}`}
-                            className="browser-view__headings-item browser-view__headings-item--button"
-                            onClick={() => void browserService.highlightHeading(1, t)}
-                            disabled={isPageLoading}
-                          >
-                            {t}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
                     {([
+                      ['h1', 'H1'],
                       ['h2', 'H2'],
                       ['h3', 'H3'],
                       ['h4', 'H4'],
@@ -985,6 +939,41 @@ export function BrowserView() {
 
                 {!summary && <div className="browser-view__empty">—</div>}
               </div>
+
+              <Separate title="Параметры соединения" />
+
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">IP сайта</div>
+                <div className="browser-view__kv-val">{String((selectedPage as any).ipAddress || '').trim() || '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Ответ сервера</div>
+                <div className="browser-view__kv-val">{selectedPage.statusCode === null ? '—' : String(selectedPage.statusCode)}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Размер (KB)</div>
+                <div className="browser-view__kv-val">{formatSizeKB(selectedPage.contentLength)}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Время открытия (s)</div>
+                <div className="browser-view__kv-val">{formatSeconds(selectedPage.loadTimeMs)}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Время анализа (s)</div>
+                <div className="browser-view__kv-val">{formatSeconds((selectedPage as any).analysisTimeMs)}</div>
+              </div>
+
+              {contacts.length > 0 && (
+                <>
+                  <Separate title="Контакты на странице" />
+                  {contacts.map((x) => (
+                    <div key={x} className="browser-view__kv-row">
+                      <div className="browser-view__kv-key">{normalizeContactValue(x).label}</div>
+                      <div className="browser-view__kv-val">{normalizeContactValue(x).value}</div>
+                    </div>
+                  ))}
+                </>
+              )}
 
             </div>
           )}

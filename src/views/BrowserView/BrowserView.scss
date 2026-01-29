@@ -120,10 +120,10 @@
 .browser-view__pages {
   flex: 1;
   overflow: auto;
-  padding: 8px;
+  // padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  // gap: 8px;
 }
 
 .browser-tree {
@@ -134,8 +134,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 6px;
-  border-radius: $border-radius;
+  padding: 5px;
+  // border-radius: $border-radius;
   color: $text-primary;
 
   &:hover {
