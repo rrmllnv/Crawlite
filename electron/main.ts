@@ -105,28 +105,17 @@ let crawlMainFrameMetaByUrl = new Map<string, { statusCode: number | null; conte
 let crawlWebRequestAttachedForWebContentsId: number | null = null
 
 const BROWSER_SCROLLBAR_CSS = `
-  /* App-injected scrollbar styling (WebContentsView) */
-  :root {
-    color-scheme: dark;
+  /* App-injected scrollbar styling (WebContentsView). !important перебивает стили страницы. */
+  :root { color-scheme: dark; }
+  *::-webkit-scrollbar { width: 10px !important; height: 10px !important; }
+  *::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.06) !important; }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-radius: 5px !important;
   }
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.04);
-  }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.16);
-    border-radius: 10px;
-    border: 2px solid rgba(0, 0, 0, 0);
-    background-clip: padding-box;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.22);
-    border: 2px solid rgba(0, 0, 0, 0);
-    background-clip: padding-box;
-  }
+  *::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3) !important; }
+  *::-webkit-scrollbar-thumb:active { background: rgba(255, 255, 255, 0.4) !important; }
+  *::-webkit-scrollbar-corner { background: transparent !important; }
 `
 
 function safeParseUrl(raw: string): URL | null {
@@ -641,14 +630,20 @@ function ensureBrowserView(bounds: BrowserBounds) {
       browserView.webContents.on('did-navigate-in-page', sendNavState)
       browserView.webContents.on('did-start-navigation', sendNavState)
 
-      browserView.webContents.on('did-finish-load', () => {
+      const injectScrollbarCSS = () => {
         try {
-          void browserView?.webContents.insertCSS(BROWSER_SCROLLBAR_CSS).catch(() => void 0)
+          const wc = browserView?.webContents
+          if (!wc || wc.isDestroyed()) return
+          void wc.insertCSS(BROWSER_SCROLLBAR_CSS, { cssOrigin: 'user' }).catch(() => void 0)
         } catch {
           void 0
         }
+      }
+      browserView.webContents.on('did-finish-load', () => {
+        injectScrollbarCSS()
+        setTimeout(injectScrollbarCSS, 150)
       })
-      void browserView.webContents.insertCSS(BROWSER_SCROLLBAR_CSS).catch(() => void 0)
+      injectScrollbarCSS()
       sendNavState()
     } catch {
       void 0
