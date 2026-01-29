@@ -82,7 +82,6 @@ function App() {
         return
       }
       if (evt.type === 'page:discovered') {
-        dispatch(upsertPage(evt.page))
         dispatch(setProgress({ processed: evt.processed, queued: evt.queued }))
         return
       }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
-import { setCurrentView, setError, setLoading } from '../../store/slices/appSlice'
+import { setCurrentView, setError } from '../../store/slices/appSlice'
 import { resetCrawl, setCrawlStatus, setRunId, setStartUrl } from '../../store/slices/crawlSlice'
 import { crawlService } from '../../services/CrawlService'
 import { requestNavigate } from '../../store/slices/browserSlice'
@@ -55,15 +55,14 @@ export function Header() {
 
     // "Перейти" = открыть страницу + запустить crawling только этой страницы
     dispatch(setError(null))
-    dispatch(setLoading(true))
     dispatch(resetCrawl())
     dispatch(setStartUrl(url))
     dispatch(setCurrentView('browser'))
     dispatch(requestNavigate(url))
     dispatch(setCrawlStatus('running'))
 
-    try {
-      const res = await crawlService.start({
+    void crawlService
+      .start({
         startUrl: url,
         options: {
           maxDepth: 0,
@@ -72,18 +71,18 @@ export function Header() {
           jitterMs: 0,
         },
       })
-      if (!res.success) {
+      .then((res) => {
+        if (!res.success) {
+          dispatch(setCrawlStatus('error'))
+          dispatch(setError(res.error || 'Crawl start failed'))
+          return
+        }
+        dispatch(setRunId(typeof (res as any).runId === 'string' ? (res as any).runId : null))
+      })
+      .catch((error) => {
         dispatch(setCrawlStatus('error'))
-        dispatch(setError(res.error || 'Crawl start failed'))
-        return
-      }
-      dispatch(setRunId(typeof (res as any).runId === 'string' ? (res as any).runId : null))
-    } catch (error) {
-      dispatch(setCrawlStatus('error'))
-      dispatch(setError(String(error)))
-    } finally {
-      dispatch(setLoading(false))
-    }
+        dispatch(setError(String(error)))
+      })
   }
 
   const handleStart = async () => {
@@ -93,15 +92,14 @@ export function Header() {
     }
 
     dispatch(setError(null))
-    dispatch(setLoading(true))
     dispatch(resetCrawl())
     dispatch(setStartUrl(startUrl))
     dispatch(setCurrentView('browser'))
     dispatch(requestNavigate(startUrl))
     dispatch(setCrawlStatus('running'))
 
-    try {
-      const res = await crawlService.start({
+    void crawlService
+      .start({
         startUrl,
         options: {
           maxDepth: crawlSettings.maxDepth,
@@ -110,18 +108,18 @@ export function Header() {
           jitterMs: 350,
         },
       })
-      if (!res.success) {
+      .then((res) => {
+        if (!res.success) {
+          dispatch(setCrawlStatus('error'))
+          dispatch(setError(res.error || 'Crawl start failed'))
+          return
+        }
+        dispatch(setRunId(typeof (res as any).runId === 'string' ? (res as any).runId : null))
+      })
+      .catch((error) => {
         dispatch(setCrawlStatus('error'))
-        dispatch(setError(res.error || 'Crawl start failed'))
-        return
-      }
-      dispatch(setRunId(typeof (res as any).runId === 'string' ? (res as any).runId : null))
-    } catch (error) {
-      dispatch(setCrawlStatus('error'))
-      dispatch(setError(String(error)))
-    } finally {
-      dispatch(setLoading(false))
-    }
+        dispatch(setError(String(error)))
+      })
   }
 
   const handleCancel = async () => {
