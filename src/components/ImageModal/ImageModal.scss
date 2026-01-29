@@ -92,6 +92,7 @@
 
 .image-modal__footer {
   display: flex;
+  gap: 10px;
   justify-content: flex-end;
   padding: 12px 14px;
   border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
@@ -104,5 +105,15 @@
   background: var(--primary-color, #4aa3ff);
   color: #fff;
   cursor: pointer;
+}
+
+.image-modal__button--secondary {
+  background: transparent;
+  color: var(--text-primary, #fff);
+}
+
+.image-modal__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 

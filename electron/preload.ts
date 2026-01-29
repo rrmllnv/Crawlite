@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadUserConfig: () => ipcRenderer.invoke('load-user-config'),
   saveUserConfig: (userConfig: any) => ipcRenderer.invoke('save-user-config', userConfig),
 
+  downloadFile: (url: string) => ipcRenderer.invoke('download:file', url),
+
   onCrawlEvent: (listener: (event: unknown) => void) => {
     const handler = (_evt: unknown, payload: unknown) => listener(payload)
     ipcRenderer.on('crawl:event', handler)

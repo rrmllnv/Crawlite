@@ -184,6 +184,20 @@
   }
 }
 
+.browser-view__tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.10);
+  color: $text-primary;
+  font-size: 11px;
+}
+
 .browser-view__tab--active {
   background-color: rgba(74, 163, 255, 0.16);
   color: $text-primary;

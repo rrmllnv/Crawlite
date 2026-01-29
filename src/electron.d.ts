@@ -72,6 +72,7 @@ export type CrawlPageData = {
   images: string[]
   scripts: string[]
   stylesheets: string[]
+  misc: string[]
 }
 
 export interface ElectronAPI {
@@ -85,6 +86,8 @@ export interface ElectronAPI {
 
   loadUserConfig: () => Promise<any>
   saveUserConfig: (userConfig: any) => Promise<boolean>
+
+  downloadFile: (url: string) => Promise<ElectronResult>
 
   onCrawlEvent: (listener: (event: CrawlEvent) => void) => () => void
 }

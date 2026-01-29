@@ -1,6 +1,7 @@
-import { app, BrowserWindow, WebContentsView, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, WebContentsView, ipcMain, shell, dialog, net } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import fs from 'node:fs'
 import { loadUserConfig, saveUserConfig } from './api/UserConfig'
 
 type BrowserBounds = { x: number; y: number; width: number; height: number }
@@ -46,6 +47,7 @@ type CrawlPageData = {
   images: string[]
   scripts: string[]
   stylesheets: string[]
+  misc: string[]
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -166,6 +168,57 @@ function parseContentLength(headers: Record<string, unknown> | undefined): numbe
     return null
   }
   return Math.trunc(num)
+}
+
+function suggestFilenameFromUrl(rawUrl: string): string {
+  try {
+    const u = new URL(rawUrl)
+    const last = String(u.pathname || '').split('/').filter(Boolean).pop() || ''
+    const clean = last.split('?')[0].split('#')[0]
+    return clean || 'download'
+  } catch {
+    return 'download'
+  }
+}
+
+async function downloadToFile(url: string, filePath: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    try {
+      const request = net.request(url)
+      request.on('response', (response) => {
+        try {
+          const statusCode = typeof response.statusCode === 'number' ? response.statusCode : 0
+          // базовая поддержка редиректов
+          if (statusCode >= 300 && statusCode < 400) {
+            const location = response.headers?.location
+            const next = Array.isArray(location) ? location[0] : location
+            if (typeof next === 'string' && next) {
+              // закрываем текущий поток
+              try {
+                ;(response as any).destroy()
+              } catch {
+                void 0
+              }
+              void downloadToFile(next, filePath).then(resolve).catch(reject)
+              return
+            }
+          }
+
+          const stream = fs.createWriteStream(filePath)
+          stream.on('finish', () => resolve())
+          stream.on('error', (e: unknown) => reject(e))
+          ;(response as any).on('error', (e: unknown) => reject(e))
+          ;(response as any).pipe(stream)
+        } catch (e) {
+          reject(e)
+        }
+      })
+      request.on('error', (e) => reject(e))
+      request.end()
+    } catch (e) {
+      reject(e)
+    }
+  })
 }
 
 function attachCrawlWebRequestListeners(view: WebContentsView) {
@@ -429,21 +482,78 @@ async function extractPageDataFromView(
         htmlBytes = null;
       }
 
-      const rawLinks = Array.from(document.querySelectorAll('a[href]'))
-        .map((a) => a && a.href ? String(a.href) : '')
-        .filter(Boolean);
+      const isHttpLike = (s) => /^https?:\\/\\//i.test(String(s || ''));
+      const absUrl = (raw) => {
+        try { return String(new URL(String(raw || ''), window.location.href).toString()); } catch (e) { return ''; }
+      };
 
-      const rawImages = Array.from(document.querySelectorAll('img[src]'))
-        .map((img) => img && img.src ? String(img.src) : '')
-        .filter(Boolean);
+      const rawLinks = [];
+      const rawMisc = [];
 
-      const rawScripts = Array.from(document.querySelectorAll('script[src]'))
-        .map((s) => s && s.src ? String(s.src) : '')
-        .filter(Boolean);
+      // Ссылки: в links кладём только http(s). Остальное — в misc (mailto/tel/javascript/# и т.п.).
+      Array.from(document.querySelectorAll('a[href]')).forEach((a) => {
+        try {
+          const raw = a && a.getAttribute ? String(a.getAttribute('href') || '') : '';
+          const v = String(raw || '').trim();
+          if (!v) return;
+          if (v.startsWith('#') || /^mailto:/i.test(v) || /^tel:/i.test(v) || /^javascript:/i.test(v)) {
+            rawMisc.push(v);
+            return;
+          }
+          const abs = absUrl(v);
+          if (!abs) {
+            rawMisc.push(v);
+            return;
+          }
+          if (isHttpLike(abs)) rawLinks.push(abs);
+          else rawMisc.push(abs);
+        } catch (e) {
+          rawMisc.push(String((a && a.href) || '').trim());
+        }
+      });
 
-      const rawStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"][href]'))
-        .map((l) => l && l.href ? String(l.href) : '')
-        .filter(Boolean);
+      const rawImages = [];
+      Array.from(document.querySelectorAll('img[src]')).forEach((img) => {
+        const raw = img && img.getAttribute ? String(img.getAttribute('src') || '') : '';
+        const abs = absUrl(raw);
+        if (!abs) return;
+        if (isHttpLike(abs)) rawImages.push(abs);
+        else rawMisc.push(abs);
+      });
+
+      const rawScripts = [];
+      Array.from(document.querySelectorAll('script[src]')).forEach((s) => {
+        const raw = s && s.getAttribute ? String(s.getAttribute('src') || '') : '';
+        const abs = absUrl(raw);
+        if (!abs) return;
+        if (isHttpLike(abs)) rawScripts.push(abs);
+        else rawMisc.push(abs);
+      });
+
+      const rawStyles = [];
+      Array.from(document.querySelectorAll('link[rel="stylesheet"][href]')).forEach((l) => {
+        const raw = l && l.getAttribute ? String(l.getAttribute('href') || '') : '';
+        const abs = absUrl(raw);
+        if (!abs) return;
+        if (isHttpLike(abs)) rawStyles.push(abs);
+        else rawMisc.push(abs);
+      });
+
+      // Другие link[href] (иконки, manifest, preconnect, etc.) — в misc
+      Array.from(document.querySelectorAll('link[href]')).forEach((l) => {
+        try {
+          const rel = l && l.getAttribute ? String(l.getAttribute('rel') || '') : '';
+          if (String(rel).toLowerCase().includes('stylesheet')) {
+            return;
+          }
+          const raw = l && l.getAttribute ? String(l.getAttribute('href') || '') : '';
+          const abs = absUrl(raw);
+          if (!abs) return;
+          rawMisc.push(abs);
+        } catch (e) {
+          void 0;
+        }
+      });
 
       const uniq = (arr) => Array.from(new Set(arr));
       return {
@@ -459,6 +569,7 @@ async function extractPageDataFromView(
         images: uniq(rawImages),
         scripts: uniq(rawScripts),
         stylesheets: uniq(rawStyles),
+        misc: uniq(rawMisc),
       };
     })()
   `)
@@ -495,6 +606,7 @@ async function extractPageDataFromView(
     images: Array.isArray(data?.images) ? data.images.filter((x: unknown) => typeof x === 'string') : [],
     scripts: Array.isArray(data?.scripts) ? data.scripts.filter((x: unknown) => typeof x === 'string') : [],
     stylesheets: Array.isArray(data?.stylesheets) ? data.stylesheets.filter((x: unknown) => typeof x === 'string') : [],
+    misc: Array.isArray((data as any)?.misc) ? (data as any).misc.filter((x: unknown) => typeof x === 'string') : [],
     htmlBytes: typeof (data as any)?.htmlBytes === 'number' && Number.isFinite((data as any).htmlBytes)
       ? Math.trunc((data as any).htmlBytes)
       : null,
@@ -581,6 +693,7 @@ async function crawlStart(params: CrawlStartParams) {
       images: [],
       scripts: [],
       stylesheets: [],
+      misc: [],
     },
   })
 
@@ -674,6 +787,7 @@ async function crawlStart(params: CrawlStartParams) {
       images: extracted?.images || [],
       scripts: extracted?.scripts || [],
       stylesheets: extracted?.stylesheets || [],
+      misc: (extracted as any)?.misc || [],
     }
 
     sendCrawlEvent({
@@ -736,6 +850,7 @@ async function crawlStart(params: CrawlStartParams) {
           images: [],
           scripts: [],
           stylesheets: [],
+          misc: [],
         },
       })
     }
@@ -793,6 +908,35 @@ ipcMain.handle('browser:navigate', async (_event, url: string) => {
   }
   try {
     await browserView.webContents.loadURL(u.toString())
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('download:file', async (_event, url: string) => {
+  const u = safeParseUrl(url)
+  if (!u) {
+    return { success: false, error: 'Invalid URL' }
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    return { success: false, error: 'Unsupported protocol' }
+  }
+
+  const suggested = suggestFilenameFromUrl(u.toString())
+  const baseDir = app.getPath('downloads')
+  const defaultPath = path.join(baseDir, suggested)
+
+  const res = await dialog.showSaveDialog({
+    title: 'Скачать файл',
+    defaultPath,
+  })
+  if (res.canceled || !res.filePath) {
+    return { success: false, error: 'Cancelled' }
+  }
+
+  try {
+    await downloadToFile(u.toString(), res.filePath)
     return { success: true }
   } catch (error) {
     return { success: false, error: String(error) }

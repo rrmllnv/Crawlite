@@ -11,7 +11,7 @@ import { ImageModal } from '../../components/ImageModal/ImageModal'
 import { ResourceModal } from '../../components/ResourceModal/ResourceModal'
 import './BrowserView.scss'
 
-type TabId = 'meta' | 'links' | 'images' | 'js' | 'css'
+type TabId = 'meta' | 'links' | 'images' | 'js' | 'css' | 'misc'
 
 function formatNumber(value: number | null) {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -404,11 +404,22 @@ export function BrowserView() {
       totalHeadings,
       headingsText: ht,
       headings: hc,
-      links: selectedPage.links.length,
-      images: selectedPage.images.length,
-      js: selectedPage.scripts.length,
-      css: selectedPage.stylesheets.length,
     }
+  }, [selectedPage])
+
+  const tabsCount = useMemo(() => {
+    if (!selectedPage) {
+      return { links: 0, images: 0, js: 0, css: 0, misc: 0 }
+    }
+    const links = selectedPage.links?.length || 0
+    const images = selectedPage.images?.length || 0
+    const js = selectedPage.scripts?.length || 0
+    const css = selectedPage.stylesheets?.length || 0
+    const miscRaw = (selectedPage as any).misc as string[] | undefined
+    const miscList = Array.isArray(miscRaw) ? miscRaw : []
+    const seen = new Set<string>([...selectedPage.links, ...selectedPage.images, ...selectedPage.scripts, ...selectedPage.stylesheets].map((x) => String(x)))
+    const misc = miscList.filter((x) => x && !seen.has(String(x))).length
+    return { links, images, js, css, misc }
   }, [selectedPage])
 
   return (
@@ -467,28 +478,35 @@ export function BrowserView() {
             className={`browser-view__tab ${activeTab === 'links' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('links')}
           >
-            Ссылки
+            Ссылки <span className="browser-view__tab-count">{selectedPage ? tabsCount.links : '—'}</span>
           </button>
           <button
             type="button"
             className={`browser-view__tab ${activeTab === 'images' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('images')}
           >
-            Картинки
+            Картинки <span className="browser-view__tab-count">{selectedPage ? tabsCount.images : '—'}</span>
           </button>
           <button
             type="button"
             className={`browser-view__tab ${activeTab === 'js' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('js')}
           >
-            JS
+            JS <span className="browser-view__tab-count">{selectedPage ? tabsCount.js : '—'}</span>
           </button>
           <button
             type="button"
             className={`browser-view__tab ${activeTab === 'css' ? 'browser-view__tab--active' : ''}`}
             onClick={() => setActiveTab('css')}
           >
-            CSS
+            CSS <span className="browser-view__tab-count">{selectedPage ? tabsCount.css : '—'}</span>
+          </button>
+          <button
+            type="button"
+            className={`browser-view__tab ${activeTab === 'misc' ? 'browser-view__tab--active' : ''}`}
+            onClick={() => setActiveTab('misc')}
+          >
+            Разное <span className="browser-view__tab-count">{selectedPage ? tabsCount.misc : '—'}</span>
           </button>
         </div>
 
@@ -591,22 +609,6 @@ export function BrowserView() {
                 {!summary && <div className="browser-view__empty">—</div>}
               </details>
 
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Всего ссылок</div>
-                <div className="browser-view__kv-val">{summary ? String(summary.links) : '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Всего картинок</div>
-                <div className="browser-view__kv-val">{summary ? String(summary.images) : '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Всего JS</div>
-                <div className="browser-view__kv-val">{summary ? String(summary.js) : '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Всего CSS</div>
-                <div className="browser-view__kv-val">{summary ? String(summary.css) : '—'}</div>
-              </div>
             </div>
           )}
 
@@ -666,6 +668,25 @@ export function BrowserView() {
                   {x}
                 </button>
               ))}
+            </div>
+          )}
+
+          {selectedPage && activeTab === 'misc' && (
+            <div className="browser-view__list">
+              {(() => {
+                const miscRaw = (selectedPage as any).misc as string[] | undefined
+                const miscList = Array.isArray(miscRaw) ? miscRaw : []
+                const seen = new Set<string>([...selectedPage.links, ...selectedPage.images, ...selectedPage.scripts, ...selectedPage.stylesheets].map((x) => String(x)))
+                const list = miscList.filter((x) => x && !seen.has(String(x)))
+                if (list.length === 0) {
+                  return <div className="browser-view__empty">Нет.</div>
+                }
+                return list.map((x) => (
+                  <div key={x} className="browser-view__list-item">
+                    {x}
+                  </div>
+                ))
+              })()}
             </div>
           )}
         </div>

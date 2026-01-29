@@ -45,6 +45,18 @@ export function ImageModal({ isOpen, url, onClose }: Props) {
         <div className="image-modal__footer">
           <button
             type="button"
+            className="image-modal__button image-modal__button--secondary"
+            onClick={() => {
+              if (url) {
+                void window.electronAPI.downloadFile(url).catch(() => void 0)
+              }
+            }}
+            disabled={!url}
+          >
+            Скачать
+          </button>
+          <button
+            type="button"
             className="image-modal__button"
             onClick={() => {
               if (url) {

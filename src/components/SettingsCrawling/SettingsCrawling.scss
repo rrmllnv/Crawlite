@@ -14,14 +14,16 @@
 
 .settings-crawling__modal {
   position: absolute;
-  top: 60px;
-  right: 20px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 520px;
   max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
   background-color: $bg-secondary;
   border: 1px solid $border-color;
   border-radius: $border-radius;
-  overflow: hidden;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 }
 
