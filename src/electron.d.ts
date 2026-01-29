@@ -27,9 +27,10 @@ export type CrawlEvent =
       startUrl: string
       options: { maxPages: number; delayMs: number; jitterMs: number }
     }
-  | { type: 'cancelled'; runId: string; processed: number; finishedAt: number }
+  | { type: 'cancelled'; runId: string; processed: number; finishedAt: number; queued: number }
   | { type: 'finished'; runId: string; processed: number; finishedAt: number; queued: number }
   | { type: 'page:loading'; runId: string; url: string; processed: number; queued: number }
+  | { type: 'page:discovered'; runId: string; page: CrawlPageData; processed: number; queued: number }
   | {
       type: 'page:done'
       runId: string
@@ -63,6 +64,9 @@ export interface ElectronAPI {
 
   crawlStart: (params: CrawlStartParams) => Promise<ElectronResult<{ runId?: string }>>
   crawlCancel: (runId: string) => Promise<ElectronResult>
+
+  loadUserConfig: () => Promise<any>
+  saveUserConfig: (userConfig: any) => Promise<boolean>
 
   onCrawlEvent: (listener: (event: CrawlEvent) => void) => () => void
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { browserService } from '../../services/BrowserService'
 import { selectPage } from '../../store/slices/crawlSlice'
+import { clearRequestedNavigate, setCurrentUrl } from '../../store/slices/browserSlice'
 import type { CrawlPageData } from '../../electron'
 import './BrowserView.scss'
 
@@ -88,6 +89,7 @@ export function BrowserView() {
   const pagesByUrl = useAppSelector((s) => s.crawl.pagesByUrl)
   const pageOrder = useAppSelector((s) => s.crawl.pageOrder)
   const selectedUrl = useAppSelector((s) => s.crawl.selectedUrl)
+  const requestedUrl = useAppSelector((s) => s.browser.requestedUrl)
 
   const [activeTab, setActiveTab] = useState<TabId>('meta')
 
@@ -105,11 +107,28 @@ export function BrowserView() {
     return pagesByUrl[key] || null
   }, [pagesByUrl, selectedUrl])
 
+  useEffect(() => {
+    if (!requestedUrl) {
+      return
+    }
+    void (async () => {
+      try {
+        await browserService.navigate(requestedUrl)
+        dispatch(setCurrentUrl(requestedUrl))
+      } catch {
+        void 0
+      } finally {
+        dispatch(clearRequestedNavigate())
+      }
+    })()
+  }, [requestedUrl, dispatch])
+
   const handleSelect = async (page: CrawlPageData) => {
     const key = page.normalizedUrl || page.url
     dispatch(selectPage(key))
     try {
       await browserService.navigate(page.url)
+      dispatch(setCurrentUrl(page.url))
     } catch {
       void 0
     }

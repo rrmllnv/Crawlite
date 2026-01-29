@@ -1,6 +1,7 @@
 import { app, BrowserWindow, WebContentsView, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { loadUserConfig, saveUserConfig } from './api/UserConfig'
 
 type BrowserBounds = { x: number; y: number; width: number; height: number }
 
@@ -45,6 +46,8 @@ let browserView: WebContentsView | null = null
 let crawlView: WebContentsView | null = null
 
 let activeCrawl: { runId: string; cancelled: boolean } | null = null
+let crawlMainFrameMetaByUrl = new Map<string, { statusCode: number | null; contentLength: number | null }>()
+let crawlWebRequestAttachedForWebContentsId: number | null = null
 
 function safeParseUrl(raw: string): URL | null {
   try {
@@ -70,6 +73,80 @@ function normalizeUrl(input: string): string {
   // canonical-ish
   const href = u.toString()
   return href.endsWith('/') ? href.slice(0, -1) : href
+}
+
+function readHeaderValue(headers: Record<string, unknown> | undefined, name: string): string {
+  if (!headers || typeof headers !== 'object') {
+    return ''
+  }
+  const target = String(name || '').toLowerCase()
+  const entries = Object.entries(headers)
+  for (const [key, rawValue] of entries) {
+    if (String(key).toLowerCase() !== target) {
+      continue
+    }
+    if (typeof rawValue === 'string') {
+      return rawValue
+    }
+    if (Array.isArray(rawValue) && rawValue.length > 0 && typeof rawValue[0] === 'string') {
+      return rawValue[0]
+    }
+  }
+  return ''
+}
+
+function parseContentLength(headers: Record<string, unknown> | undefined): number | null {
+  const value = readHeaderValue(headers, 'content-length').trim()
+  if (!value) {
+    return null
+  }
+  const num = Number(value)
+  if (!Number.isFinite(num) || num < 0) {
+    return null
+  }
+  return Math.trunc(num)
+}
+
+function attachCrawlWebRequestListeners(view: WebContentsView) {
+  const wcId = view.webContents.id
+  if (crawlWebRequestAttachedForWebContentsId === wcId) {
+    return
+  }
+
+  crawlWebRequestAttachedForWebContentsId = wcId
+
+  try {
+    const webRequest = view.webContents.session.webRequest
+    webRequest.onCompleted({ urls: ['*://*/*'] }, (details: any) => {
+      try {
+        if (!details || typeof details !== 'object') {
+          return
+        }
+        if (typeof details.webContentsId === 'number' && details.webContentsId !== wcId) {
+          return
+        }
+        if (details.resourceType !== 'mainFrame') {
+          return
+        }
+
+        const url = typeof details.url === 'string' ? details.url : ''
+        const normalized = normalizeUrl(url)
+        if (!normalized) {
+          return
+        }
+
+        const statusCode = typeof details.statusCode === 'number' && Number.isFinite(details.statusCode)
+          ? Math.trunc(details.statusCode)
+          : null
+        const contentLength = parseContentLength(details.responseHeaders as Record<string, unknown> | undefined)
+        crawlMainFrameMetaByUrl.set(normalized, { statusCode, contentLength })
+      } catch {
+        void 0
+      }
+    })
+  } catch {
+    void 0
+  }
 }
 
 function createWindow() {
@@ -155,6 +232,10 @@ function ensureCrawlView() {
     } catch {
       void 0
     }
+  }
+
+  if (crawlView) {
+    attachCrawlWebRequestListeners(crawlView)
   }
 }
 
@@ -258,6 +339,8 @@ async function crawlStart(params: CrawlStartParams) {
   const origin = start.origin
   const queue: string[] = [start.toString()]
   const seen = new Set<string>()
+  const enqueued = new Set<string>()
+  enqueued.add(normalizeUrl(start.toString()))
 
   sendCrawlEvent({
     type: 'started',
@@ -269,9 +352,33 @@ async function crawlStart(params: CrawlStartParams) {
 
   let processed = 0
 
+  // Добавляем стартовую страницу в список сразу
+  sendCrawlEvent({
+    type: 'page:discovered',
+    runId,
+    processed,
+    queued: queue.length,
+    page: {
+      url: start.toString(),
+      normalizedUrl: normalizeUrl(start.toString()),
+      title: '',
+      h1: '',
+      description: '',
+      keywords: '',
+      statusCode: null,
+      contentLength: null,
+      loadTimeMs: null,
+      discoveredAt: Date.now(),
+      links: [],
+      images: [],
+      scripts: [],
+      stylesheets: [],
+    },
+  })
+
   while (queue.length > 0) {
     if (!activeCrawl || activeCrawl.runId !== runId || activeCrawl.cancelled) {
-      sendCrawlEvent({ type: 'cancelled', runId, processed, finishedAt: Date.now() })
+      sendCrawlEvent({ type: 'cancelled', runId, processed, queued: queue.length, finishedAt: Date.now() })
       return { success: true as const, runId }
     }
 
@@ -319,15 +426,19 @@ async function crawlStart(params: CrawlStartParams) {
       extracted = null
     }
 
+    const finalUrlRaw = (extracted?.url || crawlView.webContents.getURL() || u.toString())
+    const finalNormalized = normalizeUrl(finalUrlRaw) || normalizeUrl(u.toString())
+    const meta = finalNormalized ? crawlMainFrameMetaByUrl.get(finalNormalized) : undefined
+
     const page: CrawlPageData = {
-      url: u.toString(),
-      normalizedUrl: normalizeUrl(u.toString()),
+      url: finalUrlRaw,
+      normalizedUrl: finalNormalized,
       title: extracted?.title || '',
       h1: extracted?.h1 || '',
       description: extracted?.description || '',
       keywords: extracted?.keywords || '',
-      statusCode: null,
-      contentLength: null,
+      statusCode: meta?.statusCode ?? null,
+      contentLength: meta?.contentLength ?? null,
       loadTimeMs: loadOk ? (loadFinishedAt - pageStartedAt) : null,
       discoveredAt: pageStartedAt,
       links: extracted?.links || [],
@@ -351,7 +462,7 @@ async function crawlStart(params: CrawlStartParams) {
       if (!normalizedLink) {
         continue
       }
-      if (seen.has(normalizedLink)) {
+      if (seen.has(normalizedLink) || enqueued.has(normalizedLink)) {
         continue
       }
       const lu = safeParseUrl(normalizedLink)
@@ -364,7 +475,31 @@ async function crawlStart(params: CrawlStartParams) {
       if (lu.protocol !== 'http:' && lu.protocol !== 'https:') {
         continue
       }
+      enqueued.add(normalizedLink)
       queue.push(lu.toString())
+
+      sendCrawlEvent({
+        type: 'page:discovered',
+        runId,
+        processed,
+        queued: queue.length,
+        page: {
+          url: lu.toString(),
+          normalizedUrl: normalizedLink,
+          title: '',
+          h1: '',
+          description: '',
+          keywords: '',
+          statusCode: null,
+          contentLength: null,
+          loadTimeMs: null,
+          discoveredAt: Date.now(),
+          links: [],
+          images: [],
+          scripts: [],
+          stylesheets: [],
+        },
+      })
     }
 
     processed += 1
@@ -425,6 +560,14 @@ ipcMain.handle('crawl:cancel', async (_event, runId: string) => {
     activeCrawl.cancelled = true
   }
   return { success: true }
+})
+
+ipcMain.handle('load-user-config', async () => {
+  return loadUserConfig()
+})
+
+ipcMain.handle('save-user-config', async (_event, userConfig: any) => {
+  return saveUserConfig(userConfig)
 })
 
 app.whenReady().then(() => {

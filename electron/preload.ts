@@ -29,6 +29,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   crawlStart: (params: CrawlStartParams) => ipcRenderer.invoke('crawl:start', params),
   crawlCancel: (runId: string) => ipcRenderer.invoke('crawl:cancel', runId),
 
+  loadUserConfig: () => ipcRenderer.invoke('load-user-config'),
+  saveUserConfig: (userConfig: any) => ipcRenderer.invoke('save-user-config', userConfig),
+
   onCrawlEvent: (listener: (event: unknown) => void) => {
     const handler = (_evt: unknown, payload: unknown) => listener(payload)
     ipcRenderer.on('crawl:event', handler)

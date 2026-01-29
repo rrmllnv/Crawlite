@@ -12,8 +12,8 @@ body {
   padding: 0;
   height: 100vh;
   overflow: hidden;
-  background-color: #1e1e1e;
-  color: #cccccc;
+  background-color: var(--bg-primary, #1e1e1e);
+  color: var(--text-primary, #cccccc);
 }
 
 #root {
@@ -30,11 +30,11 @@ body {
 }
 
 *::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: var(--bg-primary, #1e1e1e);
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #3e3e42;
+  background: var(--border-color, #3e3e42);
   border-radius: 3px;
 }
 
@@ -43,7 +43,7 @@ body {
 }
 
 a {
-  color: #4aa3ff;
+  color: var(--primary-color, #4aa3ff);
   text-decoration: none;
   cursor: pointer;
   transition: color 0.2s;

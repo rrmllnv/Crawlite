@@ -48,10 +48,11 @@
   font-size: $font-size-md;
   color: #ffffff;
   background-color: $primary-color;
-  transition: background-color $transition-fast, opacity $transition-fast;
+  transition: background-color $transition-fast, opacity $transition-fast, filter $transition-fast;
 
   &:hover {
-    background-color: darken($primary-color, 10%);
+    // $primary-color = var(...), Sass darken() неприменим. Делаем CSS-эффект.
+    filter: brightness(0.92);
   }
 }
 

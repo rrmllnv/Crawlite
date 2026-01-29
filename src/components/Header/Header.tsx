@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
-import { setError, setLoading } from '../../store/slices/appSlice'
+import { setCurrentView, setError, setLoading } from '../../store/slices/appSlice'
 import { resetCrawl, setCrawlStatus, setRunId, setStartUrl } from '../../store/slices/crawlSlice'
 import { crawlService } from '../../services/CrawlService'
+import { requestNavigate } from '../../store/slices/browserSlice'
 import './Header.scss'
 
 function normalizeInputUrl(raw: string): string {
@@ -27,10 +28,25 @@ export function Header() {
 
   const isRunning = crawlStatus === 'running'
 
+  const canNavigate = useMemo(() => {
+    const normalized = normalizeInputUrl(urlInput)
+    return Boolean(normalized)
+  }, [urlInput])
+
   const canStart = useMemo(() => {
     const normalized = normalizeInputUrl(urlInput)
     return Boolean(normalized) && !isRunning
   }, [urlInput, isRunning])
+
+  const handleNavigate = async () => {
+    const url = normalizeInputUrl(urlInput)
+    if (!url) {
+      return
+    }
+    dispatch(setError(null))
+    dispatch(setCurrentView('browser'))
+    dispatch(requestNavigate(url))
+  }
 
   const handleStart = async () => {
     const startUrl = normalizeInputUrl(urlInput)
@@ -80,7 +96,7 @@ export function Header() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      void handleStart()
+      void handleNavigate()
     }
   }
 
@@ -100,6 +116,14 @@ export function Header() {
           onChange={(e) => setUrlInput(e.target.value)}
           onKeyDown={handleKeyDown}
         />
+
+        <button
+          className={`header__button header__button--secondary ${canNavigate ? '' : 'header__button--disabled'}`}
+          onClick={handleNavigate}
+          disabled={!canNavigate}
+        >
+          Перейти
+        </button>
 
         <button className={`header__button ${canStart ? '' : 'header__button--disabled'}`} onClick={handleStart} disabled={!canStart}>
           Запустить

@@ -1,13 +1,13 @@
-$bg-primary: #1e1e1e;
-$bg-secondary: #252526;
-$bg-tertiary: #2d2d30;
-$border-color: #3e3e42;
-$text-primary: #cccccc;
-$text-secondary: #9da0a6;
-$primary-color: #4aa3ff;
-$success-color: #3fb950;
-$warning-color: #d29922;
-$danger-color: #f85149;
+$bg-primary: var(--bg-primary, #1e1e1e);
+$bg-secondary: var(--bg-secondary, #252526);
+$bg-tertiary: var(--bg-tertiary, #2d2d30);
+$border-color: var(--border-color, #3e3e42);
+$text-primary: var(--text-primary, #cccccc);
+$text-secondary: var(--text-secondary, #9da0a6);
+$primary-color: var(--primary-color, #4aa3ff);
+$success-color: var(--success-color, #3fb950);
+$warning-color: var(--warning-color, #d29922);
+$danger-color: var(--danger-color, #f85149);
 
 $spacing-xs: 6px;
 $spacing-sm: 10px;
