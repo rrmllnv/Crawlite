@@ -67,7 +67,10 @@ function normalizeHostname(hostname: string): string {
   return h.startsWith('www.') ? h.slice(4) : h
 }
 
-function useBrowserBounds() {
+const EMULATED_WIDTH_MOBILE = 390
+const EMULATED_WIDTH_TABLET = 768
+
+function useBrowserBounds(deviceMode: 'desktop' | 'mobile' | 'tablet') {
   const ref = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -83,11 +86,29 @@ function useBrowserBounds() {
         return
       }
       const rect = ref.current.getBoundingClientRect()
+      const fullWidth = Math.max(0, Math.floor(rect.width))
+      const fullHeight = Math.max(0, Math.floor(rect.height))
+      const left = Math.max(0, Math.floor(rect.left))
+      const top = Math.max(0, Math.floor(rect.top))
+
+      let width: number
+      let x: number
+      if (deviceMode === 'mobile') {
+        width = Math.min(EMULATED_WIDTH_MOBILE, fullWidth)
+        x = left + Math.max(0, Math.floor((fullWidth - width) / 2))
+      } else if (deviceMode === 'tablet') {
+        width = Math.min(EMULATED_WIDTH_TABLET, fullWidth)
+        x = left + Math.max(0, Math.floor((fullWidth - width) / 2))
+      } else {
+        width = fullWidth
+        x = left
+      }
+
       const bounds = {
-        x: Math.max(0, Math.floor(rect.left)),
-        y: Math.max(0, Math.floor(rect.top)),
-        width: Math.max(0, Math.floor(rect.width)),
-        height: Math.max(0, Math.floor(rect.height)),
+        x,
+        y: top,
+        width,
+        height: fullHeight,
       }
       await browserService.ensure(bounds)
       await browserService.resize(bounds)
@@ -115,7 +136,7 @@ function useBrowserBounds() {
       window.removeEventListener('resize', schedule)
       ro.disconnect()
     }
-  }, [])
+  }, [deviceMode])
 
   return ref
 }
@@ -294,7 +315,8 @@ function TreeItem({
 
 export function BrowserView() {
   const dispatch = useAppDispatch()
-  const boundsRef = useBrowserBounds()
+  const deviceMode = useAppSelector((s) => s.browser.deviceMode)
+  const boundsRef = useBrowserBounds(deviceMode)
 
   const pagesByUrl = useAppSelector((s) => s.crawl.pagesByUrl)
   const pageOrder = useAppSelector((s) => s.crawl.pageOrder)
@@ -303,7 +325,6 @@ export function BrowserView() {
   const errors = useAppSelector((s) => s.crawl.errors)
   const isPageLoading = useAppSelector((s) => s.browser.isPageLoading)
   const pagesTreeExpandedIds = useAppSelector((s) => s.browser.pagesTreeExpandedIds)
-  const deviceMode = useAppSelector((s) => s.browser.deviceMode)
 
   const [activeTab, setActiveTab] = useState<TabId>('meta')
   const [imageModalUrl, setImageModalUrl] = useState<string>('')
