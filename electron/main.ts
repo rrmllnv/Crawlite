@@ -19,6 +19,14 @@ type CrawlPageData = {
   normalizedUrl: string
   title: string
   h1: string
+  headingsText: {
+    h1: string[]
+    h2: string[]
+    h3: string[]
+    h4: string[]
+    h5: string[]
+    h6: string[]
+  }
   headingsCount: {
     h1: number
     h2: number
@@ -309,6 +317,40 @@ async function extractPageDataFromView(
       const description = pickMeta('description').slice(0, 500);
       const keywords = pickMeta('keywords').slice(0, 500);
 
+      const uniqKeepOrder = (arr) => {
+        const seen = new Set();
+        const out = [];
+        for (const item of arr) {
+          const v = String(item || '').trim();
+          if (!v) continue;
+          const key = v.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push(v);
+          if (out.length >= 200) break;
+        }
+        return out;
+      };
+
+      const collectHeadingTexts = (sel) => {
+        try {
+          const nodes = Array.from(document.querySelectorAll(sel)).filter((el) => isVisible(el));
+          const texts = nodes.map((el) => normText(el && el.textContent)).filter(Boolean);
+          return uniqKeepOrder(texts);
+        } catch (e) {
+          return [];
+        }
+      };
+
+      const headingsText = {
+        h1: collectHeadingTexts('h1'),
+        h2: collectHeadingTexts('h2'),
+        h3: collectHeadingTexts('h3'),
+        h4: collectHeadingTexts('h4'),
+        h5: collectHeadingTexts('h5'),
+        h6: collectHeadingTexts('h6'),
+      };
+
       const count = (sel) => {
         try {
           const n = document.querySelectorAll(sel).length;
@@ -319,12 +361,12 @@ async function extractPageDataFromView(
       };
 
       const headingsCount = {
-        h1: count('h1'),
-        h2: count('h2'),
-        h3: count('h3'),
-        h4: count('h4'),
-        h5: count('h5'),
-        h6: count('h6'),
+        h1: headingsText.h1.length || count('h1'),
+        h2: headingsText.h2.length || count('h2'),
+        h3: headingsText.h3.length || count('h3'),
+        h4: headingsText.h4.length || count('h4'),
+        h5: headingsText.h5.length || count('h5'),
+        h6: headingsText.h6.length || count('h6'),
       };
 
       let htmlBytes = null;
@@ -360,6 +402,7 @@ async function extractPageDataFromView(
         url: String(window.location.href || ''),
         title,
         h1,
+        headingsText,
         headingsCount,
         htmlBytes,
         description,
@@ -378,6 +421,16 @@ async function extractPageDataFromView(
     normalizedUrl: normalizeUrl(url),
     title: typeof data?.title === 'string' ? data.title : '',
     h1: typeof data?.h1 === 'string' ? data.h1 : '',
+    headingsText: (data && typeof data === 'object' && (data as any).headingsText && typeof (data as any).headingsText === 'object')
+      ? {
+          h1: Array.isArray((data as any).headingsText.h1) ? (data as any).headingsText.h1.filter((x: unknown) => typeof x === 'string') : [],
+          h2: Array.isArray((data as any).headingsText.h2) ? (data as any).headingsText.h2.filter((x: unknown) => typeof x === 'string') : [],
+          h3: Array.isArray((data as any).headingsText.h3) ? (data as any).headingsText.h3.filter((x: unknown) => typeof x === 'string') : [],
+          h4: Array.isArray((data as any).headingsText.h4) ? (data as any).headingsText.h4.filter((x: unknown) => typeof x === 'string') : [],
+          h5: Array.isArray((data as any).headingsText.h5) ? (data as any).headingsText.h5.filter((x: unknown) => typeof x === 'string') : [],
+          h6: Array.isArray((data as any).headingsText.h6) ? (data as any).headingsText.h6.filter((x: unknown) => typeof x === 'string') : [],
+        }
+      : { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
     headingsCount: (data && typeof data === 'object' && (data as any).headingsCount && typeof (data as any).headingsCount === 'object')
       ? {
           h1: typeof (data as any).headingsCount.h1 === 'number' ? (data as any).headingsCount.h1 : 0,
@@ -464,6 +517,7 @@ async function crawlStart(params: CrawlStartParams) {
       normalizedUrl: normalizeUrl(start.toString()),
       title: '',
       h1: '',
+      headingsText: { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
       headingsCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
       description: '',
       keywords: '',
@@ -551,6 +605,7 @@ async function crawlStart(params: CrawlStartParams) {
       normalizedUrl: finalNormalized,
       title: extracted?.title || '',
       h1: extracted?.h1 || '',
+      headingsText: extracted?.headingsText || { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
       headingsCount: extracted?.headingsCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
       description: extracted?.description || '',
       keywords: extracted?.keywords || '',
@@ -602,6 +657,7 @@ async function crawlStart(params: CrawlStartParams) {
           normalizedUrl: normalizedLink,
           title: '',
           h1: '',
+          headingsText: { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
           headingsCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
           description: '',
           keywords: '',

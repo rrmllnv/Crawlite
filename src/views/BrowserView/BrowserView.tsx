@@ -335,10 +335,19 @@ export function BrowserView() {
 
   const summary = useMemo(() => {
     if (!selectedPage) return null
-    const hc = selectedPage.headingsCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 }
-    const totalHeadings = hc.h1 + hc.h2 + hc.h3 + hc.h4 + hc.h5 + hc.h6
+    const ht = selectedPage.headingsText || { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] }
+    const hc = selectedPage.headingsCount || {
+      h1: ht.h1.length,
+      h2: ht.h2.length,
+      h3: ht.h3.length,
+      h4: ht.h4.length,
+      h5: ht.h5.length,
+      h6: ht.h6.length,
+    }
+    const totalHeadings = (ht.h1.length || hc.h1) + (ht.h2.length || hc.h2) + (ht.h3.length || hc.h3) + (ht.h4.length || hc.h4) + (ht.h5.length || hc.h5) + (ht.h6.length || hc.h6)
     return {
       totalHeadings,
+      headingsText: ht,
       headings: hc,
       links: selectedPage.links.length,
       images: selectedPage.images.length,
@@ -472,34 +481,52 @@ export function BrowserView() {
 
               <Separate title="Сводка по странице" />
 
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Заголовков всего</div>
-                <div className="browser-view__kv-val">{summary ? String(summary.totalHeadings) : '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">H1</div>
-                <div className="browser-view__kv-val">{summary ? String(summary.headings.h1) : '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">H2</div>
-                <div className="browser-view__kv-val">{summary ? String(summary.headings.h2) : '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">H3</div>
-                <div className="browser-view__kv-val">{summary ? String(summary.headings.h3) : '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">H4</div>
-                <div className="browser-view__kv-val">{summary ? String(summary.headings.h4) : '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">H5</div>
-                <div className="browser-view__kv-val">{summary ? String(summary.headings.h5) : '—'}</div>
-              </div>
-              <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">H6</div>
-                <div className="browser-view__kv-val">{summary ? String(summary.headings.h6) : '—'}</div>
-              </div>
+              <details className="browser-view__details-block">
+                <summary className="browser-view__details-summary">
+                  <span className="browser-view__details-summary-title">Заголовки</span>
+                  <span className="browser-view__details-summary-value">
+                    {summary ? `всего ${summary.totalHeadings}` : '—'}
+                  </span>
+                </summary>
+
+                {summary && (
+                  <div className="browser-view__headings">
+                    {([
+                      ['h1', 'H1'],
+                      ['h2', 'H2'],
+                      ['h3', 'H3'],
+                      ['h4', 'H4'],
+                      ['h5', 'H5'],
+                      ['h6', 'H6'],
+                    ] as const).map(([key, label]) => {
+                      const items = summary.headingsText[key]
+                      const count = items.length || summary.headings[key]
+                      return (
+                        <details key={key} className="browser-view__headings-level">
+                          <summary className="browser-view__headings-summary">
+                            <span className="browser-view__headings-title">{label}</span>
+                            <span className="browser-view__headings-count">{count}</span>
+                          </summary>
+                          <div className="browser-view__headings-list">
+                            {items.length === 0 && (
+                              <div className="browser-view__headings-empty">Нет</div>
+                            )}
+                            {items.map((t) => (
+                              <div key={`${key}:${t}`} className="browser-view__headings-item">
+                                {t}
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {!summary && (
+                  <div className="browser-view__empty">—</div>
+                )}
+              </details>
 
               <div className="browser-view__kv-row">
                 <div className="browser-view__kv-key">Всего ссылок</div>
