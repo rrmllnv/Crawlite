@@ -18,6 +18,7 @@ interface CrawlState {
   settings: {
     maxDepth: number
     maxPages: number
+    deduplicateLinks: boolean
   }
   pagesByUrl: Record<string, CrawlPageData>
   pageOrder: string[]
@@ -34,6 +35,7 @@ const initialState: CrawlState = {
   settings: {
     maxDepth: 2,
     maxPages: 200,
+    deduplicateLinks: false,
   },
   pagesByUrl: {},
   pageOrder: [],
@@ -86,10 +88,13 @@ export const crawlSlice = createSlice({
       }
       const maxDepthRaw = (cfg.crawling as any).maxDepth
       const maxPagesRaw = (cfg.crawling as any).maxPages
+      const deduplicateLinksRaw = (cfg.crawling as any).deduplicateLinks
       const maxDepth = typeof maxDepthRaw === 'number' && Number.isFinite(maxDepthRaw) ? Math.max(0, Math.floor(maxDepthRaw)) : state.settings.maxDepth
       const maxPages = typeof maxPagesRaw === 'number' && Number.isFinite(maxPagesRaw) ? Math.max(1, Math.floor(maxPagesRaw)) : state.settings.maxPages
+      const deduplicateLinks = typeof deduplicateLinksRaw === 'boolean' ? deduplicateLinksRaw : state.settings.deduplicateLinks
       state.settings.maxDepth = maxDepth
       state.settings.maxPages = maxPages
+      state.settings.deduplicateLinks = deduplicateLinks
     },
     upsertPage: (state, action: PayloadAction<CrawlPageData>) => {
       const page = action.payload

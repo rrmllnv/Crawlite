@@ -21,6 +21,7 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
 
   const maxDepthValue = useMemo(() => String(settings.maxDepth), [settings.maxDepth])
   const maxPagesValue = useMemo(() => String(settings.maxPages), [settings.maxPages])
+  const deduplicateLinks = Boolean((settings as any).deduplicateLinks)
 
   useEffect(() => {
     if (!isOpen) {
@@ -81,6 +82,23 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
                 dispatch(setCrawlSettings({ maxPages: next }))
               }}
             />
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">Уникализация ссылок</div>
+            <div className="settings-crawling__checkbox-row">
+              <input
+                className="settings-crawling__checkbox"
+                type="checkbox"
+                checked={deduplicateLinks}
+                onChange={(e) => {
+                  dispatch(setCrawlSettings({ deduplicateLinks: Boolean(e.target.checked) }))
+                }}
+              />
+              <div className="settings-crawling__hint">
+                Если включено — ссылки на странице будут уникализированы по URL.<br/>Если выключено — сохраняем дубли.
+              </div>
+            </div>
           </label>
         </div>
 

@@ -269,19 +269,52 @@ export async function handleHighlightLink(url: string): Promise<{ success: boole
           };
 
           const list = Array.from(document.querySelectorAll('a[href]'));
-          const scored = list.map((a) => {
+
+          const state = (window.__crawlite_link_cycle_state = window.__crawlite_link_cycle_state || Object.create(null));
+          const pickCycled = (key, arr) => {
+            try {
+              if (!arr || arr.length === 0) return null;
+              const raw = state[key];
+              const idx = (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0) ? Math.floor(raw) : 0;
+              const chosen = arr[idx % arr.length] || null;
+              state[key] = idx + 1;
+              return chosen;
+            } catch (e) {
+              return (arr && arr.length > 0) ? (arr[0] || null) : null;
+            }
+          };
+
+          const exactAll = list.filter((a) => norm(a && a.href) === target);
+          const exactVisible = exactAll.filter((a) => isVisible(a));
+          const exact = (exactVisible.length > 0 ? exactVisible : exactAll);
+
+          const sameNoQueryAll = list.filter((a) => {
             const href = norm(a && a.href);
             const hrefNoQuery = strip(href);
-            let score = 0;
-            if (href === target) score += 100;
-            if (hrefNoQuery && targetNoQuery && hrefNoQuery === targetNoQuery) score += 60;
-            if (href && target && href.includes(target)) score += 20;
-            if (target && href && target.includes(href)) score += 10;
-            if (isVisible(a)) score += 15;
-            return { a, score };
-          }).sort((x, y) => y.score - x.score);
+            return Boolean(hrefNoQuery && targetNoQuery && hrefNoQuery === targetNoQuery);
+          });
+          const sameNoQueryVisible = sameNoQueryAll.filter((a) => isVisible(a));
+          const sameNoQuery = (sameNoQueryVisible.length > 0 ? sameNoQueryVisible : sameNoQueryAll);
 
-          const best = scored.length > 0 ? scored[0].a : null;
+          let best = pickCycled('exact:' + target, exact);
+          if (!best) {
+            best = pickCycled('noquery:' + targetNoQuery, sameNoQuery);
+          }
+
+          if (!best) {
+            const scored = list.map((a) => {
+              const href = norm(a && a.href);
+              const hrefNoQuery = strip(href);
+              let score = 0;
+              if (href === target) score += 100;
+              if (hrefNoQuery && targetNoQuery && hrefNoQuery === targetNoQuery) score += 60;
+              if (href && target && href.includes(target)) score += 20;
+              if (target && href && target.includes(href)) score += 10;
+              if (isVisible(a)) score += 15;
+              return { a, score };
+            }).sort((x, y) => y.score - x.score);
+            best = scored.length > 0 ? scored[0].a : null;
+          }
           if (!best) return false;
           openDetailsChain(best);
           const el = pickHighlightTarget(best);

@@ -2,8 +2,10 @@ import type { WebContentsView } from 'electron'
 import type { CrawlPageData } from '../types'
 import { normalizeUrl } from './urlUtils'
 
-const EXTRACT_PAGE_DATA_JS = `
+function getExtractPageDataJs(deduplicateLinks: boolean): string {
+  return `
 (function() {
+  const __dedupe = ${deduplicateLinks};
   const text = (v) => (typeof v === 'string' ? v : '');
   const pickMeta = (name) => {
     const el = document.querySelector('meta[name="' + name + '"]');
@@ -293,23 +295,33 @@ const EXTRACT_PAGE_DATA_JS = `
     description,
     keywords,
     metaRobots,
-    links: uniq(rawLinks),
-    linksDetailed: uniqLinksDetailed(rawLinksDetailed),
-    images: uniq(rawImages),
-    scripts: uniq(rawScripts),
-    stylesheets: uniq(rawStyles),
-    misc: uniq(rawMisc),
+    links: __dedupe ? uniq(rawLinks) : rawLinks,
+    linksDetailed: __dedupe ? uniqLinksDetailed(rawLinksDetailed) : rawLinksDetailed,
+    images: __dedupe ? uniq(rawImages) : rawImages,
+    scripts: __dedupe ? uniq(rawScripts) : rawScripts,
+    stylesheets: __dedupe ? uniq(rawStyles) : rawStyles,
+    misc: __dedupe ? uniq(rawMisc) : rawMisc,
   };
 })()
 `
+}
 
 export type ExtractedPageData = Omit<
   CrawlPageData,
   'statusCode' | 'contentLength' | 'loadTimeMs' | 'analysisTimeMs' | 'discoveredAt' | 'ipAddress'
 > & { htmlBytes: number | null }
 
-export async function extractPageDataFromView(view: WebContentsView): Promise<ExtractedPageData> {
-  const data = await view.webContents.executeJavaScript(EXTRACT_PAGE_DATA_JS)
+export type ExtractPageDataOptions = {
+  deduplicateLinks?: boolean
+}
+
+export async function extractPageDataFromView(
+  view: WebContentsView,
+  options?: ExtractPageDataOptions
+): Promise<ExtractedPageData> {
+  const deduplicateLinks = options?.deduplicateLinks ?? false
+  const script = getExtractPageDataJs(deduplicateLinks)
+  const data = await view.webContents.executeJavaScript(script)
 
   const url = typeof data?.url === 'string' ? data.url : ''
   return {

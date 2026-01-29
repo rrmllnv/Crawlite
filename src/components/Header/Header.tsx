@@ -69,6 +69,7 @@ export function Header() {
           maxPages: 1,
           delayMs: 0,
           jitterMs: 0,
+          deduplicateLinks: crawlSettings.deduplicateLinks,
         },
       })
       .then((res) => {
@@ -106,6 +107,7 @@ export function Header() {
           maxPages: crawlSettings.maxPages,
           delayMs: 650,
           jitterMs: 350,
+          deduplicateLinks: crawlSettings.deduplicateLinks,
         },
       })
       .then((res) => {

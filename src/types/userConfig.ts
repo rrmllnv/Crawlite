@@ -13,6 +13,8 @@ export interface UserConfig {
   crawling: {
     maxDepth: number
     maxPages: number
+    /** true = убирать дубликаты ссылок по URL; false = сохранять все (по умолчанию) */
+    deduplicateLinks: boolean
   }
 }
 
@@ -29,6 +31,7 @@ export const defaultUserConfig: UserConfig = {
   crawling: {
     maxDepth: 2,
     maxPages: 200,
+    deduplicateLinks: false,
   },
 }
 

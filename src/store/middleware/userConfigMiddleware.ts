@@ -19,6 +19,7 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
       crawling: {
         maxDepth: state.crawl.settings.maxDepth,
         maxPages: state.crawl.settings.maxPages,
+        deduplicateLinks: state.crawl.settings.deduplicateLinks,
       },
     })
   }

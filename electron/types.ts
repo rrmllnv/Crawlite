@@ -10,6 +10,8 @@ export type CrawlStartParams = {
     maxPages?: number
     delayMs?: number
     jitterMs?: number
+    /** true = убирать дубликаты ссылок по URL; false = сохранять все */
+    deduplicateLinks?: boolean
   }
 }
 

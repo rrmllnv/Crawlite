@@ -318,8 +318,8 @@ export function BrowserProperties({
                 </summary>
                 <div className="browser-properties__group-body">
                   {linkGroups.internal.length === 0 && <div className="browser-properties__empty">Нет.</div>}
-                  {linkGroups.internal.map((it) => (
-                    <div key={it.url} className="browser-properties__row">
+                  {linkGroups.internal.map((it, idx) => (
+                    <div key={`${it.url}__${idx}`} className="browser-properties__row">
                       <button
                         type="button"
                         className="browser-properties__row-main browser-properties__row-main--two-lines"
@@ -355,8 +355,8 @@ export function BrowserProperties({
                 </summary>
                 <div className="browser-properties__group-body">
                   {linkGroups.external.length === 0 && <div className="browser-properties__empty">Нет.</div>}
-                  {linkGroups.external.map((it) => (
-                    <div key={it.url} className="browser-properties__row">
+                  {linkGroups.external.map((it, idx) => (
+                    <div key={`${it.url}__${idx}`} className="browser-properties__row">
                       <button
                         type="button"
                         className="browser-properties__row-main browser-properties__row-main--two-lines"

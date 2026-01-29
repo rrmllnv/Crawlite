@@ -175,9 +175,10 @@ export async function crawlStart(
 
     const loadFinishedAt = Date.now()
 
+    const deduplicateLinks = Boolean(params?.options?.deduplicateLinks)
     let extracted: ExtractedPageData | null = null
     try {
-      extracted = await extractPageDataFromView(crawlView)
+      extracted = await extractPageDataFromView(crawlView, { deduplicateLinks })
     } catch {
       extracted = null
     }
