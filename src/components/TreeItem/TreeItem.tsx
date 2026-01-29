@@ -34,7 +34,7 @@ export function TreeItem({
   const leafTitle = isLeaf
     ? (leafPage?.title || leafPage?.h1 || node.label || '—')
     : node.label
-  const leafUrl = isLeaf ? (leafPage?.url || node.url || '') : ''
+  const leafUrl = isLeaf ? (leafPage?.normalizedUrl || leafPage?.url || node.url || '') : ''
 
   return (
     <div className="browser-tree__item">
