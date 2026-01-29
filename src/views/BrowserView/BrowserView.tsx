@@ -832,10 +832,6 @@ export function BrowserView() {
               <Separate title="Индексация страницы" />
 
               <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">URL</div>
-                <div className="browser-view__kv-val">{selectedPage.url}</div>
-              </div>
-              <div className="browser-view__kv-row">
                 <div className="browser-view__kv-key">Rel canonical</div>
                 <div className="browser-view__kv-val">{String((selectedPage as any).canonicalUrl || '').trim() || '—'}</div>
               </div>
@@ -942,6 +938,10 @@ export function BrowserView() {
 
               <Separate title="Параметры соединения" />
 
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">URL</div>
+                <div className="browser-view__kv-val">{selectedPage.url}</div>
+              </div>
               <div className="browser-view__kv-row">
                 <div className="browser-view__kv-key">IP сайта</div>
                 <div className="browser-view__kv-val">{String((selectedPage as any).ipAddress || '').trim() || '—'}</div>
