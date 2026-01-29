@@ -2,18 +2,27 @@
 
 .browser-properties__tabs {
   display: flex;
-  gap: 6px;
-  padding: 8px 8px;
+  width: 100%;
+  // gap: 6px;
+  // padding: 8px 8px;
   border-bottom: 1px solid $border-color;
   background-color: $bg-tertiary;
 }
 
 .browser-properties__tab {
+  flex: 1;           // Растягивает каждый таб пропорционально
+  display: flex;     // Чтобы центрировать текст внутри растянутого таба
+  justify-content: center; 
+  align-items: center;
+
   padding: 6px 10px;
-  border-radius: $border-radius;
-  background-color: rgba(255, 255, 255, 0.06);
+  // border-radius: $border-radius;
+  // background-color: rgba(255, 255, 255, 0.06);
   color: $text-secondary;
   font-size: $font-size-sm;
+
+  cursor: pointer;   // Хороший тон для интерактивных элементов
+  text-align: center; // Запасной вариант центрирования
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.10);
