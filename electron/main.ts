@@ -21,6 +21,12 @@ type CrawlPageData = {
   normalizedUrl: string
   title: string
   h1: string
+  hasViewport: boolean
+  hasCanonical: boolean
+  canonicalUrl: string
+  headingsRawCount: { h1: number; h2: number; h3: number; h4: number; h5: number; h6: number }
+  headingsEmptyCount: { h1: number; h2: number; h3: number; h4: number; h5: number; h6: number }
+  nestedHeadings: string[]
   headingsText: {
     h1: string[]
     h2: string[]
@@ -445,6 +451,20 @@ async function extractPageDataFromView(
       };
 
       const title = text(document.title).trim();
+      const hasViewport = Boolean((function() {
+        try {
+          const el = document.querySelector('meta[name="viewport"]');
+          const v = el && el.getAttribute ? String(el.getAttribute('content') || '').trim() : '';
+          return Boolean(v);
+        } catch (e) { return false; }
+      })());
+
+      let canonicalUrl = '';
+      try {
+        const c = document.querySelector('link[rel="canonical"][href]');
+        canonicalUrl = c && c.href ? String(c.href) : '';
+      } catch (e) { canonicalUrl = ''; }
+      const hasCanonical = Boolean(String(canonicalUrl || '').trim());
       const isVisible = (el) => {
         try {
           if (!el) return false;
@@ -527,6 +547,56 @@ async function extractPageDataFromView(
         h5: headingsText.h5.length || count('h5'),
         h6: headingsText.h6.length || count('h6'),
       };
+
+      const headingsRawCount = {
+        h1: count('h1'),
+        h2: count('h2'),
+        h3: count('h3'),
+        h4: count('h4'),
+        h5: count('h5'),
+        h6: count('h6'),
+      };
+
+      const emptyCount = (sel) => {
+        try {
+          const nodes = Array.from(document.querySelectorAll(sel));
+          let n = 0;
+          for (const el of nodes) {
+            const t = normText(el && el.textContent);
+            if (!t) n += 1;
+          }
+          return n;
+        } catch (e) {
+          return 0;
+        }
+      };
+      const headingsEmptyCount = {
+        h1: emptyCount('h1'),
+        h2: emptyCount('h2'),
+        h3: emptyCount('h3'),
+        h4: emptyCount('h4'),
+        h5: emptyCount('h5'),
+        h6: emptyCount('h6'),
+      };
+
+      const nestedHeadings = (function() {
+        try {
+          const issues = [];
+          const all = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+          for (const parent of all) {
+            const child = parent && parent.querySelector ? parent.querySelector('h1,h2,h3,h4,h5,h6') : null;
+            if (!child) continue;
+            const p = String(parent.tagName || '').toLowerCase();
+            const c = String(child.tagName || '').toLowerCase();
+            if (!p || !c) continue;
+            issues.push(p + ' содержит ' + c);
+            if (issues.length >= 20) break;
+          }
+          return Array.from(new Set(issues));
+        } catch (e) {
+          return [];
+        }
+      })();
 
       let htmlBytes = null;
       try {
@@ -630,6 +700,12 @@ async function extractPageDataFromView(
         url: String(window.location.href || ''),
         title,
         h1,
+        hasViewport,
+        hasCanonical,
+        canonicalUrl: String(canonicalUrl || ''),
+        headingsRawCount,
+        headingsEmptyCount,
+        nestedHeadings,
         headingsText,
         headingsCount,
         htmlBytes,
@@ -650,6 +726,30 @@ async function extractPageDataFromView(
     normalizedUrl: normalizeUrl(url),
     title: typeof data?.title === 'string' ? data.title : '',
     h1: typeof data?.h1 === 'string' ? data.h1 : '',
+    hasViewport: Boolean((data as any)?.hasViewport),
+    hasCanonical: Boolean((data as any)?.hasCanonical),
+    canonicalUrl: typeof (data as any)?.canonicalUrl === 'string' ? (data as any).canonicalUrl : '',
+    headingsRawCount: (data && typeof data === 'object' && (data as any).headingsRawCount && typeof (data as any).headingsRawCount === 'object')
+      ? {
+          h1: typeof (data as any).headingsRawCount.h1 === 'number' ? (data as any).headingsRawCount.h1 : 0,
+          h2: typeof (data as any).headingsRawCount.h2 === 'number' ? (data as any).headingsRawCount.h2 : 0,
+          h3: typeof (data as any).headingsRawCount.h3 === 'number' ? (data as any).headingsRawCount.h3 : 0,
+          h4: typeof (data as any).headingsRawCount.h4 === 'number' ? (data as any).headingsRawCount.h4 : 0,
+          h5: typeof (data as any).headingsRawCount.h5 === 'number' ? (data as any).headingsRawCount.h5 : 0,
+          h6: typeof (data as any).headingsRawCount.h6 === 'number' ? (data as any).headingsRawCount.h6 : 0,
+        }
+      : { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+    headingsEmptyCount: (data && typeof data === 'object' && (data as any).headingsEmptyCount && typeof (data as any).headingsEmptyCount === 'object')
+      ? {
+          h1: typeof (data as any).headingsEmptyCount.h1 === 'number' ? (data as any).headingsEmptyCount.h1 : 0,
+          h2: typeof (data as any).headingsEmptyCount.h2 === 'number' ? (data as any).headingsEmptyCount.h2 : 0,
+          h3: typeof (data as any).headingsEmptyCount.h3 === 'number' ? (data as any).headingsEmptyCount.h3 : 0,
+          h4: typeof (data as any).headingsEmptyCount.h4 === 'number' ? (data as any).headingsEmptyCount.h4 : 0,
+          h5: typeof (data as any).headingsEmptyCount.h5 === 'number' ? (data as any).headingsEmptyCount.h5 : 0,
+          h6: typeof (data as any).headingsEmptyCount.h6 === 'number' ? (data as any).headingsEmptyCount.h6 : 0,
+        }
+      : { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+    nestedHeadings: Array.isArray((data as any)?.nestedHeadings) ? (data as any).nestedHeadings.filter((x: unknown) => typeof x === 'string') : [],
     headingsText: (data && typeof data === 'object' && (data as any).headingsText && typeof (data as any).headingsText === 'object')
       ? {
           h1: Array.isArray((data as any).headingsText.h1) ? (data as any).headingsText.h1.filter((x: unknown) => typeof x === 'string') : [],
@@ -751,6 +851,12 @@ async function crawlStart(params: CrawlStartParams) {
       normalizedUrl: normalizeUrl(start.toString()),
       title: '',
       h1: '',
+      hasViewport: false,
+      hasCanonical: false,
+      canonicalUrl: '',
+      headingsRawCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+      headingsEmptyCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+      nestedHeadings: [],
       headingsText: { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
       headingsCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
       description: '',
@@ -845,6 +951,12 @@ async function crawlStart(params: CrawlStartParams) {
       normalizedUrl: finalNormalized,
       title: extracted?.title || '',
       h1: extracted?.h1 || '',
+      hasViewport: Boolean((extracted as any)?.hasViewport),
+      hasCanonical: Boolean((extracted as any)?.hasCanonical),
+      canonicalUrl: typeof (extracted as any)?.canonicalUrl === 'string' ? (extracted as any).canonicalUrl : '',
+      headingsRawCount: (extracted as any)?.headingsRawCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+      headingsEmptyCount: (extracted as any)?.headingsEmptyCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+      nestedHeadings: (extracted as any)?.nestedHeadings || [],
       headingsText: extracted?.headingsText || { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
       headingsCount: extracted?.headingsCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
       description: extracted?.description || '',
@@ -916,6 +1028,12 @@ async function crawlStart(params: CrawlStartParams) {
           normalizedUrl: normalizedLink,
           title: '',
           h1: '',
+          hasViewport: false,
+          hasCanonical: false,
+          canonicalUrl: '',
+          headingsRawCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+          headingsEmptyCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+          nestedHeadings: [],
           headingsText: { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
           headingsCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
           description: '',
@@ -1391,6 +1509,12 @@ ipcMain.handle('page:analyze', async (_event, url: string) => {
     normalizedUrl: finalNormalized,
     title: extracted?.title || '',
     h1: extracted?.h1 || '',
+    hasViewport: Boolean((extracted as any)?.hasViewport),
+    hasCanonical: Boolean((extracted as any)?.hasCanonical),
+    canonicalUrl: typeof (extracted as any)?.canonicalUrl === 'string' ? (extracted as any).canonicalUrl : '',
+    headingsRawCount: (extracted as any)?.headingsRawCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+    headingsEmptyCount: (extracted as any)?.headingsEmptyCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+    nestedHeadings: (extracted as any)?.nestedHeadings || [],
     headingsText: extracted?.headingsText || { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
     headingsCount: extracted?.headingsCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
     description: extracted?.description || '',

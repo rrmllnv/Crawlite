@@ -286,6 +286,11 @@
   }
 }
 
+.browser-view__headings-control:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .browser-view__headings-control--secondary {
   background: transparent;
   color: $text-secondary;
@@ -370,6 +375,16 @@
     background-color: rgba(74, 163, 255, 0.10);
     border-color: rgba(74, 163, 255, 0.22);
   }
+}
+
+.browser-view__headings-item--button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.browser-view__row-main:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .browser-view__headings-empty {

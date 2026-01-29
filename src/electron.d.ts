@@ -46,6 +46,12 @@ export type CrawlPageData = {
   normalizedUrl: string
   title: string
   h1: string
+  hasViewport: boolean
+  hasCanonical: boolean
+  canonicalUrl: string
+  headingsRawCount: { h1: number; h2: number; h3: number; h4: number; h5: number; h6: number }
+  headingsEmptyCount: { h1: number; h2: number; h3: number; h4: number; h5: number; h6: number }
+  nestedHeadings: string[]
   headingsText: {
     h1: string[]
     h2: string[]

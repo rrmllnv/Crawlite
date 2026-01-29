@@ -12,19 +12,25 @@ import './BrowserView.scss'
 
 type TabId = 'meta' | 'links' | 'images' | 'resources' | 'errors'
 
-function formatNumber(value: number | null) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return '—'
-  }
-  return value.toString()
-}
-
 function formatSizeKB(valueBytes: number | null) {
   if (typeof valueBytes !== 'number' || !Number.isFinite(valueBytes)) {
     return '—'
   }
   const kb = valueBytes / 1024
   return `${kb.toFixed(2)} KB`
+}
+
+function formatSeconds(valueMs: number | null) {
+  if (typeof valueMs !== 'number' || !Number.isFinite(valueMs)) {
+    return '—'
+  }
+  const sec = valueMs / 1000
+  return `${sec.toFixed(2)} s`
+}
+
+function isMailtoOrTel(value: string) {
+  const v = String(value || '').trim().toLowerCase()
+  return v.startsWith('mailto:') || v.startsWith('tel:')
 }
 
 function normalizeHostname(hostname: string): string {
@@ -455,6 +461,53 @@ export function BrowserView() {
     }
   }, [selectedPage])
 
+  const contacts = useMemo(() => {
+    const miscList = Array.isArray(selectedPage?.misc) ? selectedPage!.misc : []
+    const list = miscList.map((x) => String(x || '').trim()).filter(Boolean).filter(isMailtoOrTel)
+    return Array.from(new Set(list))
+  }, [selectedPage])
+
+  const seoIssues = useMemo(() => {
+    if (!selectedPage) {
+      return []
+    }
+    const issues: string[] = []
+    const title = String(selectedPage.title || '').trim().replace(/\s+/g, ' ')
+    const h1 = String(selectedPage.h1 || '').trim().replace(/\s+/g, ' ')
+
+    const raw = selectedPage.headingsRawCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 }
+    const empty = selectedPage.headingsEmptyCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 }
+    const nested = Array.isArray(selectedPage.nestedHeadings) ? selectedPage.nestedHeadings : []
+
+    if ((raw.h1 || 0) === 0) {
+      issues.push('Отсутствие H1: На странице вообще нет главного заголовка.')
+    }
+    if ((raw.h1 || 0) > 1) {
+      issues.push('Дублирование H1: Несколько тегов H1 на одной странице.')
+    }
+    if (title && h1 && title.toLowerCase() === h1.toLowerCase()) {
+      issues.push('Одинаковый H1 и Title: Лучше их различать для расширения семантики.')
+    }
+    const emptyTotal = (empty.h1 || 0) + (empty.h2 || 0) + (empty.h3 || 0) + (empty.h4 || 0) + (empty.h5 || 0) + (empty.h6 || 0)
+    if (emptyTotal > 0) {
+      issues.push(`Пустые заголовки: Найдено ${emptyTotal} пустых тегов H1–H6.`)
+    }
+    if (nested.length > 0) {
+      issues.push(`Вложенные заголовки: ${nested.join(', ')}`)
+    }
+    if (!String(selectedPage.description || '').trim()) {
+      issues.push('Отсутствие Description: Поисковик сам соберет кусок текста.')
+    }
+    if (!selectedPage.hasViewport) {
+      issues.push('Отсутствие тега Viewport: Сайт может не адаптироваться под мобильные устройства.')
+    }
+    if (!selectedPage.hasCanonical) {
+      issues.push('Отсутствие Canonical: Поисковик может не понимать главную страницу при дублях.')
+    }
+
+    return issues
+  }, [selectedPage])
+
   const tabsCount = useMemo(() => {
     if (!selectedPage) {
       return { links: 0, images: 0, resources: 0, errors: errors.length }
@@ -465,7 +518,10 @@ export function BrowserView() {
     const css = selectedPage.stylesheets?.length || 0
     const miscList = Array.isArray(selectedPage.misc) ? selectedPage.misc : []
     const seen = new Set<string>([...selectedPage.links, ...selectedPage.images, ...selectedPage.scripts, ...selectedPage.stylesheets].map((x) => String(x)))
-    const misc = miscList.filter((x) => x && !seen.has(String(x))).length
+    const misc = miscList
+      .map((x) => String(x || '').trim())
+      .filter((x) => x && !seen.has(String(x)) && !isMailtoOrTel(x))
+      .length
     return { links, images, resources: js + css + misc, errors: errors.length }
   }, [selectedPage, errors.length])
 
@@ -589,9 +645,29 @@ export function BrowserView() {
                 <div className="browser-view__kv-val">{formatSizeKB(selectedPage.contentLength)}</div>
               </div>
               <div className="browser-view__kv-row">
-                <div className="browser-view__kv-key">Время открытия (ms)</div>
-                <div className="browser-view__kv-val">{formatNumber(selectedPage.loadTimeMs)}</div>
+                <div className="browser-view__kv-key">Время открытия (s)</div>
+                <div className="browser-view__kv-val">{formatSeconds(selectedPage.loadTimeMs)}</div>
               </div>
+
+              {contacts.length > 0 && (
+                <>
+                  <Separate title="Контакты на странице" />
+                  {contacts.map((x) => (
+                    <div key={x} className="browser-view__kv-row">
+                      <div className="browser-view__kv-key">Контакт</div>
+                      <div className="browser-view__kv-val">{x}</div>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              <Separate title="Проверки" />
+              {seoIssues.length === 0 && <div className="browser-view__empty">Нет.</div>}
+              {seoIssues.map((x) => (
+                <div key={x} className="browser-view__list-item">
+                  {x}
+                </div>
+              ))}
 
               <Separate title="Сводка по странице" />
 
@@ -604,6 +680,7 @@ export function BrowserView() {
                       type="button"
                       className="browser-view__headings-control"
                       onClick={() => setOpenHeadingLevels(new Set(['h2', 'h3', 'h4', 'h5', 'h6']))}
+                      disabled={isPageLoading}
                     >
                       Раскрыть
                     </button>
@@ -611,6 +688,7 @@ export function BrowserView() {
                       type="button"
                       className="browser-view__headings-control browser-view__headings-control--secondary"
                       onClick={() => setOpenHeadingLevels(new Set())}
+                      disabled={isPageLoading}
                     >
                       Скрыть
                     </button>
@@ -632,6 +710,7 @@ export function BrowserView() {
                             key={`h1:${t}`}
                             className="browser-view__headings-item browser-view__headings-item--button"
                             onClick={() => void browserService.highlightHeading(1, t)}
+                            disabled={isPageLoading}
                           >
                             {t}
                           </button>
@@ -675,6 +754,7 @@ export function BrowserView() {
                                 key={`${key}:${t}`}
                                 className="browser-view__headings-item browser-view__headings-item--button"
                                 onClick={() => void browserService.highlightHeading(Number(key.slice(1)), t)}
+                                disabled={isPageLoading}
                               >
                                 {t}
                               </button>
