@@ -69,6 +69,7 @@ export type BrowserPropertiesProps = {
   isPageLoading: boolean
   contacts: string[]
   linkGroups: { internal: LinkDetailed[]; external: LinkDetailed[] }
+  anchors: string[]
   headInfoByUrl: Record<string, ResourceHeadInfo>
   errors: CrawlErrorItem[]
   onOpenLink: (url: string) => void
@@ -88,6 +89,7 @@ export function BrowserProperties({
   isPageLoading,
   contacts,
   linkGroups,
+  anchors,
   headInfoByUrl,
   errors,
   onOpenLink,
@@ -383,6 +385,24 @@ export function BrowserProperties({
                 </div>
               </details>
             )}
+
+            {anchors.length > 0 && (
+              <details className="browser-properties__group">
+                <summary className="browser-properties__group-summary">
+                  <span className="browser-properties__group-title">Якори</span>
+                  <span className="browser-properties__group-count">{anchors.length}</span>
+                </summary>
+                <div className="browser-properties__group-body">
+                  {anchors.map((anchor, idx) => (
+                    <div key={`${anchor}__${idx}`} className="browser-properties__row">
+                      <div className="browser-properties__row-main">
+                        <div className="browser-properties__row-main-text">{anchor}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
         )}
 
@@ -475,7 +495,9 @@ export function BrowserProperties({
                 {(() => {
                   const miscList = Array.isArray(selectedPage.misc) ? selectedPage.misc : []
                   const seen = new Set<string>([...selectedPage.links, ...selectedPage.images, ...selectedPage.scripts, ...selectedPage.stylesheets].map((x) => String(x)))
-                  const list = miscList.filter((x) => x && !seen.has(String(x)))
+                  const list = miscList
+                    .filter((x) => x && !seen.has(String(x)))
+                    .filter((x) => !/^#/.test(String(x).trim()))
                   if (list.length === 0) {
                     return <div className="browser-properties__empty">Нет.</div>
                   }

@@ -45,6 +45,7 @@ export function BrowserView() {
     tree,
     expanded,
     resourceMiscList,
+    anchorsList,
     linkGroups,
     summary,
     contacts,
@@ -231,6 +232,7 @@ export function BrowserView() {
             isPageLoading={isPageLoading}
             contacts={contacts}
             linkGroups={linkGroups}
+            anchors={anchorsList}
             headInfoByUrl={headInfoByUrl}
             errors={errors}
             onOpenLink={openLinkSafely}

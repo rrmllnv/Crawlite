@@ -39,6 +39,10 @@ export function useBrowserViewData() {
     return miscList.map((x) => String(x || '').trim()).filter((x) => x && !seen.has(String(x)))
   }, [selectedPage])
 
+  const anchorsList = useMemo(() => {
+    return resourceMiscList.filter((x) => /^#/.test(String(x).trim()))
+  }, [resourceMiscList])
+
   const linkGroups = useMemo(() => {
     if (!selectedPage?.url) {
       return { internal: [] as LinkDetailed[], external: [] as LinkDetailed[] }
@@ -162,7 +166,7 @@ export function useBrowserViewData() {
     const images = selectedPage.images?.length || 0
     const js = selectedPage.scripts?.length || 0
     const css = selectedPage.stylesheets?.length || 0
-    const misc = resourceMiscList.filter((x) => x && !isMailtoOrTel(x)).length
+    const misc = resourceMiscList.filter((x) => x && !isMailtoOrTel(x) && !/^#/.test(String(x).trim())).length
     return { links, images, resources: js + css + misc, errors: errors.length }
   }, [selectedPage, errors.length, resourceMiscList])
 
@@ -176,6 +180,7 @@ export function useBrowserViewData() {
     tree,
     expanded,
     resourceMiscList,
+    anchorsList,
     linkGroups,
     summary,
     contacts,
