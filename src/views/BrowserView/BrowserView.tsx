@@ -935,45 +935,51 @@ export function BrowserView() {
                       ['h4', 'H4'],
                       ['h5', 'H5'],
                       ['h6', 'H6'],
-                    ] as const).map(([key, label]) => {
-                      const items = summary.headingsText[key]
-                      const count = items.length || summary.headings[key]
-                      return (
-                        <details
-                          key={key}
-                          className="browser-view__headings-level"
-                          open={openHeadingLevels.has(key)}
-                          onToggle={(e) => {
-                            const nextOpen = (e.currentTarget as HTMLDetailsElement).open
-                            setOpenHeadingLevels((prev) => {
-                              const next = new Set(prev)
-                              if (nextOpen) next.add(key)
-                              else next.delete(key)
-                              return next
-                            })
-                          }}
-                        >
-                          <summary className="browser-view__headings-summary">
-                            <span className="browser-view__headings-title">{label}</span>
-                            <span className="browser-view__headings-count">{count}</span>
-                          </summary>
-                          <div className="browser-view__headings-list">
-                            {items.length === 0 && <div className="browser-view__headings-empty">Нет</div>}
-                            {items.map((t) => (
-                              <button
-                                type="button"
-                                key={`${key}:${t}`}
-                                className="browser-view__headings-item browser-view__headings-item--button"
-                                onClick={() => void browserService.highlightHeading(Number(key.slice(1)), t)}
-                                disabled={isPageLoading}
-                              >
-                                {t}
-                              </button>
-                            ))}
-                          </div>
-                        </details>
-                      )
-                    })}
+                    ] as const)
+                      .filter(([key]) => {
+                        const items = summary.headingsText[key]
+                        const count = items.length || summary.headings[key]
+                        return (count || 0) > 0
+                      })
+                      .map(([key, label]) => {
+                        const items = summary.headingsText[key]
+                        const count = items.length || summary.headings[key]
+                        return (
+                          <details
+                            key={key}
+                            className="browser-view__headings-level"
+                            open={openHeadingLevels.has(key)}
+                            onToggle={(e) => {
+                              const nextOpen = (e.currentTarget as HTMLDetailsElement).open
+                              setOpenHeadingLevels((prev) => {
+                                const next = new Set(prev)
+                                if (nextOpen) next.add(key)
+                                else next.delete(key)
+                                return next
+                              })
+                            }}
+                          >
+                            <summary className="browser-view__headings-summary">
+                              <span className="browser-view__headings-title">{label}</span>
+                              <span className="browser-view__headings-count">{count}</span>
+                            </summary>
+                            <div className="browser-view__headings-list">
+                              {items.length === 0 && <div className="browser-view__headings-empty">Нет</div>}
+                              {items.map((t) => (
+                                <button
+                                  type="button"
+                                  key={`${key}:${t}`}
+                                  className="browser-view__headings-item browser-view__headings-item--button"
+                                  onClick={() => void browserService.highlightHeading(Number(key.slice(1)), t)}
+                                  disabled={isPageLoading}
+                                >
+                                  {t}
+                                </button>
+                              ))}
+                            </div>
+                          </details>
+                        )
+                      })}
                   </div>
                 )}
 
