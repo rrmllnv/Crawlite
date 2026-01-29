@@ -10,7 +10,7 @@ import { ImageModal } from '../../components/ImageModal/ImageModal'
 import { ResourceModal } from '../../components/ResourceModal/ResourceModal'
 import './BrowserView.scss'
 
-type TabId = 'meta' | 'links' | 'images' | 'js' | 'css' | 'misc'
+type TabId = 'meta' | 'links' | 'images' | 'resources' | 'errors'
 
 function formatNumber(value: number | null) {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -265,6 +265,7 @@ export function BrowserView() {
   const pageOrder = useAppSelector((s) => s.crawl.pageOrder)
   const selectedUrl = useAppSelector((s) => s.crawl.selectedUrl)
   const requestedUrl = useAppSelector((s) => s.browser.requestedUrl)
+  const errors = useAppSelector((s) => s.crawl.errors)
 
   const [activeTab, setActiveTab] = useState<TabId>('meta')
   const [imageModalUrl, setImageModalUrl] = useState<string>('')
@@ -433,7 +434,7 @@ export function BrowserView() {
 
   const tabsCount = useMemo(() => {
     if (!selectedPage) {
-      return { links: 0, images: 0, js: 0, css: 0, misc: 0 }
+      return { links: 0, images: 0, resources: 0, errors: errors.length }
     }
     const links = selectedPage.links?.length || 0
     const images = selectedPage.images?.length || 0
@@ -442,8 +443,8 @@ export function BrowserView() {
     const miscList = Array.isArray(selectedPage.misc) ? selectedPage.misc : []
     const seen = new Set<string>([...selectedPage.links, ...selectedPage.images, ...selectedPage.scripts, ...selectedPage.stylesheets].map((x) => String(x)))
     const misc = miscList.filter((x) => x && !seen.has(String(x))).length
-    return { links, images, js, css, misc }
-  }, [selectedPage])
+    return { links, images, resources: js + css + misc, errors: errors.length }
+  }, [selectedPage, errors.length])
 
   return (
     <div className="browser-view">
@@ -512,24 +513,17 @@ export function BrowserView() {
           </button>
           <button
             type="button"
-            className={`browser-view__tab ${activeTab === 'js' ? 'browser-view__tab--active' : ''}`}
-            onClick={() => setActiveTab('js')}
+            className={`browser-view__tab ${activeTab === 'resources' ? 'browser-view__tab--active' : ''}`}
+            onClick={() => setActiveTab('resources')}
           >
-            JS <span className="browser-view__tab-count">{selectedPage ? tabsCount.js : '—'}</span>
+            Ресурсы <span className="browser-view__tab-count">{selectedPage ? tabsCount.resources : '—'}</span>
           </button>
           <button
             type="button"
-            className={`browser-view__tab ${activeTab === 'css' ? 'browser-view__tab--active' : ''}`}
-            onClick={() => setActiveTab('css')}
+            className={`browser-view__tab ${activeTab === 'errors' ? 'browser-view__tab--active' : ''}`}
+            onClick={() => setActiveTab('errors')}
           >
-            CSS <span className="browser-view__tab-count">{selectedPage ? tabsCount.css : '—'}</span>
-          </button>
-          <button
-            type="button"
-            className={`browser-view__tab ${activeTab === 'misc' ? 'browser-view__tab--active' : ''}`}
-            onClick={() => setActiveTab('misc')}
-          >
-            Разное <span className="browser-view__tab-count">{selectedPage ? tabsCount.misc : '—'}</span>
+            Ошибки <span className="browser-view__tab-count">{tabsCount.errors}</span>
           </button>
         </div>
 
@@ -577,31 +571,30 @@ export function BrowserView() {
 
               <Separate title="Сводка по странице" />
 
-              <details className="browser-view__details-block" open>
-                <summary className="browser-view__details-summary">
+              <div className="browser-view__details-block">
+                <div className="browser-view__details-summary">
                   <span className="browser-view__details-summary-title">Заголовки</span>
                   <span className="browser-view__details-summary-value">{summary ? `всего ${summary.totalHeadings}` : '—'}</span>
-                </summary>
+                  <span className="browser-view__details-summary-actions">
+                    <button
+                      type="button"
+                      className="browser-view__headings-control"
+                      onClick={() => setOpenHeadingLevels(new Set(['h2', 'h3', 'h4', 'h5', 'h6']))}
+                    >
+                      Раскрыть
+                    </button>
+                    <button
+                      type="button"
+                      className="browser-view__headings-control browser-view__headings-control--secondary"
+                      onClick={() => setOpenHeadingLevels(new Set())}
+                    >
+                      Скрыть
+                    </button>
+                  </span>
+                </div>
 
                 {summary && (
                   <div className="browser-view__headings">
-                    <div className="browser-view__headings-controls">
-                      <button
-                        type="button"
-                        className="browser-view__headings-control"
-                        onClick={() => setOpenHeadingLevels(new Set(['h2', 'h3', 'h4', 'h5', 'h6']))}
-                      >
-                        Раскрыть
-                      </button>
-                      <button
-                        type="button"
-                        className="browser-view__headings-control browser-view__headings-control--secondary"
-                        onClick={() => setOpenHeadingLevels(new Set())}
-                      >
-                        Скрыть
-                      </button>
-                    </div>
-
                     <div className="browser-view__headings-level browser-view__headings-level--open">
                       <div className="browser-view__headings-summary">
                         <span className="browser-view__headings-title">H1</span>
@@ -670,7 +663,7 @@ export function BrowserView() {
                 )}
 
                 {!summary && <div className="browser-view__empty">—</div>}
-              </details>
+              </div>
 
             </div>
           )}
@@ -689,19 +682,23 @@ export function BrowserView() {
                     {linkGroups.internal.length === 0 && <div className="browser-view__empty">Нет.</div>}
                     {linkGroups.internal.map((x) => (
                       <div key={x} className="browser-view__row">
-                        <div className="browser-view__row-text">{x}</div>
+                      <button
+                        type="button"
+                        className="browser-view__row-main"
+                        onClick={() => void browserService.highlightLink(x).catch(() => void 0)}
+                        title="Подсветить в браузере"
+                      >
+                        {x}
+                      </button>
                         <div className="browser-view__row-actions">
-                          <button
-                            type="button"
-                            className="browser-view__action"
-                            onClick={() => void browserService.highlightLink(x).catch(() => void 0)}
-                            title="Подсветить в браузере"
-                          >
-                            Подсветить
-                          </button>
-                          <button type="button" className="browser-view__action browser-view__action--primary" onClick={() => void openLinkSafely(x)} title="Открыть">
-                            Открыть
-                          </button>
+                        <button
+                          type="button"
+                          className="browser-view__action browser-view__action--primary"
+                          onClick={() => void openLinkSafely(x)}
+                          title="Открыть"
+                        >
+                          Открыть
+                        </button>
                         </div>
                       </div>
                     ))}
@@ -719,19 +716,23 @@ export function BrowserView() {
                     {linkGroups.external.length === 0 && <div className="browser-view__empty">Нет.</div>}
                     {linkGroups.external.map((x) => (
                       <div key={x} className="browser-view__row">
-                        <div className="browser-view__row-text">{x}</div>
+                      <button
+                        type="button"
+                        className="browser-view__row-main"
+                        onClick={() => void browserService.highlightLink(x).catch(() => void 0)}
+                        title="Подсветить в браузере"
+                      >
+                        {x}
+                      </button>
                         <div className="browser-view__row-actions">
-                          <button
-                            type="button"
-                            className="browser-view__action"
-                            onClick={() => void browserService.highlightLink(x).catch(() => void 0)}
-                            title="Подсветить в браузере"
-                          >
-                            Подсветить
-                          </button>
-                          <button type="button" className="browser-view__action browser-view__action--primary" onClick={() => void openLinkSafely(x)} title="Открыть">
-                            Открыть
-                          </button>
+                        <button
+                          type="button"
+                          className="browser-view__action browser-view__action--primary"
+                          onClick={() => void openLinkSafely(x)}
+                          title="Открыть"
+                        >
+                          Открыть
+                        </button>
                         </div>
                       </div>
                     ))}
@@ -746,16 +747,16 @@ export function BrowserView() {
               {selectedPage.images.length === 0 && <div className="browser-view__empty">Нет картинок.</div>}
               {selectedPage.images.map((x) => (
                 <div key={x} className="browser-view__row">
-                  <div className="browser-view__row-text">{x}</div>
+                  <button
+                    type="button"
+                    className="browser-view__row-main browser-view__row-main--with-thumb"
+                    onClick={() => void browserService.highlightImage(x).catch(() => void 0)}
+                    title="Подсветить в браузере"
+                  >
+                    <img className="browser-view__thumb" src={x} alt="" loading="lazy" />
+                    <span className="browser-view__row-main-text">{x}</span>
+                  </button>
                   <div className="browser-view__row-actions">
-                    <button
-                      type="button"
-                      className="browser-view__action"
-                      onClick={() => void browserService.highlightImage(x).catch(() => void 0)}
-                      title="Подсветить в браузере"
-                    >
-                      Подсветить
-                    </button>
                     <button
                       type="button"
                       className="browser-view__action browser-view__action--primary"
@@ -770,53 +771,97 @@ export function BrowserView() {
             </div>
           )}
 
-          {selectedPage && activeTab === 'js' && (
+          {selectedPage && activeTab === 'resources' && (
             <div className="browser-view__list">
-              {selectedPage.scripts.length === 0 && <div className="browser-view__empty">Нет JS.</div>}
-              {selectedPage.scripts.map((x) => (
-                <button
-                  type="button"
-                  key={x}
-                  className="browser-view__list-item browser-view__list-item--button"
-                  onClick={() => setResourceModal({ type: 'js', url: x })}
-                >
-                  {x}
-                </button>
-              ))}
+              <details className="browser-view__group" open>
+                <summary className="browser-view__group-summary">
+                  <span className="browser-view__group-title">JS</span>
+                  <span className="browser-view__group-count">{selectedPage.scripts.length}</span>
+                </summary>
+                <div className="browser-view__group-body">
+                  {selectedPage.scripts.length === 0 && <div className="browser-view__empty">Нет.</div>}
+                  {selectedPage.scripts.map((x) => (
+                    <button
+                      type="button"
+                      key={x}
+                      className="browser-view__list-item browser-view__list-item--button"
+                      onClick={() => setResourceModal({ type: 'js', url: x })}
+                    >
+                      {x}
+                    </button>
+                  ))}
+                </div>
+              </details>
+
+              <details className="browser-view__group">
+                <summary className="browser-view__group-summary">
+                  <span className="browser-view__group-title">CSS</span>
+                  <span className="browser-view__group-count">{selectedPage.stylesheets.length}</span>
+                </summary>
+                <div className="browser-view__group-body">
+                  {selectedPage.stylesheets.length === 0 && <div className="browser-view__empty">Нет.</div>}
+                  {selectedPage.stylesheets.map((x) => (
+                    <button
+                      type="button"
+                      key={x}
+                      className="browser-view__list-item browser-view__list-item--button"
+                      onClick={() => setResourceModal({ type: 'css', url: x })}
+                    >
+                      {x}
+                    </button>
+                  ))}
+                </div>
+              </details>
+
+              <details className="browser-view__group">
+                <summary className="browser-view__group-summary">
+                  <span className="browser-view__group-title">Разное</span>
+                  <span className="browser-view__group-count">{tabsCount.resources - selectedPage.scripts.length - selectedPage.stylesheets.length}</span>
+                </summary>
+                <div className="browser-view__group-body">
+                  {(() => {
+                    const miscList = Array.isArray(selectedPage.misc) ? selectedPage.misc : []
+                    const seen = new Set<string>([...selectedPage.links, ...selectedPage.images, ...selectedPage.scripts, ...selectedPage.stylesheets].map((x) => String(x)))
+                    const list = miscList.filter((x) => x && !seen.has(String(x)))
+                    if (list.length === 0) {
+                      return <div className="browser-view__empty">Нет.</div>
+                    }
+                    return list.map((x) => (
+                      <div key={x} className="browser-view__list-item">
+                        {x}
+                      </div>
+                    ))
+                  })()}
+                </div>
+              </details>
             </div>
           )}
 
-          {selectedPage && activeTab === 'css' && (
+          {activeTab === 'errors' && (
             <div className="browser-view__list">
-              {selectedPage.stylesheets.length === 0 && <div className="browser-view__empty">Нет CSS.</div>}
-              {selectedPage.stylesheets.map((x) => (
-                <button
-                  type="button"
-                  key={x}
-                  className="browser-view__list-item browser-view__list-item--button"
-                  onClick={() => setResourceModal({ type: 'css', url: x })}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {selectedPage && activeTab === 'misc' && (
-            <div className="browser-view__list">
-              {(() => {
-                const miscList = Array.isArray(selectedPage.misc) ? selectedPage.misc : []
-                const seen = new Set<string>([...selectedPage.links, ...selectedPage.images, ...selectedPage.scripts, ...selectedPage.stylesheets].map((x) => String(x)))
-                const list = miscList.filter((x) => x && !seen.has(String(x)))
-                if (list.length === 0) {
-                  return <div className="browser-view__empty">Нет.</div>
-                }
-                return list.map((x) => (
-                  <div key={x} className="browser-view__list-item">
-                    {x}
+              {errors.length === 0 && <div className="browser-view__empty">Нет ошибок.</div>}
+              {errors.map((e, idx) => (
+                <div key={`${e.url}:${e.at}:${idx}`} className="browser-view__row">
+                  <button
+                    type="button"
+                    className="browser-view__row-main"
+                    onClick={() => void browserService.highlightLink(e.url).catch(() => void 0)}
+                    title="Подсветить в браузере"
+                  >
+                    {e.url}
+                  </button>
+                  <div className="browser-view__row-actions">
+                    <button
+                      type="button"
+                      className="browser-view__action browser-view__action--primary"
+                      onClick={() => void openLinkSafely(e.url)}
+                      title="Открыть"
+                    >
+                      Открыть
+                    </button>
                   </div>
-                ))
-              })()}
+                </div>
+              ))}
             </div>
           )}
         </div>

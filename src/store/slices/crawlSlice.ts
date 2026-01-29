@@ -4,6 +4,11 @@ import type { UserConfig } from '../../types/userConfig'
 
 export type CrawlStatus = 'idle' | 'running' | 'finished' | 'cancelled' | 'error'
 
+export type CrawlErrorItem = {
+  url: string
+  at: number
+}
+
 interface CrawlState {
   status: CrawlStatus
   runId: string | null
@@ -17,6 +22,7 @@ interface CrawlState {
   pagesByUrl: Record<string, CrawlPageData>
   pageOrder: string[]
   selectedUrl: string
+  errors: CrawlErrorItem[]
 }
 
 const initialState: CrawlState = {
@@ -32,6 +38,7 @@ const initialState: CrawlState = {
   pagesByUrl: {},
   pageOrder: [],
   selectedUrl: '',
+  errors: [],
 }
 
 export const crawlSlice = createSlice({
@@ -88,6 +95,19 @@ export const crawlSlice = createSlice({
     selectPage: (state, action: PayloadAction<string>) => {
       state.selectedUrl = action.payload
     },
+    addError: (state, action: PayloadAction<CrawlErrorItem>) => {
+      const item = action.payload
+      if (!item || typeof item.url !== 'string' || !item.url.trim()) {
+        return
+      }
+      state.errors.push({
+        url: item.url.trim(),
+        at: typeof item.at === 'number' && Number.isFinite(item.at) ? item.at : Date.now(),
+      })
+      if (state.errors.length > 500) {
+        state.errors = state.errors.slice(state.errors.length - 500)
+      }
+    },
   },
 })
 
@@ -101,6 +121,7 @@ export const {
   hydrateFromConfig,
   upsertPage,
   selectPage,
+  addError,
 } = crawlSlice.actions
 
 export default crawlSlice.reducer

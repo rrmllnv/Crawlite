@@ -7,7 +7,7 @@ import { BrowserView } from './views/BrowserView/BrowserView'
 import { SiteMapView } from './views/SiteMapView/SiteMapView'
 import { SettingsView } from './views/SettingsView/SettingsView'
 import { crawlService } from './services/CrawlService'
-import { setCrawlStatus, setProgress, setRunId, setStartUrl, upsertPage } from './store/slices/crawlSlice'
+import { addError, setCrawlStatus, setProgress, setRunId, setStartUrl, upsertPage } from './store/slices/crawlSlice'
 import { useUserConfig } from './hooks/useUserConfig'
 import { useTheme } from './hooks/useTheme'
 import { useLocale } from './hooks/useLocale'
@@ -76,6 +76,9 @@ function App() {
       if (evt.type === 'page:done') {
         dispatch(upsertPage(evt.page))
         dispatch(setProgress({ processed: evt.processed, queued: evt.queued }))
+        if (!evt.ok) {
+          dispatch(addError({ url: evt.page?.url || '', at: Date.now() }))
+        }
       }
     })
 
