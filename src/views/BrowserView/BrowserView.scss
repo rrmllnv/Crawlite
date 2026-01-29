@@ -83,6 +83,26 @@
   color: $text-primary;
 }
 
+.browser-view__browser-header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+}
+
+.browser-view__browser-url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-view__browser-size {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .browser-view__col-title {
   font-size: $font-size-lg;
   font-weight: 600;

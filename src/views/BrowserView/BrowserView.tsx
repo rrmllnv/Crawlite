@@ -69,6 +69,8 @@ function normalizeHostname(hostname: string): string {
 
 const EMULATED_WIDTH_MOBILE = 390
 const EMULATED_WIDTH_TABLET = 768
+const EMULATED_HEIGHT_MOBILE = 844
+const EMULATED_HEIGHT_TABLET = 1024
 
 function useBrowserBounds(deviceMode: 'desktop' | 'mobile' | 'tablet') {
   const ref = useRef<HTMLDivElement | null>(null)
@@ -331,6 +333,7 @@ export function BrowserView() {
   const [resourceModal, setResourceModal] = useState<{ type: 'js' | 'css'; url: string } | null>(null)
   const [openHeadingLevels, setOpenHeadingLevels] = useState<Set<string>>(() => new Set())
   const [headInfoByUrl, setHeadInfoByUrl] = useState<Record<string, ResourceHeadInfo>>({})
+  const [viewSize, setViewSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
 
   const pages = useMemo(() => {
     return pageOrder
@@ -340,6 +343,29 @@ export function BrowserView() {
 
   const tree = useMemo(() => buildUrlTree(pages, pagesByUrl), [pages, pagesByUrl])
   const expanded = useMemo(() => new Set(pagesTreeExpandedIds || []), [pagesTreeExpandedIds])
+
+  useEffect(() => {
+    const el = boundsRef.current
+    if (!el) {
+      return
+    }
+    const update = () => {
+      if (!boundsRef.current) return
+      const r = boundsRef.current.getBoundingClientRect()
+      setViewSize({
+        width: Math.max(0, Math.floor(r.width)),
+        height: Math.max(0, Math.floor(r.height)),
+      })
+    }
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener('resize', update)
+    update()
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [deviceMode])
 
   useEffect(() => {
     // авто-раскрытие корня и хоста выбранной страницы
@@ -705,7 +731,18 @@ export function BrowserView() {
               </button>
             </div>
           </div>
-          <div className="browser-view__col-subtitle">{selectedPage ? selectedPage.url : '—'}</div>
+          <div className="browser-view__browser-header-row">
+            <div className="browser-view__col-subtitle browser-view__browser-url">
+              {selectedPage ? selectedPage.url : '—'}
+            </div>
+            <div className="browser-view__col-subtitle browser-view__browser-size" title="Размер экрана (viewport)">
+              {deviceMode === 'desktop'
+                ? (viewSize.width > 0 || viewSize.height > 0 ? `${viewSize.width} × ${viewSize.height}` : '—')
+                : deviceMode === 'mobile'
+                  ? `${EMULATED_WIDTH_MOBILE} × ${EMULATED_HEIGHT_MOBILE}`
+                  : `${EMULATED_WIDTH_TABLET} × ${EMULATED_HEIGHT_TABLET}`}
+            </div>
+          </div>
         </div>
         {isPageLoading && <div className="browser-view__loading-bar">Загрузка страницы…</div>}
         <div className="browser-view__browser-surface" ref={boundsRef}>
