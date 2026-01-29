@@ -1,0 +1,111 @@
+@use '../../styles/variables' as *;
+
+.settings-crawling {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.settings-crawling__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.settings-crawling__modal {
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  width: 520px;
+  max-width: calc(100vw - 40px);
+  background-color: $bg-secondary;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.settings-crawling__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background-color: $bg-tertiary;
+  border-bottom: 1px solid $border-color;
+}
+
+.settings-crawling__title {
+  font-size: $font-size-lg;
+  font-weight: 700;
+  color: $text-primary;
+}
+
+.settings-crawling__close {
+  width: 32px;
+  height: 32px;
+  border-radius: $border-radius;
+  color: $text-secondary;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    color: $text-primary;
+  }
+}
+
+.settings-crawling__content {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-crawling__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-crawling__label {
+  font-size: $font-size-sm;
+  color: $text-secondary;
+}
+
+.settings-crawling__input {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: $border-radius;
+  border: 1px solid $border-color;
+  background-color: $bg-tertiary;
+  color: $text-primary;
+
+  &:focus {
+    border-color: $primary-color;
+  }
+}
+
+.settings-crawling__hint {
+  font-size: 11px;
+  color: $text-secondary;
+  opacity: 0.9;
+}
+
+.settings-crawling__footer {
+  padding: 12px 14px;
+  border-top: 1px solid $border-color;
+  display: flex;
+  justify-content: flex-end;
+  background-color: $bg-tertiary;
+}
+
+.settings-crawling__button {
+  height: 32px;
+  padding: 0 $spacing-md;
+  border-radius: $border-radius;
+  background-color: rgba(255, 255, 255, 0.10);
+  color: $text-primary;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+  }
+}
+

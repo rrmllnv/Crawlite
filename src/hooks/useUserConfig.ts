@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { hydrateFromConfig } from '../store/slices/appSlice'
+import { hydrateFromConfig as hydrateCrawlFromConfig } from '../store/slices/crawlSlice'
 import { userConfigManager } from '../utils/userConfig'
 import type { UserConfig } from '../types/userConfig'
 
@@ -15,8 +16,10 @@ export const useUserConfig = () => {
       try {
         const config = await userConfigManager.load()
         dispatch(hydrateFromConfig(config || null))
+        dispatch(hydrateCrawlFromConfig(config || null))
       } catch {
         dispatch(hydrateFromConfig(null))
+        dispatch(hydrateCrawlFromConfig(null))
       }
     }
     void loadConfig()
@@ -33,6 +36,7 @@ export const useUserConfig = () => {
   const updateConfig = useCallback(async (updates: Partial<UserConfig>): Promise<boolean> => {
     const ok = await userConfigManager.update(updates)
     dispatch(hydrateFromConfig(userConfigManager.getConfig() || null))
+    dispatch(hydrateCrawlFromConfig(userConfigManager.getConfig() || null))
     return ok
   }, [dispatch])
 

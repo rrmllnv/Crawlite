@@ -21,6 +21,7 @@ function App() {
   const currentView = useAppSelector((state) => state.app.currentView)
   const theme = useAppSelector((state) => state.app.theme)
   const locale = useAppSelector((state) => state.app.locale)
+  const crawlSettings = useAppSelector((state) => state.crawl.settings)
 
   // Загружаем UserConfig и применяем theme/locale при старте
   useUserConfig()
@@ -34,8 +35,12 @@ function App() {
         locale,
         currentView,
       },
+      crawling: {
+        maxDepth: crawlSettings.maxDepth,
+        maxPages: crawlSettings.maxPages,
+      },
     })
-  }, [theme, locale, currentView])
+  }, [theme, locale, currentView, crawlSettings.maxDepth, crawlSettings.maxPages])
 
   useEffect(() => {
     const unsubscribe = crawlService.onEvent((evt) => {

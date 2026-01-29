@@ -10,6 +10,7 @@ export interface BrowserBounds {
 export type CrawlStartParams = {
   startUrl: string
   options?: {
+    maxDepth?: number
     maxPages?: number
     delayMs?: number
     jitterMs?: number

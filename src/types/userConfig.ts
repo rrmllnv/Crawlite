@@ -6,6 +6,10 @@ export interface UserConfig {
     locale: string
     currentView: 'dashboard' | 'browser' | 'sitemap' | 'settings'
   }
+  crawling: {
+    maxDepth: number
+    maxPages: number
+  }
 }
 
 export const defaultUserConfig: UserConfig = {
@@ -13,6 +17,10 @@ export const defaultUserConfig: UserConfig = {
     theme: 'dark',
     locale: 'ru',
     currentView: 'browser',
+  },
+  crawling: {
+    maxDepth: 2,
+    maxPages: 200,
   },
 }
 

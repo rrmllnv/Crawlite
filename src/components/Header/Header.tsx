@@ -4,6 +4,7 @@ import { setCurrentView, setError, setLoading } from '../../store/slices/appSlic
 import { resetCrawl, setCrawlStatus, setRunId, setStartUrl } from '../../store/slices/crawlSlice'
 import { crawlService } from '../../services/CrawlService'
 import { requestNavigate } from '../../store/slices/browserSlice'
+import { SettingsCrawling } from '../SettingsCrawling/SettingsCrawling'
 import './Header.scss'
 
 function normalizeInputUrl(raw: string): string {
@@ -23,8 +24,10 @@ export function Header() {
   const runId = useAppSelector((s) => s.crawl.runId)
   const processed = useAppSelector((s) => s.crawl.processed)
   const queued = useAppSelector((s) => s.crawl.queued)
+  const crawlSettings = useAppSelector((s) => s.crawl.settings)
 
   const [urlInput, setUrlInput] = useState('')
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const isRunning = crawlStatus === 'running'
 
@@ -43,9 +46,41 @@ export function Header() {
     if (!url) {
       return
     }
+    if (isRunning) {
+      return
+    }
+
+    // "Перейти" = открыть страницу + запустить crawling только этой страницы
     dispatch(setError(null))
+    dispatch(setLoading(true))
+    dispatch(resetCrawl())
+    dispatch(setStartUrl(url))
     dispatch(setCurrentView('browser'))
     dispatch(requestNavigate(url))
+    dispatch(setCrawlStatus('running'))
+
+    try {
+      const res = await crawlService.start({
+        startUrl: url,
+        options: {
+          maxDepth: 0,
+          maxPages: 1,
+          delayMs: 0,
+          jitterMs: 0,
+        },
+      })
+      if (!res.success) {
+        dispatch(setCrawlStatus('error'))
+        dispatch(setError(res.error || 'Crawl start failed'))
+        return
+      }
+      dispatch(setRunId(typeof (res as any).runId === 'string' ? (res as any).runId : null))
+    } catch (error) {
+      dispatch(setCrawlStatus('error'))
+      dispatch(setError(String(error)))
+    } finally {
+      dispatch(setLoading(false))
+    }
   }
 
   const handleStart = async () => {
@@ -58,13 +93,16 @@ export function Header() {
     dispatch(setLoading(true))
     dispatch(resetCrawl())
     dispatch(setStartUrl(startUrl))
+    dispatch(setCurrentView('browser'))
+    dispatch(requestNavigate(startUrl))
     dispatch(setCrawlStatus('running'))
 
     try {
       const res = await crawlService.start({
         startUrl,
         options: {
-          maxPages: 200,
+          maxDepth: crawlSettings.maxDepth,
+          maxPages: crawlSettings.maxPages,
           delayMs: 650,
           jitterMs: 350,
         },
@@ -108,6 +146,16 @@ export function Header() {
       </div>
 
       <div className="header__toolbar">
+        <button
+          type="button"
+          className="header__icon-button"
+          onClick={() => setIsSettingsOpen(true)}
+          title="Настройки crawling"
+          aria-label="Настройки crawling"
+        >
+          <i className="fa-solid fa-sliders" aria-hidden="true" />
+        </button>
+
         <input
           type="text"
           className="header__url-input"
@@ -141,6 +189,8 @@ export function Header() {
           <span className="header__progress-value">{queued}</span>
         </div>
       </div>
+
+      <SettingsCrawling isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </header>
   )
 }

@@ -76,6 +76,10 @@ export class UserConfigManager {
         ...defaultUserConfig.app,
         ...(config.app || {}),
       },
+      crawling: {
+        ...defaultUserConfig.crawling,
+        ...(config.crawling || {}),
+      },
     }
   }
 }

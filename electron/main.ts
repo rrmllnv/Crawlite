@@ -8,6 +8,7 @@ type BrowserBounds = { x: number; y: number; width: number; height: number }
 type CrawlStartParams = {
   startUrl: string
   options?: {
+    maxDepth?: number
     maxPages?: number
     delayMs?: number
     jitterMs?: number
@@ -475,6 +476,10 @@ async function crawlStart(params: CrawlStartParams) {
     ? Math.max(1, Math.floor(params.options.maxPages))
     : 200
 
+  const maxDepth = typeof params?.options?.maxDepth === 'number' && Number.isFinite(params.options.maxDepth)
+    ? Math.max(0, Math.floor(params.options.maxDepth))
+    : 2
+
   const delayMs = typeof params?.options?.delayMs === 'number' && Number.isFinite(params.options.delayMs)
     ? Math.max(0, Math.floor(params.options.delayMs))
     : 650
@@ -491,7 +496,7 @@ async function crawlStart(params: CrawlStartParams) {
   // “Внутренние страницы” считаем по нормализованному hostname (www.* == без www).
   // Это нужно, чтобы редиректы и ссылки с www не считались “внешними”.
   const baseHost = normalizeHostname(start.hostname)
-  const queue: string[] = [start.toString()]
+  const queue: Array<{ url: string; depth: number }> = [{ url: start.toString(), depth: 0 }]
   const seen = new Set<string>()
   const enqueued = new Set<string>()
   enqueued.add(normalizeUrl(start.toString()))
@@ -542,7 +547,12 @@ async function crawlStart(params: CrawlStartParams) {
       break
     }
 
-    const nextUrl = queue.shift() || ''
+    const next = queue.shift()
+    if (!next) {
+      continue
+    }
+    const nextUrl = next.url
+    const depth = next.depth
     const normalized = normalizeUrl(nextUrl)
     if (!normalized) {
       continue
@@ -628,7 +638,17 @@ async function crawlStart(params: CrawlStartParams) {
       ok: loadOk,
     })
 
-    // Добавляем внутренние ссылки в очередь
+    // Добавляем внутренние ссылки в очередь (с учетом глубины)
+    if (depth >= maxDepth) {
+      processed += 1
+
+      const sleepFor = delayMs + Math.floor(Math.random() * (jitterMs + 1))
+      if (sleepFor > 0) {
+        await new Promise((resolve) => setTimeout(resolve, sleepFor))
+      }
+      continue
+    }
+
     for (const link of page.links) {
       const normalizedLink = normalizeUrl(link)
       if (!normalizedLink) {
@@ -645,7 +665,7 @@ async function crawlStart(params: CrawlStartParams) {
         continue
       }
       enqueued.add(normalizedLink)
-      queue.push(lu.toString())
+      queue.push({ url: lu.toString(), depth: depth + 1 })
 
       sendCrawlEvent({
         type: 'page:discovered',
