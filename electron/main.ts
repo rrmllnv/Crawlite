@@ -19,6 +19,14 @@ type CrawlPageData = {
   normalizedUrl: string
   title: string
   h1: string
+  headingsCount: {
+    h1: number
+    h2: number
+    h3: number
+    h4: number
+    h5: number
+    h6: number
+  }
   description: string
   keywords: string
   statusCode: number | null
@@ -255,7 +263,9 @@ function ensureCrawlView() {
   }
 }
 
-async function extractPageDataFromView(view: WebContentsView): Promise<Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt'>> {
+async function extractPageDataFromView(
+  view: WebContentsView
+): Promise<(Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt'> & { htmlBytes: number | null })> {
   const data = await view.webContents.executeJavaScript(`
     (function() {
       const text = (v) => (typeof v === 'string' ? v : '');
@@ -299,6 +309,36 @@ async function extractPageDataFromView(view: WebContentsView): Promise<Omit<Craw
       const description = pickMeta('description').slice(0, 500);
       const keywords = pickMeta('keywords').slice(0, 500);
 
+      const count = (sel) => {
+        try {
+          const n = document.querySelectorAll(sel).length;
+          return (typeof n === 'number' && Number.isFinite(n)) ? n : 0;
+        } catch (e) {
+          return 0;
+        }
+      };
+
+      const headingsCount = {
+        h1: count('h1'),
+        h2: count('h2'),
+        h3: count('h3'),
+        h4: count('h4'),
+        h5: count('h5'),
+        h6: count('h6'),
+      };
+
+      let htmlBytes = null;
+      try {
+        const html = document.documentElement ? document.documentElement.outerHTML : '';
+        if (typeof TextEncoder !== 'undefined') {
+          htmlBytes = new TextEncoder().encode(String(html || '')).length;
+        } else {
+          htmlBytes = String(html || '').length;
+        }
+      } catch (e) {
+        htmlBytes = null;
+      }
+
       const rawLinks = Array.from(document.querySelectorAll('a[href]'))
         .map((a) => a && a.href ? String(a.href) : '')
         .filter(Boolean);
@@ -320,6 +360,8 @@ async function extractPageDataFromView(view: WebContentsView): Promise<Omit<Craw
         url: String(window.location.href || ''),
         title,
         h1,
+        headingsCount,
+        htmlBytes,
         description,
         keywords,
         links: uniq(rawLinks),
@@ -336,12 +378,25 @@ async function extractPageDataFromView(view: WebContentsView): Promise<Omit<Craw
     normalizedUrl: normalizeUrl(url),
     title: typeof data?.title === 'string' ? data.title : '',
     h1: typeof data?.h1 === 'string' ? data.h1 : '',
+    headingsCount: (data && typeof data === 'object' && (data as any).headingsCount && typeof (data as any).headingsCount === 'object')
+      ? {
+          h1: typeof (data as any).headingsCount.h1 === 'number' ? (data as any).headingsCount.h1 : 0,
+          h2: typeof (data as any).headingsCount.h2 === 'number' ? (data as any).headingsCount.h2 : 0,
+          h3: typeof (data as any).headingsCount.h3 === 'number' ? (data as any).headingsCount.h3 : 0,
+          h4: typeof (data as any).headingsCount.h4 === 'number' ? (data as any).headingsCount.h4 : 0,
+          h5: typeof (data as any).headingsCount.h5 === 'number' ? (data as any).headingsCount.h5 : 0,
+          h6: typeof (data as any).headingsCount.h6 === 'number' ? (data as any).headingsCount.h6 : 0,
+        }
+      : { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
     description: typeof data?.description === 'string' ? data.description : '',
     keywords: typeof data?.keywords === 'string' ? data.keywords : '',
     links: Array.isArray(data?.links) ? data.links.filter((x: unknown) => typeof x === 'string') : [],
     images: Array.isArray(data?.images) ? data.images.filter((x: unknown) => typeof x === 'string') : [],
     scripts: Array.isArray(data?.scripts) ? data.scripts.filter((x: unknown) => typeof x === 'string') : [],
     stylesheets: Array.isArray(data?.stylesheets) ? data.stylesheets.filter((x: unknown) => typeof x === 'string') : [],
+    htmlBytes: typeof (data as any)?.htmlBytes === 'number' && Number.isFinite((data as any).htmlBytes)
+      ? Math.trunc((data as any).htmlBytes)
+      : null,
   }
 }
 
@@ -409,6 +464,7 @@ async function crawlStart(params: CrawlStartParams) {
       normalizedUrl: normalizeUrl(start.toString()),
       title: '',
       h1: '',
+      headingsCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
       description: '',
       keywords: '',
       statusCode: null,
@@ -479,7 +535,7 @@ async function crawlStart(params: CrawlStartParams) {
 
     const loadFinishedAt = Date.now()
 
-    let extracted: Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt'> | null = null
+    let extracted: (Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt'> & { htmlBytes: number | null }) | null = null
     try {
       extracted = await extractPageDataFromView(crawlView)
     } catch {
@@ -495,10 +551,11 @@ async function crawlStart(params: CrawlStartParams) {
       normalizedUrl: finalNormalized,
       title: extracted?.title || '',
       h1: extracted?.h1 || '',
+      headingsCount: extracted?.headingsCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
       description: extracted?.description || '',
       keywords: extracted?.keywords || '',
       statusCode: meta?.statusCode ?? null,
-      contentLength: meta?.contentLength ?? null,
+      contentLength: meta?.contentLength ?? (extracted?.htmlBytes ?? null),
       loadTimeMs: loadOk ? (loadFinishedAt - pageStartedAt) : null,
       discoveredAt: pageStartedAt,
       links: extracted?.links || [],
@@ -545,6 +602,7 @@ async function crawlStart(params: CrawlStartParams) {
           normalizedUrl: normalizedLink,
           title: '',
           h1: '',
+          headingsCount: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
           description: '',
           keywords: '',
           statusCode: null,

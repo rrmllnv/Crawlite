@@ -4,6 +4,7 @@ import { browserService } from '../../services/BrowserService'
 import { selectPage } from '../../store/slices/crawlSlice'
 import { clearRequestedNavigate, setCurrentUrl } from '../../store/slices/browserSlice'
 import type { CrawlPageData } from '../../electron'
+import { Separate } from '../../components/Separate/Separate'
 import './BrowserView.scss'
 
 type TabId = 'meta' | 'links' | 'images' | 'js' | 'css'
@@ -68,17 +69,175 @@ function useBrowserBounds() {
   return ref
 }
 
-function ListItem({ page, isSelected, onClick }: { page: CrawlPageData; isSelected: boolean; onClick: () => void }) {
+type TreeNode = {
+  id: string
+  label: string
+  children: TreeNode[]
+  pageKey?: string
+  url?: string
+}
+
+function buildUrlTree(pages: CrawlPageData[], pagesByUrl: Record<string, CrawlPageData>) {
+  const root: TreeNode = { id: 'root', label: 'root', children: [] }
+  const byId = new Map<string, TreeNode>()
+  byId.set(root.id, root)
+
+  const ensureNode = (parent: TreeNode, id: string, label: string): TreeNode => {
+    const existing = byId.get(id)
+    if (existing) {
+      // гарантируем что parent содержит ссылку на node
+      if (!parent.children.includes(existing)) {
+        parent.children.push(existing)
+      }
+      return existing
+    }
+    const node: TreeNode = { id, label, children: [] }
+    byId.set(id, node)
+    parent.children.push(node)
+    return node
+  }
+
+  for (const page of pages) {
+    const key = page.normalizedUrl || page.url
+    const p = pagesByUrl[key]
+    const urlStr = p?.url || page.url
+    if (!urlStr) continue
+
+    let u: URL | null = null
+    try {
+      u = new URL(urlStr)
+    } catch {
+      u = null
+    }
+    if (!u) continue
+
+    const hostId = `host:${u.hostname}`
+    const hostNode = ensureNode(root, hostId, u.hostname)
+
+    const segments = u.pathname.split('/').filter(Boolean)
+    let parent = hostNode
+    if (segments.length === 0) {
+      const leafId = `${hostId}:/`
+      const leaf = ensureNode(parent, leafId, '/')
+      leaf.pageKey = key
+      leaf.url = urlStr
+      continue
+    }
+
+    let acc = ''
+    for (let i = 0; i < segments.length; i += 1) {
+      const seg = segments[i]
+      acc += `/${seg}`
+      const isLast = i === segments.length - 1
+      const nodeId = `${hostId}:${acc}`
+      const node = ensureNode(parent, nodeId, seg)
+      if (isLast) {
+        node.pageKey = key
+        node.url = urlStr
+      }
+      parent = node
+    }
+  }
+
+  const sortNode = (node: TreeNode) => {
+    node.children.sort((a, b) => {
+      const aIsLeaf = Boolean(a.pageKey)
+      const bIsLeaf = Boolean(b.pageKey)
+      if (aIsLeaf !== bIsLeaf) {
+        return aIsLeaf ? 1 : -1
+      }
+      return a.label.localeCompare(b.label)
+    })
+    for (const c of node.children) sortNode(c)
+  }
+  sortNode(root)
+  return root
+}
+
+function TreeItem({
+  node,
+  level,
+  expanded,
+  toggle,
+  onSelect,
+  selectedKey,
+  pagesByUrl,
+}: {
+  node: TreeNode
+  level: number
+  expanded: Set<string>
+  toggle: (id: string) => void
+  onSelect: (key: string) => void
+  selectedKey: string
+  pagesByUrl: Record<string, CrawlPageData>
+}) {
+  const hasChildren = node.children.length > 0
+  const isExpanded = expanded.has(node.id)
+  const isLeaf = Boolean(node.pageKey)
+  const isSelected = isLeaf && node.pageKey === selectedKey
+
+  const leafPage = isLeaf && node.pageKey ? pagesByUrl[node.pageKey] : null
+  const leafTitle = isLeaf
+    ? (leafPage?.title || leafPage?.h1 || node.label || '—')
+    : node.label
+  const leafUrl = isLeaf ? (leafPage?.url || node.url || '') : ''
+
   return (
-    <button
-      type="button"
-      className={`browser-view__page ${isSelected ? 'browser-view__page--active' : ''}`}
-      onClick={onClick}
-      title={page.url}
-    >
-      <div className="browser-view__page-title">{page.title || page.h1 || page.url}</div>
-      <div className="browser-view__page-url">{page.url}</div>
-    </button>
+    <div className="browser-tree__item">
+      <div
+        className={`browser-tree__row ${isSelected ? 'browser-tree__row--active' : ''}`}
+        style={{ paddingLeft: 8 + level * 14 }}
+      >
+        {hasChildren ? (
+          <button
+            type="button"
+            className="browser-tree__toggle"
+            onClick={() => toggle(node.id)}
+            aria-label={isExpanded ? 'Свернуть' : 'Раскрыть'}
+            title={isExpanded ? 'Свернуть' : 'Раскрыть'}
+          >
+            <i className={`fa-solid ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
+          </button>
+        ) : (
+          <span className="browser-tree__toggle-spacer" />
+        )}
+
+        <button
+          type="button"
+          className={`browser-tree__label ${isLeaf ? 'browser-tree__label--leaf' : ''}`}
+          onClick={() => {
+            if (isLeaf && node.pageKey) onSelect(node.pageKey)
+            else if (hasChildren) toggle(node.id)
+          }}
+          title={leafUrl || node.url || node.label}
+        >
+          {!isLeaf && <span className="browser-tree__text">{node.label}</span>}
+          {isLeaf && (
+            <span className="browser-tree__leaf">
+              <span className="browser-tree__leaf-title">{leafTitle}</span>
+              <span className="browser-tree__leaf-url">{leafUrl}</span>
+            </span>
+          )}
+        </button>
+      </div>
+
+      {hasChildren && isExpanded && (
+        <div className="browser-tree__children">
+          {node.children.map((c) => (
+            <TreeItem
+              key={c.id}
+              node={c}
+              level={level + 1}
+              expanded={expanded}
+              toggle={toggle}
+              onSelect={onSelect}
+              selectedKey={selectedKey}
+              pagesByUrl={pagesByUrl}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -98,6 +257,38 @@ export function BrowserView() {
       .map((key) => pagesByUrl[key])
       .filter((p): p is CrawlPageData => Boolean(p))
   }, [pageOrder, pagesByUrl])
+
+  const tree = useMemo(() => buildUrlTree(pages, pagesByUrl), [pages, pagesByUrl])
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['root']))
+
+  useEffect(() => {
+    // авто-раскрытие корня и хоста выбранной страницы
+    const p = selectedUrl ? pagesByUrl[selectedUrl] : null
+    if (!p?.url) {
+      return
+    }
+    try {
+      const u = new URL(p.url)
+      const hostId = `host:${u.hostname}`
+      setExpanded((prev) => {
+        const next = new Set(prev)
+        next.add('root')
+        next.add(hostId)
+        return next
+      })
+    } catch {
+      void 0
+    }
+  }, [selectedUrl, pagesByUrl])
+
+  const toggle = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const selectedPage = useMemo(() => {
     const key = selectedUrl
@@ -134,6 +325,28 @@ export function BrowserView() {
     }
   }
 
+  const handleSelectKey = async (key: string) => {
+    const page = pagesByUrl[key]
+    if (!page) {
+      return
+    }
+    await handleSelect(page)
+  }
+
+  const summary = useMemo(() => {
+    if (!selectedPage) return null
+    const hc = selectedPage.headingsCount || { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 }
+    const totalHeadings = hc.h1 + hc.h2 + hc.h3 + hc.h4 + hc.h5 + hc.h6
+    return {
+      totalHeadings,
+      headings: hc,
+      links: selectedPage.links.length,
+      images: selectedPage.images.length,
+      js: selectedPage.scripts.length,
+      css: selectedPage.stylesheets.length,
+    }
+  }, [selectedPage])
+
   return (
     <div className="browser-view">
       <div className="browser-view__col browser-view__col--pages">
@@ -141,20 +354,23 @@ export function BrowserView() {
           <div className="browser-view__col-title">Страницы</div>
           <div className="browser-view__col-subtitle">{pages.length}</div>
         </div>
-        <div className="browser-view__pages">
+        <div className="browser-view__pages browser-tree">
           {pages.length === 0 && (
             <div className="browser-view__empty">
               Пока нет страниц. Запустите crawling в Header.
             </div>
           )}
-          {pages.map((p) => (
-            <ListItem
-              key={p.normalizedUrl || p.url}
-              page={p}
-              isSelected={(p.normalizedUrl || p.url) === selectedUrl}
-              onClick={() => void handleSelect(p)}
+          {pages.length > 0 && (
+            <TreeItem
+              node={tree}
+              level={0}
+              expanded={expanded}
+              toggle={toggle}
+              onSelect={(key) => void handleSelectKey(key)}
+              selectedKey={selectedUrl}
+              pagesByUrl={pagesByUrl}
             />
-          ))}
+          )}
         </div>
       </div>
 
@@ -252,6 +468,54 @@ export function BrowserView() {
               <div className="browser-view__kv-row">
                 <div className="browser-view__kv-key">Время открытия (ms)</div>
                 <div className="browser-view__kv-val">{formatNumber(selectedPage.loadTimeMs)}</div>
+              </div>
+
+              <Separate title="Сводка по странице" />
+
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Заголовков всего</div>
+                <div className="browser-view__kv-val">{summary ? String(summary.totalHeadings) : '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">H1</div>
+                <div className="browser-view__kv-val">{summary ? String(summary.headings.h1) : '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">H2</div>
+                <div className="browser-view__kv-val">{summary ? String(summary.headings.h2) : '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">H3</div>
+                <div className="browser-view__kv-val">{summary ? String(summary.headings.h3) : '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">H4</div>
+                <div className="browser-view__kv-val">{summary ? String(summary.headings.h4) : '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">H5</div>
+                <div className="browser-view__kv-val">{summary ? String(summary.headings.h5) : '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">H6</div>
+                <div className="browser-view__kv-val">{summary ? String(summary.headings.h6) : '—'}</div>
+              </div>
+
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Всего ссылок</div>
+                <div className="browser-view__kv-val">{summary ? String(summary.links) : '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Всего картинок</div>
+                <div className="browser-view__kv-val">{summary ? String(summary.images) : '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Всего JS</div>
+                <div className="browser-view__kv-val">{summary ? String(summary.js) : '—'}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Всего CSS</div>
+                <div className="browser-view__kv-val">{summary ? String(summary.css) : '—'}</div>
               </div>
             </div>
           )}

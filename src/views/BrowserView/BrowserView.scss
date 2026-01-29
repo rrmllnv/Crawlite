@@ -65,12 +65,16 @@
   gap: 8px;
 }
 
-.browser-view__page {
-  text-align: left;
-  padding: 10px 10px;
+.browser-tree {
+  gap: 4px;
+}
+
+.browser-tree__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px;
   border-radius: $border-radius;
-  background-color: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
   color: $text-primary;
 
   &:hover {
@@ -78,26 +82,78 @@
   }
 }
 
-.browser-view__page--active {
-  border-color: rgba(74, 163, 255, 0.65);
+.browser-tree__row--active {
+  background-color: rgba(74, 163, 255, 0.12);
   box-shadow: 0 0 0 1px rgba(74, 163, 255, 0.25) inset;
 }
 
-.browser-view__page-title {
-  font-size: $font-size-md;
-  font-weight: 600;
+.browser-tree__toggle {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: $text-secondary;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    color: $text-primary;
+  }
+
+  i {
+    font-size: 12px;
+  }
+}
+
+.browser-tree__toggle-spacer {
+  width: 22px;
+  height: 22px;
+  display: inline-block;
+}
+
+.browser-tree__label {
+  flex: 1;
+  text-align: left;
+  color: $text-primary;
+  overflow: hidden;
+}
+
+.browser-tree__text {
+  font-size: $font-size-sm;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.browser-view__page-url {
-  margin-top: 4px;
+.browser-tree__leaf {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.browser-tree__leaf-title {
   font-size: $font-size-sm;
+  font-weight: 600;
+  color: $text-primary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-tree__leaf-url {
+  font-size: 11px;
   color: $text-secondary;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.browser-tree__children {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .browser-view__browser-surface {

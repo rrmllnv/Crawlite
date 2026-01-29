@@ -45,6 +45,14 @@ export type CrawlPageData = {
   normalizedUrl: string
   title: string
   h1: string
+  headingsCount: {
+    h1: number
+    h2: number
+    h3: number
+    h4: number
+    h5: number
+    h6: number
+  }
   description: string
   keywords: string
   statusCode: number | null
