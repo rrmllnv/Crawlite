@@ -31,7 +31,8 @@ function formatResourceInfo(info: ResourceHeadInfo | undefined) {
     parts.push(`${(info.sizeBytes / 1024).toFixed(2)} KB`)
   }
   if (typeof info.elapsedMs === 'number' && Number.isFinite(info.elapsedMs)) {
-    parts.push(`${(info.elapsedMs / 1000).toFixed(2)} s`)
+    if (info.elapsedMs < 1000) parts.push(`${Math.max(0, Math.round(info.elapsedMs))} ms`)
+    else parts.push(`${(info.elapsedMs / 1000).toFixed(2)} s`)
   }
   return parts.join(' · ')
 }
@@ -741,6 +742,10 @@ export function BrowserView() {
               <div className="browser-view__kv-row">
                 <div className="browser-view__kv-key">Время открытия (s)</div>
                 <div className="browser-view__kv-val">{formatSeconds(selectedPage.loadTimeMs)}</div>
+              </div>
+              <div className="browser-view__kv-row">
+                <div className="browser-view__kv-key">Время анализа (s)</div>
+                <div className="browser-view__kv-val">{formatSeconds((selectedPage as any).analysisTimeMs)}</div>
               </div>
 
               {contacts.length > 0 && (

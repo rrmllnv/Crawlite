@@ -51,6 +51,7 @@ type CrawlPageData = {
   statusCode: number | null
   contentLength: number | null
   loadTimeMs: number | null
+  analysisTimeMs: number | null
   discoveredAt: number
   links: string[]
   linksDetailed: { url: string; anchor: string }[]
@@ -244,6 +245,54 @@ async function headContentLength(url: string): Promise<number | null> {
           resolve(len)
         } catch {
           resolve(null)
+        }
+      })
+      request.on('error', () => resolve(null))
+      request.end()
+    } catch {
+      resolve(null)
+    }
+  })
+}
+
+function parseContentRangeTotal(headers: Record<string, unknown> | undefined): number | null {
+  const value = readHeaderValue(headers, 'content-range').trim()
+  // format: bytes 0-0/12345
+  const m = /\/(\d+)\s*$/i.exec(value)
+  if (!m) return null
+  const num = Number(m[1])
+  if (!Number.isFinite(num) || num < 0) return null
+  return Math.trunc(num)
+}
+
+async function probeResourceSize(url: string): Promise<number | null> {
+  // 1) HEAD content-length
+  const lenHead = await headContentLength(url)
+  if (typeof lenHead === 'number' && Number.isFinite(lenHead) && lenHead > 0) return lenHead
+
+  // 2) GET range 0-0 (часто даёт общий размер в Content-Range)
+  return await new Promise<number | null>((resolve) => {
+    try {
+      const request = net.request({
+        method: 'GET',
+        url,
+        headers: {
+          Range: 'bytes=0-0',
+        },
+      } as any)
+      request.on('response', (response: any) => {
+        try {
+          const headers = response?.headers as Record<string, unknown> | undefined
+          const total = parseContentRangeTotal(headers)
+          const len = total ?? parseContentLength(headers)
+          resolve(typeof len === 'number' && Number.isFinite(len) && len > 0 ? Math.trunc(len) : null)
+        } catch {
+          resolve(null)
+        }
+        try {
+          ;(response as any).destroy()
+        } catch {
+          void 0
         }
       })
       request.on('error', () => resolve(null))
@@ -627,7 +676,7 @@ function ensureCrawlView() {
 
 async function extractPageDataFromView(
   view: WebContentsView
-): Promise<(Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt' | 'ipAddress'> & { htmlBytes: number | null })> {
+): Promise<(Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'analysisTimeMs' | 'discoveredAt' | 'ipAddress'> & { htmlBytes: number | null })> {
   const data = await view.webContents.executeJavaScript(`
     (function() {
       const text = (v) => (typeof v === 'string' ? v : '');
@@ -1153,7 +1202,7 @@ async function crawlStart(params: CrawlStartParams) {
 
     const loadFinishedAt = Date.now()
 
-    let extracted: (Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt' | 'ipAddress'> & { htmlBytes: number | null }) | null = null
+    let extracted: (Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'analysisTimeMs' | 'discoveredAt' | 'ipAddress'> & { htmlBytes: number | null }) | null = null
     try {
       extracted = await extractPageDataFromView(crawlView)
     } catch {
@@ -1191,6 +1240,7 @@ async function crawlStart(params: CrawlStartParams) {
       statusCode: meta?.statusCode ?? null,
       contentLength: meta?.contentLength ?? (extracted?.htmlBytes ?? null),
       loadTimeMs: loadOk ? (loadFinishedAt - pageStartedAt) : null,
+      analysisTimeMs: Date.now() - pageStartedAt,
       discoveredAt: pageStartedAt,
       links: extracted?.links || [],
       linksDetailed: Array.isArray((extracted as any)?.linksDetailed) ? (extracted as any).linksDetailed : [],
@@ -1271,6 +1321,7 @@ async function crawlStart(params: CrawlStartParams) {
           statusCode: null,
           contentLength: null,
           loadTimeMs: null,
+        analysisTimeMs: null,
           discoveredAt: Date.now(),
           links: [],
           linksDetailed: [],
@@ -1448,6 +1499,54 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
               box.style.height = h + 'px';
             } catch (e) { /* noop */ }
           };
+          const trackBox = (box, el, ms) => {
+            try {
+              const started = Date.now();
+              const tick = () => {
+                try {
+                  const curBox = document.getElementById('__crawlite_overlay_box');
+                  if (!curBox) return;
+                  positionBox(box, el);
+                  if ((Date.now() - started) < ms) {
+                    requestAnimationFrame(tick);
+                  }
+                } catch (e) { /* noop */ }
+              };
+              requestAnimationFrame(tick);
+            } catch (e) { /* noop */ }
+          };
+          const trackBox = (box, el, ms) => {
+            try {
+              const started = Date.now();
+              const tick = () => {
+                try {
+                  const curBox = document.getElementById('__crawlite_overlay_box');
+                  if (!curBox) return;
+                  positionBox(box, el);
+                  if ((Date.now() - started) < ms) {
+                    requestAnimationFrame(tick);
+                  }
+                } catch (e) { /* noop */ }
+              };
+              requestAnimationFrame(tick);
+            } catch (e) { /* noop */ }
+          };
+          const trackBox = (box, el, ms) => {
+            try {
+              const started = Date.now();
+              const tick = () => {
+                try {
+                  const curBox = document.getElementById('__crawlite_overlay_box');
+                  if (!curBox) return;
+                  positionBox(box, el);
+                  if ((Date.now() - started) < ms) {
+                    requestAnimationFrame(tick);
+                  }
+                } catch (e) { /* noop */ }
+              };
+              requestAnimationFrame(tick);
+            } catch (e) { /* noop */ }
+          };
 
           const level = ${level};
           const targetRaw = ${JSON.stringify(text)};
@@ -1505,6 +1604,7 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
             if (ov && ov.box) {
               positionBox(ov.box, el);
               setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
+              trackBox(ov.box, el, 1400);
             }
 
             setTimeout(() => {
@@ -1702,6 +1802,7 @@ ipcMain.handle('browser:highlight-link', async (_event, url: string) => {
             if (ov && ov.box) {
               positionBox(ov.box, el);
               setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
+              trackBox(ov.box, el, 1400);
             }
 
             setTimeout(() => {
@@ -1898,6 +1999,7 @@ ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
             if (ov && ov.box) {
               positionBox(ov.box, el);
               setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
+              trackBox(ov.box, el, 1400);
             }
 
             setTimeout(() => {
@@ -1952,7 +2054,7 @@ ipcMain.handle('page:analyze', async (_event, url: string) => {
 
   const finishedAt = Date.now()
 
-  let extracted: (Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'discoveredAt' | 'ipAddress'> & { htmlBytes: number | null }) | null = null
+  let extracted: (Omit<CrawlPageData, 'statusCode' | 'contentLength' | 'loadTimeMs' | 'analysisTimeMs' | 'discoveredAt' | 'ipAddress'> & { htmlBytes: number | null }) | null = null
   try {
     extracted = await extractPageDataFromView(crawlView)
   } catch {
@@ -1990,6 +2092,7 @@ ipcMain.handle('page:analyze', async (_event, url: string) => {
     statusCode: meta?.statusCode ?? null,
     contentLength: meta?.contentLength ?? (extracted?.htmlBytes ?? null),
     loadTimeMs: loadOk ? (finishedAt - startedAt) : null,
+    analysisTimeMs: Date.now() - startedAt,
     discoveredAt: startedAt,
     links: extracted?.links || [],
     linksDetailed: Array.isArray((extracted as any)?.linksDetailed) ? (extracted as any).linksDetailed : [],
@@ -2013,7 +2116,7 @@ ipcMain.handle('resource:head', async (_event, url: string) => {
 
   try {
     const startedAt = Date.now()
-    const contentLength = await headContentLength(u.toString())
+    const contentLength = await probeResourceSize(u.toString())
     const elapsedMs = Date.now() - startedAt
     return { success: true, contentLength, elapsedMs }
   } catch (error) {

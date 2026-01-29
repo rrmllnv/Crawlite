@@ -79,6 +79,7 @@ export type CrawlPageData = {
   statusCode: number | null
   contentLength: number | null
   loadTimeMs: number | null
+  analysisTimeMs: number | null
   discoveredAt: number
   links: string[]
   linksDetailed: { url: string; anchor: string }[]
