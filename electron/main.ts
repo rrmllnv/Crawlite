@@ -1499,54 +1499,6 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
               box.style.height = h + 'px';
             } catch (e) { /* noop */ }
           };
-          const trackBox = (box, el, ms) => {
-            try {
-              const started = Date.now();
-              const tick = () => {
-                try {
-                  const curBox = document.getElementById('__crawlite_overlay_box');
-                  if (!curBox) return;
-                  positionBox(box, el);
-                  if ((Date.now() - started) < ms) {
-                    requestAnimationFrame(tick);
-                  }
-                } catch (e) { /* noop */ }
-              };
-              requestAnimationFrame(tick);
-            } catch (e) { /* noop */ }
-          };
-          const trackBox = (box, el, ms) => {
-            try {
-              const started = Date.now();
-              const tick = () => {
-                try {
-                  const curBox = document.getElementById('__crawlite_overlay_box');
-                  if (!curBox) return;
-                  positionBox(box, el);
-                  if ((Date.now() - started) < ms) {
-                    requestAnimationFrame(tick);
-                  }
-                } catch (e) { /* noop */ }
-              };
-              requestAnimationFrame(tick);
-            } catch (e) { /* noop */ }
-          };
-          const trackBox = (box, el, ms) => {
-            try {
-              const started = Date.now();
-              const tick = () => {
-                try {
-                  const curBox = document.getElementById('__crawlite_overlay_box');
-                  if (!curBox) return;
-                  positionBox(box, el);
-                  if ((Date.now() - started) < ms) {
-                    requestAnimationFrame(tick);
-                  }
-                } catch (e) { /* noop */ }
-              };
-              requestAnimationFrame(tick);
-            } catch (e) { /* noop */ }
-          };
 
           const level = ${level};
           const targetRaw = ${JSON.stringify(text)};
@@ -1604,7 +1556,6 @@ ipcMain.handle('browser:highlight-heading', async (_event, payload: { level: num
             if (ov && ov.box) {
               positionBox(ov.box, el);
               setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
-              trackBox(ov.box, el, 1400);
             }
 
             setTimeout(() => {
@@ -1802,7 +1753,6 @@ ipcMain.handle('browser:highlight-link', async (_event, url: string) => {
             if (ov && ov.box) {
               positionBox(ov.box, el);
               setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
-              trackBox(ov.box, el, 1400);
             }
 
             setTimeout(() => {
@@ -1999,7 +1949,6 @@ ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
             if (ov && ov.box) {
               positionBox(ov.box, el);
               setTimeout(() => { try { positionBox(ov.box, el); } catch (e) { /* noop */ } }, 120);
-              trackBox(ov.box, el, 1400);
             }
 
             setTimeout(() => {
