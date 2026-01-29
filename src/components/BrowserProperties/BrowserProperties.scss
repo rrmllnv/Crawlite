@@ -10,10 +10,14 @@
 }
 
 .browser-properties__tab {
-  flex: 1;           // Растягивает каждый таб пропорционально
-  display: flex;     // Чтобы центрировать текст внутри растянутого таба
-  justify-content: center; 
+  flex-grow: 1;       // Заполняет пустоту, но учитывает размер контента
+  flex-shrink: 0;     // Запрещает тексту сжиматься и переноситься
+  flex-basis: auto;   // Ширина зависит от текста
+
+  display: flex;
+  justify-content: center;
   align-items: center;
+  white-space: nowrap; // Гарантирует, что текст не перепрыгнет на вторую строку
 
   padding: 6px 10px;
   // border-radius: $border-radius;
