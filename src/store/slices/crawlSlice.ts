@@ -26,6 +26,7 @@ interface CrawlState {
     platform: string
     overrideWebdriver: boolean
     analyzeWaitMs: number
+    pageLoadTimeoutMs: number
   }
   pagesByUrl: Record<string, CrawlPageData>
   pageOrder: string[]
@@ -50,6 +51,7 @@ const initialState: CrawlState = {
     platform: '',
     overrideWebdriver: false,
     analyzeWaitMs: 0,
+    pageLoadTimeoutMs: 10000,
   },
   pagesByUrl: {},
   pageOrder: [],
@@ -110,6 +112,7 @@ export const crawlSlice = createSlice({
       const platformRaw = (cfg.crawling as any).platform
       const overrideWebdriverRaw = (cfg.crawling as any).overrideWebdriver
       const analyzeWaitMsRaw = (cfg.crawling as any).analyzeWaitMs
+      const pageLoadTimeoutMsRaw = (cfg.crawling as any).pageLoadTimeoutMs
       const maxDepth = typeof maxDepthRaw === 'number' && Number.isFinite(maxDepthRaw) ? Math.max(0, Math.floor(maxDepthRaw)) : state.settings.maxDepth
       const maxPages = typeof maxPagesRaw === 'number' && Number.isFinite(maxPagesRaw) ? Math.max(1, Math.floor(maxPagesRaw)) : state.settings.maxPages
       const deduplicateLinks = typeof deduplicateLinksRaw === 'boolean' ? deduplicateLinksRaw : state.settings.deduplicateLinks
@@ -128,6 +131,9 @@ export const crawlSlice = createSlice({
       state.settings.overrideWebdriver = typeof overrideWebdriverRaw === 'boolean' ? overrideWebdriverRaw : state.settings.overrideWebdriver
       if (typeof analyzeWaitMsRaw === 'number' && Number.isFinite(analyzeWaitMsRaw)) {
         state.settings.analyzeWaitMs = Math.max(0, Math.min(60000, Math.floor(analyzeWaitMsRaw)))
+      }
+      if (typeof pageLoadTimeoutMsRaw === 'number' && Number.isFinite(pageLoadTimeoutMsRaw)) {
+        state.settings.pageLoadTimeoutMs = Math.max(1000, Math.min(300000, Math.floor(pageLoadTimeoutMsRaw)))
       }
     },
     upsertPage: (state, action: PayloadAction<CrawlPageData>) => {

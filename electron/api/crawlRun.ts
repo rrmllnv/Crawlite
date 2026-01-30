@@ -60,6 +60,44 @@ function parseAcceptLanguagePrimary(raw: string): string {
   return cleaned.trim()
 }
 
+async function loadUrlWithTimeout(
+  wc: WebContents,
+  url: string,
+  timeoutMs: number
+): Promise<{ ok: boolean; timedOut: boolean }> {
+  const timeout = typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) ? Math.floor(timeoutMs) : 0
+  const loadPromise = wc.loadURL(url).then(
+    () => true,
+    () => false,
+  )
+  if (timeout <= 0) {
+    return { ok: await loadPromise, timedOut: false }
+  }
+  let timedOut = false
+  let timer: any = null
+  const timeoutPromise = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => {
+      timedOut = true
+      try {
+        wc.stop()
+      } catch {
+        void 0
+      }
+      resolve(false)
+    }, timeout)
+  })
+
+  const ok = await Promise.race([loadPromise, timeoutPromise])
+  if (timer) {
+    try {
+      clearTimeout(timer)
+    } catch {
+      void 0
+    }
+  }
+  return { ok: Boolean(ok) && !timedOut, timedOut }
+}
+
 function buildStealthScript(opts: { overrideWebdriver: boolean; acceptLanguage: string; platform: string }): string {
   const overrideWebdriver = Boolean(opts.overrideWebdriver)
   const langPrimary = parseAcceptLanguagePrimary(opts.acceptLanguage)
@@ -285,6 +323,11 @@ export async function crawlStart(
       ? Math.max(0, Math.floor(params.options.jitterMs))
       : 350
 
+  const pageLoadTimeoutMs =
+    typeof (params?.options as any)?.pageLoadTimeoutMs === 'number' && Number.isFinite((params?.options as any).pageLoadTimeoutMs)
+      ? Math.max(1000, Math.min(300000, Math.floor((params?.options as any).pageLoadTimeoutMs)))
+      : 10000
+
   const userAgentRaw = typeof params?.options?.userAgent === 'string' ? params.options.userAgent : ''
   const acceptLanguageRaw = typeof params?.options?.acceptLanguage === 'string' ? params.options.acceptLanguage : ''
   const platformRaw = typeof params?.options?.platform === 'string' ? params.options.platform : ''
@@ -381,9 +424,8 @@ export async function crawlStart(
     sendCrawlEvent({ type: 'page:loading', runId, url: u.toString(), processed, queued: queue.length })
 
     let loadOk = true
-    try {
-      await crawlView.webContents.loadURL(u.toString())
-    } catch {
+    const loadRes = await loadUrlWithTimeout(crawlView.webContents, u.toString(), pageLoadTimeoutMs)
+    if (!loadRes.ok) {
       loadOk = false
     }
 

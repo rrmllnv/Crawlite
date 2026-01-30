@@ -26,6 +26,7 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
   const delayMsValue = useMemo(() => String(settings.delayMs), [settings.delayMs])
   const jitterMsValue = useMemo(() => String(settings.jitterMs), [settings.jitterMs])
   const analyzeWaitMsValue = useMemo(() => String(settings.analyzeWaitMs), [settings.analyzeWaitMs])
+  const pageLoadTimeoutMsValue = useMemo(() => String(settings.pageLoadTimeoutMs), [settings.pageLoadTimeoutMs])
   const userAgentValue = useMemo(() => String(settings.userAgent), [settings.userAgent])
   const acceptLanguageValue = useMemo(() => String(settings.acceptLanguage), [settings.acceptLanguage])
   const platformValue = useMemo(() => String(settings.platform), [settings.platform])
@@ -168,6 +169,25 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
             />
             <div className="settings-crawling__hint">
               Ожидание перед `extractPageDataFromView` при анализе страницы (например при открытии URL из карты сайта). Если &gt; 0 — используется вместо `delayMs/jitterMs` именно для анализа. Не влияет на скорость обхода очереди краула.
+            </div>
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">pageLoadTimeoutMs (таймаут загрузки)</div>
+            <input
+              className="settings-crawling__input"
+              type="number"
+              min={1000}
+              max={300000}
+              step={500}
+              value={pageLoadTimeoutMsValue}
+              onChange={(e) => {
+                const next = clampInt(Number(e.target.value), 1000, 300000)
+                dispatch(setCrawlSettings({ pageLoadTimeoutMs: next }))
+              }}
+            />
+            <div className="settings-crawling__hint">
+              Максимальное время ожидания загрузки страницы. При превышении загрузка прерывается и страница считается ошибочной.
             </div>
           </label>
 

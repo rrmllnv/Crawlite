@@ -34,6 +34,7 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
         platform: state.crawl.settings.platform,
         overrideWebdriver: state.crawl.settings.overrideWebdriver,
         analyzeWaitMs: state.crawl.settings.analyzeWaitMs,
+        pageLoadTimeoutMs: state.crawl.settings.pageLoadTimeoutMs,
       },
       sitemap: {
         maxUrls: state.sitemap.settings.maxUrls,

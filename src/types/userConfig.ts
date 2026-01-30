@@ -32,6 +32,8 @@ export interface UserConfig {
     overrideWebdriver: boolean
     /** Ожидание (ms) перед извлечением данных при анализе страницы (например из карты сайта). Если задано — используется вместо delayMs/jitterMs именно для анализа. */
     analyzeWaitMs: number
+    /** Таймаут (ms) на загрузку страницы (ожидание ответа/загрузки) при крауле и анализе. При превышении загрузка прерывается. */
+    pageLoadTimeoutMs: number
   }
   /** Настройки построения карты сайта */
   sitemap: {
@@ -68,6 +70,7 @@ export const defaultUserConfig: UserConfig = {
     platform: '',
     overrideWebdriver: false,
     analyzeWaitMs: 0,
+    pageLoadTimeoutMs: 10000,
   },
   sitemap: {
     maxUrls: 200000,

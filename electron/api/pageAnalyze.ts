@@ -6,6 +6,44 @@ import { resolveHostIp } from './dns'
 import { ensureCrawlView } from './browserView'
 import { extractPageDataFromView, type ExtractedPageData } from './crawlExtract'
 
+async function loadUrlWithTimeout(
+  wc: WebContents,
+  url: string,
+  timeoutMs: number
+): Promise<{ ok: boolean; timedOut: boolean }> {
+  const timeout = typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) ? Math.floor(timeoutMs) : 0
+  const loadPromise = wc.loadURL(url).then(
+    () => true,
+    () => false,
+  )
+  if (timeout <= 0) {
+    return { ok: await loadPromise, timedOut: false }
+  }
+  let timedOut = false
+  let timer: any = null
+  const timeoutPromise = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => {
+      timedOut = true
+      try {
+        wc.stop()
+      } catch {
+        void 0
+      }
+      resolve(false)
+    }, timeout)
+  })
+
+  const ok = await Promise.race([loadPromise, timeoutPromise])
+  if (timer) {
+    try {
+      clearTimeout(timer)
+    } catch {
+      void 0
+    }
+  }
+  return { ok: Boolean(ok) && !timedOut, timedOut }
+}
+
 function parseAcceptLanguagePrimary(raw: string): string {
   const s = String(raw || '').trim()
   if (!s) return ''
@@ -234,6 +272,11 @@ export async function handlePageAnalyze(
     typeof (options as any)?.acceptLanguage === 'string' ? String((options as any).acceptLanguage) : ''
   const platformRaw = typeof (options as any)?.platform === 'string' ? String((options as any).platform) : ''
   const overrideWebdriver = Boolean((options as any)?.overrideWebdriver)
+  const pageLoadTimeoutMsRaw = (options as any)?.pageLoadTimeoutMs
+  const pageLoadTimeoutMs =
+    typeof pageLoadTimeoutMsRaw === 'number' && Number.isFinite(pageLoadTimeoutMsRaw)
+      ? Math.max(1000, Math.min(300000, Math.floor(pageLoadTimeoutMsRaw)))
+      : 10000
 
   ensureCrawlView()
   if (!appState.crawlView) {
@@ -265,9 +308,8 @@ export async function handlePageAnalyze(
 
   const startedAt = Date.now()
   let loadOk = true
-  try {
-    await crawlView.webContents.loadURL(u.toString())
-  } catch {
+  const loadRes = await loadUrlWithTimeout(crawlView.webContents, u.toString(), pageLoadTimeoutMs)
+  if (!loadRes.ok) {
     loadOk = false
   }
 

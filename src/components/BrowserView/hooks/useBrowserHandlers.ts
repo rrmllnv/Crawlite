@@ -70,6 +70,7 @@ export function useBrowserHandlers({
           delayMs: crawlSettings.delayMs,
           jitterMs: crawlSettings.jitterMs,
           analyzeWaitMs: crawlSettings.analyzeWaitMs,
+          pageLoadTimeoutMs: crawlSettings.pageLoadTimeoutMs,
           deduplicateLinks: crawlSettings.deduplicateLinks,
           userAgent: crawlSettings.userAgent,
           acceptLanguage: crawlSettings.acceptLanguage,

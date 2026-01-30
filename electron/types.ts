@@ -14,6 +14,8 @@ export type CrawlStartParams = {
     deduplicateLinks?: boolean
     /** Доп. ожидание (ms) перед извлечением данных при анализе страницы */
     analyzeWaitMs?: number
+    /** Таймаут (ms) загрузки страницы */
+    pageLoadTimeoutMs?: number
     /** Переопределить User-Agent (пусто = не трогать) */
     userAgent?: string
     /** Переопределить Accept-Language (пусто = не трогать) */
