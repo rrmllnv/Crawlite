@@ -245,6 +245,8 @@ export function SiteMapView() {
   const urls = useAppSelector((s) => s.sitemap.urls)
   const sitemaps = useAppSelector((s) => s.sitemap.sitemaps)
   const urlMetaByUrl = useAppSelector((s) => s.sitemap.urlMetaByUrl)
+  const truncated = useAppSelector((s) => s.sitemap.truncated)
+  const maxUrlsUsed = useAppSelector((s) => s.sitemap.maxUrlsUsed)
   const expandedIds = useAppSelector((s) => s.sitemap.expandedIds)
   const scrollTop = useAppSelector((s) => s.sitemap.scrollTop)
 
@@ -427,9 +429,16 @@ export function SiteMapView() {
             <div className="sitemap-view__subtitle">
               {isBuilding ? 'Построение… · ' : ''}
               {urls.length === 0 ? 'URL: 0' : searchQuery.trim() ? `URL: ${filteredUrls.length} из ${urls.length}` : `URL: ${urls.length}`}
+              {truncated && urls.length > 0 ? ` · достигнут лимит ${maxUrlsUsed.toLocaleString('ru-RU')}` : ''}
             </div>
           </div>
         </div>
+
+        {!error && truncated && urls.length > 0 && (
+          <div className="sitemap-view__warning">
+            Достигнут лимит URL: <b>{maxUrlsUsed.toLocaleString('ru-RU')}</b>. Результат может быть неполным — увеличьте лимит в настройках.
+          </div>
+        )}
 
         {error && <div className="sitemap-view__empty">Ошибка: {error}</div>}
         {!error && urls.length === 0 && <div className="sitemap-view__empty">Карта сайта будет построена после “Перейти” или “Запустить”.</div>}

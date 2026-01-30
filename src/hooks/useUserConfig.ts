@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { hydrateFromConfig } from '../store/slices/appSlice'
 import { hydrateFromConfig as hydrateCrawlFromConfig } from '../store/slices/crawlSlice'
+import { hydrateFromConfig as hydrateSitemapFromConfig } from '../store/slices/sitemapSlice'
 import { userConfigManager } from '../utils/userConfig'
 import type { UserConfig } from '../types/userConfig'
 
@@ -17,9 +18,11 @@ export const useUserConfig = () => {
         const config = await userConfigManager.load()
         dispatch(hydrateFromConfig(config || null))
         dispatch(hydrateCrawlFromConfig(config || null))
+        dispatch(hydrateSitemapFromConfig(config || null))
       } catch {
         dispatch(hydrateFromConfig(null))
         dispatch(hydrateCrawlFromConfig(null))
+        dispatch(hydrateSitemapFromConfig(null))
       }
     }
     void loadConfig()
@@ -37,6 +40,7 @@ export const useUserConfig = () => {
     const ok = await userConfigManager.update(updates)
     dispatch(hydrateFromConfig(userConfigManager.getConfig() || null))
     dispatch(hydrateCrawlFromConfig(userConfigManager.getConfig() || null))
+    dispatch(hydrateSitemapFromConfig(userConfigManager.getConfig() || null))
     return ok
   }, [dispatch])
 

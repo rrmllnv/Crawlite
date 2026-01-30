@@ -16,6 +16,11 @@ export interface UserConfig {
     /** true = убирать дубликаты ссылок по URL; false = сохранять все (по умолчанию) */
     deduplicateLinks: boolean
   }
+  /** Настройки построения карты сайта */
+  sitemap: {
+    /** Максимальное число URL, которые загружаются из sitemap (защита от переполнения памяти) */
+    maxUrls: number
+  }
 }
 
 export const defaultUserConfig: UserConfig = {
@@ -32,6 +37,9 @@ export const defaultUserConfig: UserConfig = {
     maxDepth: 2,
     maxPages: 200,
     deduplicateLinks: false,
+  },
+  sitemap: {
+    maxUrls: 200000,
   },
 }
 

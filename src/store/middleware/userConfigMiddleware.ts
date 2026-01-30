@@ -5,7 +5,7 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
   const result = next(action)
 
   const actionType = action && typeof action === 'object' && 'type' in action ? action.type : null
-  const actionsToSave = ['app/setCurrentView', 'crawl/setCrawlSettings', 'app/commitBrowserViewLayout']
+  const actionsToSave = ['app/setCurrentView', 'crawl/setCrawlSettings', 'app/commitBrowserViewLayout', 'sitemap/setSitemapSettings']
 
   if (actionType && actionsToSave.includes(actionType as string)) {
     const state = store.getState()
@@ -20,6 +20,9 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
         maxDepth: state.crawl.settings.maxDepth,
         maxPages: state.crawl.settings.maxPages,
         deduplicateLinks: state.crawl.settings.deduplicateLinks,
+      },
+      sitemap: {
+        maxUrls: state.sitemap.settings.maxUrls,
       },
     })
   }

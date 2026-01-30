@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { setCrawlSettings } from '../../store/slices/crawlSlice'
+import { setSitemapSettings } from '../../store/slices/sitemapSlice'
 import { browserService } from '../../services/BrowserService'
 import './SettingsCrawling.scss'
 
@@ -18,10 +19,12 @@ function clampInt(value: number, min: number, max: number) {
 export function SettingsCrawling({ isOpen, onClose }: Props) {
   const dispatch = useAppDispatch()
   const settings = useAppSelector((s) => s.crawl.settings)
+  const sitemapSettings = useAppSelector((s) => s.sitemap.settings)
 
   const maxDepthValue = useMemo(() => String(settings.maxDepth), [settings.maxDepth])
   const maxPagesValue = useMemo(() => String(settings.maxPages), [settings.maxPages])
   const deduplicateLinks = Boolean((settings as any).deduplicateLinks)
+  const maxSitemapUrlsValue = useMemo(() => String(sitemapSettings.maxUrls), [sitemapSettings.maxUrls])
 
   useEffect(() => {
     if (!isOpen) {
@@ -98,6 +101,26 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
               <div className="settings-crawling__hint">
                 Если включено — ссылки на странице будут уникализированы по URL.<br/>Если выключено — сохраняем дубли.
               </div>
+            </div>
+          </label>
+
+          <div className="settings-crawling__section-title">Карта сайта</div>
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">Макс. URL в карте сайта</div>
+            <input
+              className="settings-crawling__input"
+              type="number"
+              min={1000}
+              max={2000000}
+              step={1000}
+              value={maxSitemapUrlsValue}
+              onChange={(e) => {
+                const next = clampInt(Number(e.target.value), 1000, 2000000)
+                dispatch(setSitemapSettings({ maxUrls: next }))
+              }}
+            />
+            <div className="settings-crawling__hint">
+              Лимит URL при построении карты из sitemap. При превышении загрузка останавливается. По умолчанию 200 000.
             </div>
           </label>
         </div>

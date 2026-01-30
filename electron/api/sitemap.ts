@@ -23,7 +23,18 @@ function extractFirstTagValue(block: string, tagName: string): string {
   return decodeXmlEntities(String(m[1] || '')).trim()
 }
 
-export function extractXmlLocs(xml: string): string[] {
+const DEFAULT_MAX_URLS = 200000
+const MIN_MAX_URLS = 1000
+const MAX_MAX_URLS = 2000000
+
+function clampMaxUrls(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_MAX_URLS
+  const v = Math.floor(value)
+  return Math.max(MIN_MAX_URLS, Math.min(MAX_MAX_URLS, v))
+}
+
+export function extractXmlLocs(xml: string, maxUrls: number = DEFAULT_MAX_URLS): string[] {
+  const limit = clampMaxUrls(maxUrls)
   const out: string[] = []
   const re = /<loc[^>]*>([\s\S]*?)<\/loc>/gi
   let m: RegExpExecArray | null = null
@@ -31,12 +42,13 @@ export function extractXmlLocs(xml: string): string[] {
     const raw = decodeXmlEntities(String(m[1] || '')).trim()
     if (!raw) continue
     out.push(raw)
-    if (out.length >= 200000) break
+    if (out.length >= limit) break
   }
   return out
 }
 
-export function extractXmlUrlEntries(xml: string): Array<{ loc: string; meta: SitemapUrlMeta }> {
+export function extractXmlUrlEntries(xml: string, maxUrls: number = DEFAULT_MAX_URLS): Array<{ loc: string; meta: SitemapUrlMeta }> {
+  const limit = clampMaxUrls(maxUrls)
   const out: Array<{ loc: string; meta: SitemapUrlMeta }> = []
   const re = /<url\b[^>]*>([\s\S]*?)<\/url>/gi
   let m: RegExpExecArray | null = null
@@ -52,18 +64,34 @@ export function extractXmlUrlEntries(xml: string): Array<{ loc: string; meta: Si
     if (changefreq) meta.changefreq = changefreq
     if (priority) meta.priority = priority
     out.push({ loc, meta })
-    if (out.length >= 200000) break
+    if (out.length >= limit) break
   }
   return out
 }
 
+export type BuildSitemapOptions = {
+  maxUrls?: number
+}
+
 export async function buildSitemapUrls(
-  startUrl: string
-): Promise<{ sitemaps: string[]; urls: string[]; urlMetaByUrl: Record<string, SitemapUrlMeta> }> {
+  startUrl: string,
+  options?: BuildSitemapOptions
+): Promise<{
+  sitemaps: string[]
+  urls: string[]
+  urlMetaByUrl: Record<string, SitemapUrlMeta>
+  truncated: boolean
+  maxUrlsUsed: number
+}> {
   const start = safeParseUrl(startUrl)
   if (!start) {
-    return { sitemaps: [], urls: [], urlMetaByUrl: {} }
+    return { sitemaps: [], urls: [], urlMetaByUrl: {}, truncated: false, maxUrlsUsed: DEFAULT_MAX_URLS }
   }
+
+  const maxUrls =
+    typeof options?.maxUrls === 'number'
+      ? clampMaxUrls(options.maxUrls)
+      : DEFAULT_MAX_URLS
 
   const origin = start.origin
   const robotsUrl = `${origin}/robots.txt`
@@ -91,8 +119,13 @@ export async function buildSitemapUrls(
   const allSitemaps: string[] = []
   const allUrls: string[] = []
   const urlMetaByUrl: Record<string, SitemapUrlMeta> = {}
+  let truncated = false
 
   while (sitemapQueue.length > 0) {
+    if (allUrls.length >= maxUrls) {
+      truncated = true
+      break
+    }
     const next = sitemapQueue.shift()
     if (!next) break
     const norm = normalizeUrl(next)
@@ -106,7 +139,7 @@ export async function buildSitemapUrls(
     }
     const xml = res.body
     const isIndex = /<sitemapindex\b/i.test(xml)
-    const locs = extractXmlLocs(xml)
+    const locs = extractXmlLocs(xml, maxUrls)
 
     if (isIndex) {
       if (locs.length === 0) continue
@@ -117,7 +150,7 @@ export async function buildSitemapUrls(
         sitemapQueue.push(loc)
       }
     } else {
-      const entries = extractXmlUrlEntries(xml)
+      const entries = extractXmlUrlEntries(xml, maxUrls)
       const list = entries.length > 0 ? entries : locs.map((loc) => ({ loc, meta: {} as SitemapUrlMeta }))
       if (list.length === 0) continue
       for (const it of list) {
@@ -130,10 +163,18 @@ export async function buildSitemapUrls(
         if (it.meta && (it.meta.lastmod || it.meta.changefreq || it.meta.priority)) {
           urlMetaByUrl[loc] = it.meta
         }
-        if (allUrls.length >= 200000) break
+        if (allUrls.length >= maxUrls) {
+          truncated = true
+          break
+        }
       }
+    }
+
+    if (allUrls.length >= maxUrls) {
+      truncated = true
+      break
     }
   }
 
-  return { sitemaps: allSitemaps, urls: allUrls, urlMetaByUrl }
+  return { sitemaps: allSitemaps, urls: allUrls, urlMetaByUrl, truncated, maxUrlsUsed: maxUrls }
 }

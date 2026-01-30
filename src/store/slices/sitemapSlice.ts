@@ -1,4 +1,9 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import type { UserConfig } from '../../types/userConfig'
+
+export interface SiteMapSettings {
+  maxUrls: number
+}
 
 export interface SiteMapState {
   isBuilding: boolean
@@ -6,9 +11,14 @@ export interface SiteMapState {
   urls: string[]
   sitemaps: string[]
   urlMetaByUrl: Record<string, { lastmod?: string; changefreq?: string; priority?: string }>
+  truncated: boolean
+  maxUrlsUsed: number
   expandedIds: string[]
   scrollTop: number
+  settings: SiteMapSettings
 }
+
+const DEFAULT_MAX_URLS = 200000
 
 const initialState: SiteMapState = {
   isBuilding: false,
@@ -16,8 +26,13 @@ const initialState: SiteMapState = {
   urls: [],
   sitemaps: [],
   urlMetaByUrl: {},
+  truncated: false,
+  maxUrlsUsed: DEFAULT_MAX_URLS,
   expandedIds: ['root'],
   scrollTop: 0,
+  settings: {
+    maxUrls: DEFAULT_MAX_URLS,
+  },
 }
 
 export const sitemapSlice = createSlice({
@@ -36,6 +51,8 @@ export const sitemapSlice = createSlice({
         urls: string[]
         sitemaps: string[]
         urlMetaByUrl?: Record<string, { lastmod?: string; changefreq?: string; priority?: string }>
+        truncated?: boolean
+        maxUrlsUsed?: number
       }>
     ) => {
       const urls = Array.isArray(action.payload?.urls) ? action.payload.urls : []
@@ -44,13 +61,48 @@ export const sitemapSlice = createSlice({
         action.payload?.urlMetaByUrl && typeof action.payload.urlMetaByUrl === 'object'
           ? (action.payload.urlMetaByUrl as Record<string, { lastmod?: string; changefreq?: string; priority?: string }>)
           : {}
+      const truncated = Boolean(action.payload?.truncated)
+      const maxUrlsUsedRaw = action.payload?.maxUrlsUsed
+      const maxUrlsUsed =
+        typeof maxUrlsUsedRaw === 'number' && Number.isFinite(maxUrlsUsedRaw)
+          ? Math.max(1000, Math.min(2000000, Math.floor(maxUrlsUsedRaw)))
+          : state.settings.maxUrls
       state.urls = urls
       state.sitemaps = sitemaps
       state.urlMetaByUrl = urlMetaByUrl
+      state.truncated = truncated
+      state.maxUrlsUsed = maxUrlsUsed
       state.expandedIds = ['root']
       state.scrollTop = 0
     },
-    clear: () => initialState,
+    clear: (state) => {
+      state.isBuilding = false
+      state.error = ''
+      state.urls = []
+      state.sitemaps = []
+      state.urlMetaByUrl = {}
+      state.truncated = false
+      state.maxUrlsUsed = state.settings.maxUrls
+      state.expandedIds = ['root']
+      state.scrollTop = 0
+    },
+    setSitemapSettings: (state, action: PayloadAction<Partial<SiteMapSettings>>) => {
+      if (!action.payload || typeof action.payload !== 'object') return
+      const maxUrlsRaw = action.payload.maxUrls
+      if (typeof maxUrlsRaw === 'number' && Number.isFinite(maxUrlsRaw)) {
+        const v = Math.max(1000, Math.min(2000000, Math.floor(maxUrlsRaw)))
+        state.settings.maxUrls = v
+      }
+    },
+    hydrateFromConfig: (state, action: PayloadAction<UserConfig | null>) => {
+      const cfg = action.payload
+      if (!cfg || !cfg.sitemap) return
+      const maxUrlsRaw = cfg.sitemap.maxUrls
+      if (typeof maxUrlsRaw === 'number' && Number.isFinite(maxUrlsRaw)) {
+        const v = Math.max(1000, Math.min(2000000, Math.floor(maxUrlsRaw)))
+        state.settings.maxUrls = v
+      }
+    },
     toggleExpanded: (state, action: PayloadAction<string>) => {
       const id = String(action.payload || '')
       if (!id) return
@@ -70,6 +122,16 @@ export const sitemapSlice = createSlice({
   },
 })
 
-export const { setBuilding, setError, setData, clear, toggleExpanded, setExpandedIds, setScrollTop } = sitemapSlice.actions
+export const {
+  setBuilding,
+  setError,
+  setData,
+  clear,
+  toggleExpanded,
+  setExpandedIds,
+  setScrollTop,
+  setSitemapSettings,
+  hydrateFromConfig,
+} = sitemapSlice.actions
 export default sitemapSlice.reducer
 

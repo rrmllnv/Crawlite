@@ -46,7 +46,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadFile: (url: string) => ipcRenderer.invoke('download:file', url),
   resourceHead: (url: string) => ipcRenderer.invoke('resource:head', url),
 
-  sitemapBuild: (startUrl: string) => ipcRenderer.invoke('sitemap:build', startUrl),
+  sitemapBuild: (startUrl: string, options?: { maxUrls?: number }) =>
+    ipcRenderer.invoke('sitemap:build', startUrl, options),
 
   onBrowserEvent: (listener: (event: unknown) => void) => {
     const handler = (_evt: unknown, payload: unknown) => listener(payload)

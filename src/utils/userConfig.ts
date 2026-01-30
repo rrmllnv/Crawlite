@@ -85,6 +85,10 @@ export class UserConfigManager {
         ...defaultUserConfig.crawling,
         ...(config.crawling || {}),
       },
+      sitemap: {
+        ...defaultUserConfig.sitemap,
+        ...(config.sitemap || {}),
+      },
     }
   }
 }

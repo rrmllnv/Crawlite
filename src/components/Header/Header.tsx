@@ -27,6 +27,7 @@ export function Header() {
   const processed = useAppSelector((s) => s.crawl.processed)
   const queued = useAppSelector((s) => s.crawl.queued)
   const crawlSettings = useAppSelector((s) => s.crawl.settings)
+  const sitemapSettings = useAppSelector((s) => s.sitemap.settings)
   const canGoBack = useAppSelector((s) => s.browser.canGoBack)
   const canGoForward = useAppSelector((s) => s.browser.canGoForward)
 
@@ -43,7 +44,7 @@ export function Header() {
     dispatch(setSitemapError(''))
     dispatch(setSitemapBuilding(true))
     try {
-      const res = await window.electronAPI.sitemapBuild(target)
+      const res = await window.electronAPI.sitemapBuild(target, { maxUrls: sitemapSettings.maxUrls })
       if (!res?.success) {
         dispatch(setSitemapError(res?.error || 'Не удалось построить sitemap'))
         dispatch(setSitemapData({ urls: [], sitemaps: [], urlMetaByUrl: {} }))
@@ -53,7 +54,11 @@ export function Header() {
       const sm = Array.isArray((res as any).sitemaps) ? (res as any).sitemaps : []
       const meta =
         (res as any).urlMetaByUrl && typeof (res as any).urlMetaByUrl === 'object' ? (res as any).urlMetaByUrl : {}
-      dispatch(setSitemapData({ urls: list, sitemaps: sm, urlMetaByUrl: meta }))
+      const truncated = Boolean((res as any).truncated)
+      const maxUrlsUsedRaw = (res as any).maxUrlsUsed
+      const maxUrlsUsed =
+        typeof maxUrlsUsedRaw === 'number' && Number.isFinite(maxUrlsUsedRaw) ? Math.floor(maxUrlsUsedRaw) : sitemapSettings.maxUrls
+      dispatch(setSitemapData({ urls: list, sitemaps: sm, urlMetaByUrl: meta, truncated, maxUrlsUsed }))
     } catch (e) {
       dispatch(setSitemapError(String(e)))
       dispatch(setSitemapData({ urls: [], sitemaps: [], urlMetaByUrl: {} }))

@@ -117,11 +117,13 @@ export interface ElectronAPI {
   downloadFile: (url: string) => Promise<ElectronResult>
   resourceHead: (url: string) => Promise<ElectronResult<{ contentLength?: number | null; elapsedMs?: number | null }>>
 
-  sitemapBuild: (startUrl: string) => Promise<
+  sitemapBuild: (startUrl: string, options?: { maxUrls?: number }) => Promise<
     ElectronResult<{
       sitemaps?: string[]
       urls?: string[]
       urlMetaByUrl?: Record<string, { lastmod?: string; changefreq?: string; priority?: string }>
+      truncated?: boolean
+      maxUrlsUsed?: number
     }>
   >
 

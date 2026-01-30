@@ -132,18 +132,32 @@ ipcMain.handle('resource:head', async (_event, url: string) => {
   return handleResourceHead(url)
 })
 
-ipcMain.handle('sitemap:build', async (_event, startUrl: string) => {
-  const u = safeParseUrl(startUrl)
-  if (!u) {
-    return { success: false, error: 'Invalid URL' }
+ipcMain.handle(
+  'sitemap:build',
+  async (
+    _event,
+    startUrl: string,
+    options?: { maxUrls?: number }
+  ) => {
+    const u = safeParseUrl(startUrl)
+    if (!u) {
+      return { success: false, error: 'Invalid URL' }
+    }
+    try {
+      const data = await buildSitemapUrls(u.toString(), options)
+      return {
+        success: true,
+        sitemaps: data.sitemaps,
+        urls: data.urls,
+        urlMetaByUrl: data.urlMetaByUrl || {},
+        truncated: Boolean((data as any).truncated),
+        maxUrlsUsed: typeof (data as any).maxUrlsUsed === 'number' ? (data as any).maxUrlsUsed : undefined,
+      }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
   }
-  try {
-    const data = await buildSitemapUrls(u.toString())
-    return { success: true, sitemaps: data.sitemaps, urls: data.urls, urlMetaByUrl: (data as any).urlMetaByUrl || {} }
-  } catch (error) {
-    return { success: false, error: String(error) }
-  }
-})
+)
 
 ipcMain.handle('download:file', async (_event, url: string) => {
   const u = safeParseUrl(url)

@@ -61,6 +61,14 @@
   gap: 12px;
 }
 
+.settings-crawling__section-title {
+  font-size: $font-size-sm;
+  font-weight: 600;
+  color: $text-primary;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
 .settings-crawling__field {
   display: flex;
   flex-direction: column;
