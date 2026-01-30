@@ -1,17 +1,232 @@
-import type { CrawlPageData } from '../types'
+import type { WebContents } from 'electron'
+import type { CrawlPageData, CrawlStartParams } from '../types'
 import { appState } from '../state'
 import { safeParseUrl, normalizeUrl } from './urlUtils'
 import { resolveHostIp } from './dns'
 import { ensureCrawlView } from './browserView'
 import { extractPageDataFromView, type ExtractedPageData } from './crawlExtract'
 
+function parseAcceptLanguagePrimary(raw: string): string {
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  const first = s.split(',')[0] || ''
+  const cleaned = first.split(';')[0] || ''
+  return cleaned.trim()
+}
+
+function buildStealthScript(opts: { overrideWebdriver: boolean; acceptLanguage: string; platform: string }): string {
+  const overrideWebdriver = Boolean(opts.overrideWebdriver)
+  const langPrimary = parseAcceptLanguagePrimary(opts.acceptLanguage)
+  const platform = String(opts.platform || '').trim()
+  if (!overrideWebdriver && !langPrimary && !platform) {
+    return ''
+  }
+  return `
+    (function() {
+      try {
+        var overrideWebdriver = ${overrideWebdriver ? 'true' : 'false'};
+        var langPrimary = ${JSON.stringify(langPrimary)};
+        var platform = ${JSON.stringify(platform)};
+
+        if (overrideWebdriver) {
+          try {
+            Object.defineProperty(navigator, 'webdriver', { get: function() { return false; }, configurable: true });
+          } catch (e) {}
+        }
+
+        if (langPrimary) {
+          try {
+            Object.defineProperty(navigator, 'language', { get: function() { return langPrimary; }, configurable: true });
+          } catch (e) {}
+          try {
+            Object.defineProperty(navigator, 'languages', { get: function() { return [langPrimary]; }, configurable: true });
+          } catch (e) {}
+        }
+
+        if (platform) {
+          try {
+            Object.defineProperty(navigator, 'platform', { get: function() { return platform; }, configurable: true });
+          } catch (e) {}
+        }
+      } catch (e) {}
+    })();
+  `
+}
+
+async function ensureEarlyOverridesViaCDP(
+  wc: WebContents,
+  opts: { userAgent: string; acceptLanguage: string; platform: string; overrideWebdriver: boolean }
+): Promise<void> {
+  const userAgent = String(opts.userAgent || '').trim()
+  const acceptLanguage = String(opts.acceptLanguage || '').trim()
+  const platform = String(opts.platform || '').trim()
+  const overrideWebdriver = Boolean(opts.overrideWebdriver)
+
+  const script = buildStealthScript({ overrideWebdriver, acceptLanguage, platform })
+  const needsCdp = Boolean(userAgent || acceptLanguage || platform || script)
+  if (!needsCdp) {
+    return
+  }
+
+  try {
+    const wcId = (wc as any)?.id
+    if (typeof wcId === 'number' && appState.crawlDebuggerAttachedForWebContentsId !== wcId) {
+      try {
+        if ((wc as any).debugger?.isAttached?.()) {
+          ;(wc as any).debugger.detach()
+        }
+      } catch {
+        void 0
+      }
+      try {
+        ;(wc as any).debugger.attach('1.3')
+        appState.crawlDebuggerAttachedForWebContentsId = wcId
+      } catch {
+        return
+      }
+    }
+
+    const dbg = (wc as any).debugger
+    if (!dbg) return
+
+    try {
+      await dbg.sendCommand('Page.enable')
+    } catch {
+      void 0
+    }
+    try {
+      await dbg.sendCommand('Network.enable')
+    } catch {
+      void 0
+    }
+
+    if (userAgent || acceptLanguage || platform) {
+      try {
+        await dbg.sendCommand('Network.setUserAgentOverride', {
+          userAgent: userAgent || undefined,
+          acceptLanguage: acceptLanguage || undefined,
+          platform: platform || undefined,
+        })
+      } catch {
+        void 0
+      }
+    }
+
+    if (appState.crawlStealthScriptId) {
+      try {
+        await dbg.sendCommand('Page.removeScriptToEvaluateOnNewDocument', { identifier: appState.crawlStealthScriptId })
+      } catch {
+        void 0
+      }
+      appState.crawlStealthScriptId = null
+    }
+
+    if (script) {
+      try {
+        const res = await dbg.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: script })
+        const id = res && typeof res === 'object' ? (res as any).identifier : null
+        appState.crawlStealthScriptId = typeof id === 'string' ? id : null
+      } catch {
+        appState.crawlStealthScriptId = null
+      }
+    }
+  } catch {
+    void 0
+  }
+}
+
+function cleanupCrawlDebugger(wc: WebContents): void {
+  try {
+    const dbg = (wc as any).debugger
+    if (dbg && typeof dbg.isAttached === 'function' && dbg.isAttached()) {
+      try {
+        dbg.detach()
+      } catch {
+        void 0
+      }
+    }
+  } catch {
+    void 0
+  }
+  appState.crawlDebuggerAttachedForWebContentsId = null
+  appState.crawlStealthScriptId = null
+}
+
+async function tryApplyNavigatorOverrides(
+  wc: WebContents,
+  opts: { overrideWebdriver: boolean; acceptLanguage: string; platform: string }
+): Promise<void> {
+  try {
+    const overrideWebdriver = Boolean(opts.overrideWebdriver)
+    const langPrimary = parseAcceptLanguagePrimary(opts.acceptLanguage)
+    const platform = String(opts.platform || '').trim()
+
+    if (!overrideWebdriver && !langPrimary && !platform) {
+      return
+    }
+
+    const js = `
+      (function() {
+        try {
+          var overrideWebdriver = ${overrideWebdriver ? 'true' : 'false'};
+          var langPrimary = ${JSON.stringify(langPrimary)};
+          var platform = ${JSON.stringify(platform)};
+
+          if (overrideWebdriver) {
+            try {
+              Object.defineProperty(navigator, 'webdriver', { get: function() { return false; }, configurable: true });
+            } catch (e) {}
+          }
+
+          if (langPrimary) {
+            try {
+              Object.defineProperty(navigator, 'language', { get: function() { return langPrimary; }, configurable: true });
+            } catch (e) {}
+            try {
+              Object.defineProperty(navigator, 'languages', { get: function() { return [langPrimary]; }, configurable: true });
+            } catch (e) {}
+          }
+
+          if (platform) {
+            try {
+              Object.defineProperty(navigator, 'platform', { get: function() { return platform; }, configurable: true });
+            } catch (e) {}
+          }
+        } catch (e) {}
+      })();
+      true;
+    `
+    await wc.executeJavaScript(js, true)
+  } catch {
+    void 0
+  }
+}
+
 export async function handlePageAnalyze(
-  url: string
+  url: string,
+  options?: CrawlStartParams['options']
 ): Promise<{ success: true; page: CrawlPageData } | { success: false; error: string }> {
   const u = safeParseUrl(url)
   if (!u) {
     return { success: false, error: 'Invalid URL' }
   }
+
+  const delayMs =
+    typeof options?.delayMs === 'number' && Number.isFinite(options.delayMs)
+      ? Math.max(0, Math.min(60000, Math.floor(options.delayMs)))
+      : 0
+
+  const jitterMs =
+    typeof options?.jitterMs === 'number' && Number.isFinite(options.jitterMs)
+      ? Math.max(0, Math.min(60000, Math.floor(options.jitterMs)))
+      : 0
+
+  const deduplicateLinks = Boolean((options as any)?.deduplicateLinks)
+  const userAgentRaw = typeof (options as any)?.userAgent === 'string' ? String((options as any).userAgent) : ''
+  const acceptLanguageRaw =
+    typeof (options as any)?.acceptLanguage === 'string' ? String((options as any).acceptLanguage) : ''
+  const platformRaw = typeof (options as any)?.platform === 'string' ? String((options as any).platform) : ''
+  const overrideWebdriver = Boolean((options as any)?.overrideWebdriver)
 
   ensureCrawlView()
   if (!appState.crawlView) {
@@ -19,6 +234,28 @@ export async function handlePageAnalyze(
   }
 
   const crawlView = appState.crawlView
+  appState.crawlRequestHeadersOverride = {
+    userAgent: userAgentRaw && userAgentRaw.trim() ? userAgentRaw.trim() : undefined,
+    acceptLanguage: acceptLanguageRaw && acceptLanguageRaw.trim() ? acceptLanguageRaw.trim() : undefined,
+  }
+
+  // Ранние overrides: CDP (до скриптов страницы).
+  await ensureEarlyOverridesViaCDP(crawlView.webContents, {
+    userAgent: userAgentRaw,
+    acceptLanguage: acceptLanguageRaw,
+    platform: platformRaw,
+    overrideWebdriver,
+  })
+
+  try {
+    const ua = userAgentRaw && userAgentRaw.trim() ? userAgentRaw.trim() : ''
+    if (ua) {
+      crawlView.webContents.setUserAgent(ua)
+    }
+  } catch {
+    void 0
+  }
+
   const startedAt = Date.now()
   let loadOk = true
   try {
@@ -26,6 +263,13 @@ export async function handlePageAnalyze(
   } catch {
     loadOk = false
   }
+
+  // Фолбэк: post-load override (если CDP не сработал/часть полей не применилась)
+  void tryApplyNavigatorOverrides(crawlView.webContents, {
+    overrideWebdriver,
+    acceptLanguage: acceptLanguageRaw,
+    platform: platformRaw,
+  }).catch(() => void 0)
 
   try {
     await crawlView.webContents.executeJavaScript(`
@@ -39,11 +283,16 @@ export async function handlePageAnalyze(
     void 0
   }
 
+  const sleepFor = delayMs + Math.floor(Math.random() * (jitterMs + 1))
+  if (sleepFor > 0) {
+    await new Promise((resolve) => setTimeout(resolve, sleepFor))
+  }
+
   const finishedAt = Date.now()
 
   let extracted: ExtractedPageData | null = null
   try {
-    extracted = await extractPageDataFromView(crawlView)
+    extracted = await extractPageDataFromView(crawlView, { deduplicateLinks })
   } catch {
     extracted = null
   }
@@ -89,5 +338,7 @@ export async function handlePageAnalyze(
     misc: (extracted as any)?.misc || [],
   }
 
+  appState.crawlRequestHeadersOverride = null
+  cleanupCrawlDebugger(crawlView.webContents)
   return { success: true, page }
 }

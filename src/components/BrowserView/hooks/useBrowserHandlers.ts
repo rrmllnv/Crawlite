@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useAppDispatch } from '../../../store/hooks'
+import { useAppDispatch, useAppSelector } from '../../../store/hooks'
 import { browserService } from '../../../services/BrowserService'
 import { crawlService } from '../../../services/CrawlService'
 import { selectPage, upsertPage } from '../../../store/slices/crawlSlice'
@@ -19,6 +19,7 @@ export function useBrowserHandlers({
   pagesByUrl,
 }: UseBrowserHandlersParams) {
   const dispatch = useAppDispatch()
+  const crawlSettings = useAppSelector((s) => s.crawl.settings)
 
   const toggle = useCallback(
     (id: string) => {
@@ -65,7 +66,15 @@ export function useBrowserHandlers({
       }
 
       try {
-        const res = await crawlService.analyzePage(target)
+        const res = await crawlService.analyzePage(target, {
+          delayMs: crawlSettings.delayMs,
+          jitterMs: crawlSettings.jitterMs,
+          deduplicateLinks: crawlSettings.deduplicateLinks,
+          userAgent: crawlSettings.userAgent,
+          acceptLanguage: crawlSettings.acceptLanguage,
+          platform: crawlSettings.platform,
+          overrideWebdriver: crawlSettings.overrideWebdriver,
+        })
         if (res?.success && res.page) {
           dispatch(upsertPage(res.page))
           const key = res.page.normalizedUrl || res.page.url
@@ -77,7 +86,7 @@ export function useBrowserHandlers({
         void 0
       }
     },
-    [dispatch, isPageLoading]
+    [dispatch, isPageLoading, crawlSettings]
   )
 
   const handleSelect = useCallback(

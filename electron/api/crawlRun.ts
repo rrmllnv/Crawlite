@@ -60,6 +60,148 @@ function parseAcceptLanguagePrimary(raw: string): string {
   return cleaned.trim()
 }
 
+function buildStealthScript(opts: { overrideWebdriver: boolean; acceptLanguage: string; platform: string }): string {
+  const overrideWebdriver = Boolean(opts.overrideWebdriver)
+  const langPrimary = parseAcceptLanguagePrimary(opts.acceptLanguage)
+  const platform = String(opts.platform || '').trim()
+  if (!overrideWebdriver && !langPrimary && !platform) {
+    return ''
+  }
+  // Выполняется в новом документе ДО скриптов страницы (через CDP Page.addScriptToEvaluateOnNewDocument).
+  return `
+    (function() {
+      try {
+        var overrideWebdriver = ${overrideWebdriver ? 'true' : 'false'};
+        var langPrimary = ${JSON.stringify(langPrimary)};
+        var platform = ${JSON.stringify(platform)};
+
+        if (overrideWebdriver) {
+          try {
+            Object.defineProperty(navigator, 'webdriver', { get: function() { return false; }, configurable: true });
+          } catch (e) {}
+        }
+
+        if (langPrimary) {
+          try {
+            Object.defineProperty(navigator, 'language', { get: function() { return langPrimary; }, configurable: true });
+          } catch (e) {}
+          try {
+            Object.defineProperty(navigator, 'languages', { get: function() { return [langPrimary]; }, configurable: true });
+          } catch (e) {}
+        }
+
+        if (platform) {
+          try {
+            Object.defineProperty(navigator, 'platform', { get: function() { return platform; }, configurable: true });
+          } catch (e) {}
+        }
+      } catch (e) {}
+    })();
+  `
+}
+
+async function ensureEarlyOverridesViaCDP(
+  wc: WebContents,
+  opts: { userAgent: string; acceptLanguage: string; platform: string; overrideWebdriver: boolean }
+): Promise<void> {
+  const userAgent = String(opts.userAgent || '').trim()
+  const acceptLanguage = String(opts.acceptLanguage || '').trim()
+  const platform = String(opts.platform || '').trim()
+  const overrideWebdriver = Boolean(opts.overrideWebdriver)
+
+  const script = buildStealthScript({ overrideWebdriver, acceptLanguage, platform })
+  const needsCdp = Boolean(userAgent || acceptLanguage || platform || script)
+  if (!needsCdp) {
+    return
+  }
+
+  try {
+    // Подключаем debugger один раз к crawlView.
+    const wcId = (wc as any)?.id
+    if (typeof wcId === 'number' && appState.crawlDebuggerAttachedForWebContentsId !== wcId) {
+      try {
+        // На всякий случай отцепляем старое подключение.
+        if ((wc as any).debugger?.isAttached?.()) {
+          ;(wc as any).debugger.detach()
+        }
+      } catch {
+        void 0
+      }
+      try {
+        ;(wc as any).debugger.attach('1.3')
+        appState.crawlDebuggerAttachedForWebContentsId = wcId
+      } catch {
+        // attach может быть запрещён/упасть — тогда просто выходим.
+        return
+      }
+    }
+
+    const dbg = (wc as any).debugger
+    if (!dbg) return
+
+    try {
+      await dbg.sendCommand('Page.enable')
+    } catch {
+      void 0
+    }
+    try {
+      await dbg.sendCommand('Network.enable')
+    } catch {
+      void 0
+    }
+
+    if (userAgent || acceptLanguage || platform) {
+      try {
+        await dbg.sendCommand('Network.setUserAgentOverride', {
+          userAgent: userAgent || undefined,
+          acceptLanguage: acceptLanguage || undefined,
+          platform: platform || undefined,
+        })
+      } catch {
+        void 0
+      }
+    }
+
+    if (appState.crawlStealthScriptId) {
+      try {
+        await dbg.sendCommand('Page.removeScriptToEvaluateOnNewDocument', { identifier: appState.crawlStealthScriptId })
+      } catch {
+        void 0
+      }
+      appState.crawlStealthScriptId = null
+    }
+
+    if (script) {
+      try {
+        const res = await dbg.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: script })
+        const id = res && typeof res === 'object' ? (res as any).identifier : null
+        appState.crawlStealthScriptId = typeof id === 'string' ? id : null
+      } catch {
+        appState.crawlStealthScriptId = null
+      }
+    }
+  } catch {
+    void 0
+  }
+}
+
+function cleanupCrawlDebugger(wc: WebContents): void {
+  try {
+    const dbg = (wc as any).debugger
+    if (dbg && typeof dbg.isAttached === 'function' && dbg.isAttached()) {
+      try {
+        dbg.detach()
+      } catch {
+        void 0
+      }
+    }
+  } catch {
+    void 0
+  }
+  appState.crawlDebuggerAttachedForWebContentsId = null
+  appState.crawlStealthScriptId = null
+}
+
 async function tryApplyNavigatorOverrides(
   wc: WebContents,
   opts: { overrideWebdriver: boolean; acceptLanguage: string; platform: string }
@@ -158,6 +300,16 @@ export async function crawlStart(
     userAgent: userAgentRaw && userAgentRaw.trim() ? userAgentRaw.trim() : undefined,
     acceptLanguage: acceptLanguageRaw && acceptLanguageRaw.trim() ? acceptLanguageRaw.trim() : undefined,
   }
+
+  // Более ранние overrides: CDP (до скриптов страницы).
+  // Если не удалось — остаётся fallback ниже (executeJavaScript после loadURL).
+  void ensureEarlyOverridesViaCDP(crawlView.webContents, {
+    userAgent: userAgentRaw,
+    acceptLanguage: acceptLanguageRaw,
+    platform: platformRaw,
+    overrideWebdriver,
+  }).catch(() => void 0)
+
   try {
     const ua = userAgentRaw && userAgentRaw.trim() ? userAgentRaw.trim() : ''
     if (ua) {
@@ -194,6 +346,7 @@ export async function crawlStart(
     if (!appState.activeCrawl || appState.activeCrawl.runId !== runId || appState.activeCrawl.cancelled) {
       sendCrawlEvent({ type: 'cancelled', runId, processed, queued: queue.length, finishedAt: Date.now() })
       appState.crawlRequestHeadersOverride = null
+      cleanupCrawlDebugger(crawlView.webContents)
       return { success: true, runId }
     }
 
@@ -369,6 +522,7 @@ export async function crawlStart(
 
   sendCrawlEvent({ type: 'finished', runId, processed, finishedAt: Date.now(), queued: queue.length })
   appState.crawlRequestHeadersOverride = null
+  cleanupCrawlDebugger(crawlView.webContents)
   return { success: true, runId }
 }
 

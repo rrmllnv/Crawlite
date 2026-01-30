@@ -113,7 +113,7 @@ export interface ElectronAPI {
   crawlStart: (params: CrawlStartParams) => Promise<ElectronResult<{ runId?: string }>>
   crawlCancel: (runId: string) => Promise<ElectronResult>
 
-  pageAnalyze: (url: string) => Promise<ElectronResult<{ page?: CrawlPageData }>>
+  pageAnalyze: (url: string, options?: CrawlStartParams['options']) => Promise<ElectronResult<{ page?: CrawlPageData }>>
 
   loadUserConfig: () => Promise<any>
   saveUserConfig: (userConfig: any) => Promise<boolean>

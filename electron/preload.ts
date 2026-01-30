@@ -42,7 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   crawlStart: (params: CrawlStartParams) => ipcRenderer.invoke('crawl:start', params),
   crawlCancel: (runId: string) => ipcRenderer.invoke('crawl:cancel', runId),
 
-  pageAnalyze: (url: string) => ipcRenderer.invoke('page:analyze', url),
+  pageAnalyze: (url: string, options?: CrawlStartParams['options']) => ipcRenderer.invoke('page:analyze', url, options),
 
   loadUserConfig: () => ipcRenderer.invoke('load-user-config'),
   saveUserConfig: (userConfig: any) => ipcRenderer.invoke('save-user-config', userConfig),

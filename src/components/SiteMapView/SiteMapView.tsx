@@ -304,6 +304,7 @@ function TreeItem({
 
 export function SiteMapView() {
   const dispatch = useAppDispatch()
+  const crawlSettings = useAppSelector((s) => s.crawl.settings)
   const crawlStartUrl = useAppSelector((s) => s.crawl.startUrl)
   const browserCurrentUrl = useAppSelector((s) => s.browser.currentUrl)
   const startUrl = crawlStartUrl || browserCurrentUrl
@@ -437,7 +438,15 @@ export function SiteMapView() {
     dispatch(requestNavigate(target))
     // и параллельно подтягиваем анализ страницы без crawl, чтобы в данных сразу было заполнено
     try {
-      const res = await crawlService.analyzePage(target)
+      const res = await crawlService.analyzePage(target, {
+        delayMs: crawlSettings.delayMs,
+        jitterMs: crawlSettings.jitterMs,
+        deduplicateLinks: crawlSettings.deduplicateLinks,
+        userAgent: crawlSettings.userAgent,
+        acceptLanguage: crawlSettings.acceptLanguage,
+        platform: crawlSettings.platform,
+        overrideWebdriver: crawlSettings.overrideWebdriver,
+      })
       if (res?.success && (res as any).page) {
         const page = (res as any).page
         dispatch(upsertPage(page))

@@ -124,8 +124,8 @@ ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
   return handleHighlightImage(url)
 })
 
-ipcMain.handle('page:analyze', async (_event, url: string) => {
-  return handlePageAnalyze(url)
+ipcMain.handle('page:analyze', async (_event, url: string, options?: CrawlStartParams['options']) => {
+  return handlePageAnalyze(url, options)
 })
 
 ipcMain.handle('resource:head', async (_event, url: string) => {

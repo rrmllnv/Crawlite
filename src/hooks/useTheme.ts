@@ -29,11 +29,15 @@ export const useTheme = () => {
   const setTheme = async (theme: Theme) => {
     applyTheme(theme)
     const config = await getConfig()
+    const browserViewLayout = (config?.app as any)?.browserViewLayout || { pagesColWidthPx: 320, detailsColWidthPx: 420 }
+    const settingsViewLayout = (config?.app as any)?.settingsViewLayout || { sidebarColWidthPx: 260 }
     await updateConfig({
       app: {
         theme,
         locale: config?.app?.locale || 'ru',
         currentView: config?.app?.currentView || 'browser',
+        browserViewLayout,
+        settingsViewLayout,
       },
     })
   }

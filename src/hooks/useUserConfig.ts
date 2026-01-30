@@ -11,6 +11,8 @@ export const useUserConfig = () => {
   const theme = useAppSelector((state) => state.app.theme)
   const locale = useAppSelector((state) => state.app.locale)
   const currentView = useAppSelector((state) => state.app.currentView)
+  const browserViewLayout = useAppSelector((state) => state.app.browserViewLayout)
+  const settingsViewLayout = useAppSelector((state) => state.app.settingsViewLayout)
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -50,12 +52,14 @@ export const useUserConfig = () => {
         theme,
         locale,
         currentView,
+        browserViewLayout,
+        settingsViewLayout,
         ...(updates || {}),
       },
     })
     dispatch(hydrateFromConfig(userConfigManager.getConfig() || null))
     return ok
-  }, [theme, locale, currentView, dispatch])
+  }, [theme, locale, currentView, browserViewLayout, settingsViewLayout, dispatch])
 
   return {
     theme,

@@ -24,11 +24,15 @@ export const useLocale = () => {
   const setLocale = async (locale: string) => {
     applyLocale(locale)
     const config = await getConfig()
+    const browserViewLayout = (config?.app as any)?.browserViewLayout || { pagesColWidthPx: 320, detailsColWidthPx: 420 }
+    const settingsViewLayout = (config?.app as any)?.settingsViewLayout || { sidebarColWidthPx: 260 }
     await updateConfig({
       app: {
         theme: config?.app?.theme || 'dark',
         locale,
         currentView: config?.app?.currentView || 'browser',
+        browserViewLayout,
+        settingsViewLayout,
       },
     })
   }

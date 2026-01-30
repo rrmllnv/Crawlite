@@ -13,4 +13,6 @@ export const appState: AppState = {
   crawlMainFrameMetaByUrl: new Map(),
   crawlWebRequestAttachedForWebContentsId: null,
   crawlRequestHeadersOverride: null,
+  crawlDebuggerAttachedForWebContentsId: null,
+  crawlStealthScriptId: null,
 }

@@ -81,4 +81,6 @@ export type AppState = {
   crawlMainFrameMetaByUrl: Map<string, { statusCode: number | null; contentLength: number | null }>
   crawlWebRequestAttachedForWebContentsId: number | null
   crawlRequestHeadersOverride: { userAgent?: string; acceptLanguage?: string } | null
+  crawlDebuggerAttachedForWebContentsId: number | null
+  crawlStealthScriptId: string | null
 }
