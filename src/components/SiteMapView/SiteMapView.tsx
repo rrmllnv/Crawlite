@@ -9,10 +9,8 @@ import { setScrollTop, toggleExpanded } from '../../store/slices/sitemapSlice'
 import { PanelResizer } from '../PanelResizer/PanelResizer'
 import './SiteMapView.scss'
 
-/** Порог: при большем числе детей узел рендерится через виртуальный список */
-const VIRTUAL_CHILDREN_THRESHOLD = 40
+/** Оценочная высота строки (px) для виртуализатора. */
 const VIRTUAL_ROW_ESTIMATE_PX = 60
-const VIRTUAL_LIST_HEIGHT_PX = 400
 
 type TreeNode = {
   id: string
@@ -134,6 +132,8 @@ function TreeItem({
   toggle,
   onOpen,
   getUrlMeta,
+  virtualChildrenThreshold,
+  virtualListHeightPx,
 }: {
   node: TreeNode
   level: number
@@ -141,10 +141,12 @@ function TreeItem({
   toggle: (id: string) => void
   onOpen: (url: string) => void
   getUrlMeta: (url: string) => { lastmod?: string; changefreq?: string; priority?: string } | null
+  virtualChildrenThreshold: number
+  virtualListHeightPx: number
 }) {
   const hasChildren = node.children.length > 0
   const isExpanded = expanded.has(node.id)
-  const useVirtualList = hasChildren && isExpanded && node.children.length > VIRTUAL_CHILDREN_THRESHOLD
+  const useVirtualList = hasChildren && isExpanded && node.children.length > virtualChildrenThreshold
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const virtualizer = useVirtualizer({
@@ -241,7 +243,7 @@ function TreeItem({
             <div
               ref={scrollRef}
               className="sitemap-tree__virtual-scroll"
-              style={{ overflow: 'auto', height: VIRTUAL_LIST_HEIGHT_PX }}
+              style={{ overflow: 'auto', height: virtualListHeightPx }}
             >
               <div
                 style={{
@@ -272,6 +274,8 @@ function TreeItem({
                       toggle={toggle}
                       onOpen={onOpen}
                       getUrlMeta={getUrlMeta}
+                      virtualChildrenThreshold={virtualChildrenThreshold}
+                      virtualListHeightPx={virtualListHeightPx}
                     />
                   </div>
                 ))}
@@ -287,6 +291,8 @@ function TreeItem({
                 toggle={toggle}
                 onOpen={onOpen}
                 getUrlMeta={getUrlMeta}
+                virtualChildrenThreshold={virtualChildrenThreshold}
+                virtualListHeightPx={virtualListHeightPx}
               />
             ))
           )}
@@ -301,6 +307,9 @@ export function SiteMapView() {
   const crawlStartUrl = useAppSelector((s) => s.crawl.startUrl)
   const browserCurrentUrl = useAppSelector((s) => s.browser.currentUrl)
   const startUrl = crawlStartUrl || browserCurrentUrl
+
+  const virtualChildrenThreshold = useAppSelector((s) => s.sitemap.settings.virtualChildrenThreshold)
+  const virtualListHeightPx = useAppSelector((s) => s.sitemap.settings.virtualListHeightPx)
 
   const isBuilding = useAppSelector((s) => s.sitemap.isBuilding)
   const error = useAppSelector((s) => s.sitemap.error)
@@ -558,6 +567,8 @@ export function SiteMapView() {
             toggle={toggle}
             onOpen={(u) => void openInBrowser(u)}
             getUrlMeta={getUrlMeta}
+            virtualChildrenThreshold={virtualChildrenThreshold}
+            virtualListHeightPx={virtualListHeightPx}
           />
         )}
       </div>

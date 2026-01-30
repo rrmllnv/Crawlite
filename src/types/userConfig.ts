@@ -9,6 +9,9 @@ export interface UserConfig {
       pagesColWidthPx: number
       detailsColWidthPx: number
     }
+    settingsViewLayout: {
+      sidebarColWidthPx: number
+    }
   }
   crawling: {
     maxDepth: number
@@ -20,6 +23,10 @@ export interface UserConfig {
   sitemap: {
     /** Максимальное число URL, которые загружаются из sitemap (защита от переполнения памяти) */
     maxUrls: number
+    /** После скольких элементов включать виртуализацию списка детей в дереве */
+    virtualChildrenThreshold: number
+    /** Высота окна (px) для виртуализированного списка детей */
+    virtualListHeightPx: number
   }
 }
 
@@ -32,6 +39,9 @@ export const defaultUserConfig: UserConfig = {
       pagesColWidthPx: 320,
       detailsColWidthPx: 420,
     },
+    settingsViewLayout: {
+      sidebarColWidthPx: 260,
+    },
   },
   crawling: {
     maxDepth: 2,
@@ -40,6 +50,8 @@ export const defaultUserConfig: UserConfig = {
   },
   sitemap: {
     maxUrls: 200000,
+    virtualChildrenThreshold: 40,
+    virtualListHeightPx: 400,
   },
 }
 

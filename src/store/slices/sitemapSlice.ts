@@ -3,6 +3,8 @@ import type { UserConfig } from '../../types/userConfig'
 
 export interface SiteMapSettings {
   maxUrls: number
+  virtualChildrenThreshold: number
+  virtualListHeightPx: number
 }
 
 export interface SiteMapState {
@@ -19,6 +21,8 @@ export interface SiteMapState {
 }
 
 const DEFAULT_MAX_URLS = 200000
+const DEFAULT_VIRTUAL_THRESHOLD = 40
+const DEFAULT_VIRTUAL_LIST_HEIGHT_PX = 400
 
 const initialState: SiteMapState = {
   isBuilding: false,
@@ -32,6 +36,8 @@ const initialState: SiteMapState = {
   scrollTop: 0,
   settings: {
     maxUrls: DEFAULT_MAX_URLS,
+    virtualChildrenThreshold: DEFAULT_VIRTUAL_THRESHOLD,
+    virtualListHeightPx: DEFAULT_VIRTUAL_LIST_HEIGHT_PX,
   },
 }
 
@@ -93,6 +99,15 @@ export const sitemapSlice = createSlice({
         const v = Math.max(1000, Math.min(2000000, Math.floor(maxUrlsRaw)))
         state.settings.maxUrls = v
       }
+      const thresholdRaw = (action.payload as any).virtualChildrenThreshold
+      if (typeof thresholdRaw === 'number' && Number.isFinite(thresholdRaw)) {
+        // 0 = виртуализация всегда; верхнюю границу держим разумной
+        state.settings.virtualChildrenThreshold = Math.max(0, Math.min(10000, Math.floor(thresholdRaw)))
+      }
+      const heightRaw = (action.payload as any).virtualListHeightPx
+      if (typeof heightRaw === 'number' && Number.isFinite(heightRaw)) {
+        state.settings.virtualListHeightPx = Math.max(120, Math.min(2000, Math.floor(heightRaw)))
+      }
     },
     hydrateFromConfig: (state, action: PayloadAction<UserConfig | null>) => {
       const cfg = action.payload
@@ -101,6 +116,14 @@ export const sitemapSlice = createSlice({
       if (typeof maxUrlsRaw === 'number' && Number.isFinite(maxUrlsRaw)) {
         const v = Math.max(1000, Math.min(2000000, Math.floor(maxUrlsRaw)))
         state.settings.maxUrls = v
+      }
+      const thresholdRaw = (cfg.sitemap as any).virtualChildrenThreshold
+      if (typeof thresholdRaw === 'number' && Number.isFinite(thresholdRaw)) {
+        state.settings.virtualChildrenThreshold = Math.max(0, Math.min(10000, Math.floor(thresholdRaw)))
+      }
+      const heightRaw = (cfg.sitemap as any).virtualListHeightPx
+      if (typeof heightRaw === 'number' && Number.isFinite(heightRaw)) {
+        state.settings.virtualListHeightPx = Math.max(120, Math.min(2000, Math.floor(heightRaw)))
       }
     },
     toggleExpanded: (state, action: PayloadAction<string>) => {

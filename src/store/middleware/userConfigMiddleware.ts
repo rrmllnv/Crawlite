@@ -5,7 +5,13 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
   const result = next(action)
 
   const actionType = action && typeof action === 'object' && 'type' in action ? action.type : null
-  const actionsToSave = ['app/setCurrentView', 'crawl/setCrawlSettings', 'app/commitBrowserViewLayout', 'sitemap/setSitemapSettings']
+  const actionsToSave = [
+    'app/setCurrentView',
+    'crawl/setCrawlSettings',
+    'app/commitBrowserViewLayout',
+    'app/commitSettingsViewLayout',
+    'sitemap/setSitemapSettings',
+  ]
 
   if (actionType && actionsToSave.includes(actionType as string)) {
     const state = store.getState()
@@ -15,6 +21,7 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
         locale: state.app.locale,
         currentView: state.app.currentView,
         browserViewLayout: state.app.browserViewLayout,
+        settingsViewLayout: state.app.settingsViewLayout,
       },
       crawling: {
         maxDepth: state.crawl.settings.maxDepth,
@@ -23,6 +30,8 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
       },
       sitemap: {
         maxUrls: state.sitemap.settings.maxUrls,
+        virtualChildrenThreshold: state.sitemap.settings.virtualChildrenThreshold,
+        virtualListHeightPx: state.sitemap.settings.virtualListHeightPx,
       },
     })
   }

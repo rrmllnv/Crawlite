@@ -80,6 +80,10 @@ export class UserConfigManager {
           ...defaultUserConfig.app.browserViewLayout,
           ...(((appPart as any)?.browserViewLayout || {}) as Partial<UserConfig['app']['browserViewLayout']>),
         },
+        settingsViewLayout: {
+          ...defaultUserConfig.app.settingsViewLayout,
+          ...(((appPart as any)?.settingsViewLayout || {}) as Partial<UserConfig['app']['settingsViewLayout']>),
+        },
       },
       crawling: {
         ...defaultUserConfig.crawling,

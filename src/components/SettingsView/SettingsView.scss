@@ -1,0 +1,122 @@
+@use '../../styles/variables' as *;
+
+.settings-view {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 260px 10px 1fr;
+  gap: 0;
+}
+
+.settings-view__sidebar {
+  background: $bg-secondary;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.settings-view__sidebar-title {
+  font-size: $font-size-sm;
+  font-weight: 700;
+  color: $text-primary;
+}
+
+.settings-view__tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-view__tab {
+  width: 100%;
+  text-align: left;
+  padding: 10px 10px;
+  border-radius: $border-radius;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: $text-primary;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.settings-view__tab--active {
+  background: rgba(74, 163, 255, 0.12);
+  box-shadow: 0 0 0 1px rgba(74, 163, 255, 0.25) inset;
+}
+
+.settings-view__tab-title {
+  font-size: $font-size-sm;
+  font-weight: 600;
+}
+
+.settings-view__content {
+  background: $bg-primary;
+  padding: 12px;
+  overflow: auto;
+}
+
+.settings-view__section {
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-view__section-title {
+  font-size: $font-size-lg;
+  font-weight: 700;
+  color: $text-primary;
+}
+
+.settings-view__card {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: $border-radius;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-view__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-view__label {
+  font-size: $font-size-sm;
+  color: $text-primary;
+  font-weight: 600;
+}
+
+.settings-view__input {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: $border-radius;
+  border: 1px solid $border-color;
+  background: rgba(255, 255, 255, 0.06);
+  color: $text-primary;
+}
+
+.settings-view__hint {
+  font-size: 12px;
+  color: $text-secondary;
+}
+
+.settings-view__empty {
+  padding: 10px 12px;
+  color: $text-secondary;
+  border: 1px dashed rgba(255, 255, 255, 0.10);
+  border-radius: $border-radius;
+  background: rgba(255, 255, 255, 0.02);
+}
+

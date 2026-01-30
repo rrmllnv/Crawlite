@@ -13,6 +13,9 @@ interface AppState {
     pagesColWidthPx: number
     detailsColWidthPx: number
   }
+  settingsViewLayout: {
+    sidebarColWidthPx: number
+  }
 }
 
 const initialState: AppState = {
@@ -24,6 +27,9 @@ const initialState: AppState = {
   browserViewLayout: {
     pagesColWidthPx: 320,
     detailsColWidthPx: 420,
+  },
+  settingsViewLayout: {
+    sidebarColWidthPx: 260,
   },
 }
 
@@ -56,6 +62,22 @@ export const appSlice = createSlice({
         ...payload,
       }
     },
+    setSettingsViewLayout: (state, action: PayloadAction<Partial<AppState['settingsViewLayout']>>) => {
+      state.settingsViewLayout = {
+        ...state.settingsViewLayout,
+        ...(action.payload || {}),
+      }
+    },
+    commitSettingsViewLayout: (state, action: PayloadAction<AppState['settingsViewLayout']>) => {
+      const payload = action.payload
+      if (!payload || typeof payload !== 'object') {
+        return
+      }
+      state.settingsViewLayout = {
+        ...state.settingsViewLayout,
+        ...payload,
+      }
+    },
     hydrateFromConfig: (state, action: PayloadAction<UserConfig | null>) => {
       const cfg = action.payload
       if (!cfg) {
@@ -81,6 +103,14 @@ export const appSlice = createSlice({
           state.browserViewLayout.detailsColWidthPx = Math.floor(detailsRaw)
         }
       }
+
+      const settingsLayout = (cfg?.app as any)?.settingsViewLayout
+      if (settingsLayout && typeof settingsLayout === 'object') {
+        const sidebarRaw = (settingsLayout as any).sidebarColWidthPx
+        if (typeof sidebarRaw === 'number' && Number.isFinite(sidebarRaw) && sidebarRaw > 0) {
+          state.settingsViewLayout.sidebarColWidthPx = Math.floor(sidebarRaw)
+        }
+      }
     },
   },
 })
@@ -91,6 +121,8 @@ export const {
   setCurrentView,
   setBrowserViewLayout,
   commitBrowserViewLayout,
+  setSettingsViewLayout,
+  commitSettingsViewLayout,
   hydrateFromConfig,
 } = appSlice.actions
 export default appSlice.reducer
