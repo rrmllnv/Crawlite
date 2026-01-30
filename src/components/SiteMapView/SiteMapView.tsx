@@ -10,9 +10,9 @@ import { PanelResizer } from '../PanelResizer/PanelResizer'
 import './SiteMapView.scss'
 
 /** Порог: при большем числе детей узел рендерится через виртуальный список */
-const VIRTUAL_CHILDREN_THRESHOLD = 80
-const VIRTUAL_ROW_ESTIMATE_PX = 48
-const VIRTUAL_LIST_HEIGHT_PX = 360
+const VIRTUAL_CHILDREN_THRESHOLD = 40
+const VIRTUAL_ROW_ESTIMATE_PX = 60
+const VIRTUAL_LIST_HEIGHT_PX = 400
 
 type TreeNode = {
   id: string
@@ -152,6 +152,8 @@ function TreeItem({
     getScrollElement: () => scrollRef.current,
     estimateSize: () => VIRTUAL_ROW_ESTIMATE_PX,
     overscan: 8,
+    measureElement: (el, entry) =>
+      (entry?.contentRect?.height ?? el?.getBoundingClientRect?.()?.height ?? VIRTUAL_ROW_ESTIMATE_PX),
   })
   const isLeaf = Boolean(node.url)
   const nestedUrlsCount = (() => {
@@ -248,9 +250,13 @@ function TreeItem({
                   width: '100%',
                 }}
               >
-                {virtualizer.getVirtualItems().map((virtualRow: { index: number; start: number }) => (
+                {virtualizer.getVirtualItems().map((virtualRow: { index: number; start: number; size: number }) => (
                   <div
                     key={node.children[virtualRow.index].id}
+                    data-index={virtualRow.index}
+                    ref={(el) => {
+                      if (el) virtualizer.measureElement(el)
+                    }}
                     style={{
                       position: 'absolute',
                       top: 0,
