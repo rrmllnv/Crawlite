@@ -451,6 +451,11 @@ export function SiteMapView() {
             </div>
           </div>
           <div className="sitemap-view__header-right">
+           <div className="sitemap-view__subtitle">
+              {isBuilding ? 'Построение… · ' : ''}
+              {urls.length === 0 ? 'URL: 0' : searchQuery.trim() ? `URL: ${filteredUrls.length} из ${urls.length}` : `URL: ${urls.length}`}
+              {truncated && urls.length > 0 ? ` · достигнут лимит ${maxUrlsUsed.toLocaleString('ru-RU')}` : ''}
+            </div>
             <div className="sitemap-view__search-wrap">
               <input
                 type="text"
@@ -471,11 +476,6 @@ export function SiteMapView() {
                   <i className="fa-solid fa-xmark" aria-hidden="true" />
                 </button>
               )}
-            </div>
-            <div className="sitemap-view__subtitle">
-              {isBuilding ? 'Построение… · ' : ''}
-              {urls.length === 0 ? 'URL: 0' : searchQuery.trim() ? `URL: ${filteredUrls.length} из ${urls.length}` : `URL: ${urls.length}`}
-              {truncated && urls.length > 0 ? ` · достигнут лимит ${maxUrlsUsed.toLocaleString('ru-RU')}` : ''}
             </div>
           </div>
         </div>
