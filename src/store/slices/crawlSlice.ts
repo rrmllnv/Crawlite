@@ -25,6 +25,7 @@ interface CrawlState {
     acceptLanguage: string
     platform: string
     overrideWebdriver: boolean
+    analyzeWaitMs: number
   }
   pagesByUrl: Record<string, CrawlPageData>
   pageOrder: string[]
@@ -48,6 +49,7 @@ const initialState: CrawlState = {
     acceptLanguage: '',
     platform: '',
     overrideWebdriver: false,
+    analyzeWaitMs: 0,
   },
   pagesByUrl: {},
   pageOrder: [],
@@ -107,6 +109,7 @@ export const crawlSlice = createSlice({
       const acceptLanguageRaw = (cfg.crawling as any).acceptLanguage
       const platformRaw = (cfg.crawling as any).platform
       const overrideWebdriverRaw = (cfg.crawling as any).overrideWebdriver
+      const analyzeWaitMsRaw = (cfg.crawling as any).analyzeWaitMs
       const maxDepth = typeof maxDepthRaw === 'number' && Number.isFinite(maxDepthRaw) ? Math.max(0, Math.floor(maxDepthRaw)) : state.settings.maxDepth
       const maxPages = typeof maxPagesRaw === 'number' && Number.isFinite(maxPagesRaw) ? Math.max(1, Math.floor(maxPagesRaw)) : state.settings.maxPages
       const deduplicateLinks = typeof deduplicateLinksRaw === 'boolean' ? deduplicateLinksRaw : state.settings.deduplicateLinks
@@ -123,6 +126,9 @@ export const crawlSlice = createSlice({
       state.settings.acceptLanguage = typeof acceptLanguageRaw === 'string' ? acceptLanguageRaw : state.settings.acceptLanguage
       state.settings.platform = typeof platformRaw === 'string' ? platformRaw : state.settings.platform
       state.settings.overrideWebdriver = typeof overrideWebdriverRaw === 'boolean' ? overrideWebdriverRaw : state.settings.overrideWebdriver
+      if (typeof analyzeWaitMsRaw === 'number' && Number.isFinite(analyzeWaitMsRaw)) {
+        state.settings.analyzeWaitMs = Math.max(0, Math.min(60000, Math.floor(analyzeWaitMsRaw)))
+      }
     },
     upsertPage: (state, action: PayloadAction<CrawlPageData>) => {
       const page = action.payload

@@ -211,12 +211,19 @@ export async function handlePageAnalyze(
     return { success: false, error: 'Invalid URL' }
   }
 
-  const delayMs =
+  const analyzeWaitMsRaw = (options as any)?.analyzeWaitMs
+  const analyzeWaitMs =
+    typeof analyzeWaitMsRaw === 'number' && Number.isFinite(analyzeWaitMsRaw)
+      ? Math.max(0, Math.min(60000, Math.floor(analyzeWaitMsRaw)))
+      : null
+
+  // Backward-compat: если analyzeWaitMs не задан — используем старую схему delay+jitter.
+  const delayMsFallback =
     typeof options?.delayMs === 'number' && Number.isFinite(options.delayMs)
       ? Math.max(0, Math.min(60000, Math.floor(options.delayMs)))
       : 0
 
-  const jitterMs =
+  const jitterMsFallback =
     typeof options?.jitterMs === 'number' && Number.isFinite(options.jitterMs)
       ? Math.max(0, Math.min(60000, Math.floor(options.jitterMs)))
       : 0
@@ -283,7 +290,10 @@ export async function handlePageAnalyze(
     void 0
   }
 
-  const sleepFor = delayMs + Math.floor(Math.random() * (jitterMs + 1))
+  const sleepFor =
+    analyzeWaitMs !== null
+      ? analyzeWaitMs
+      : (delayMsFallback + Math.floor(Math.random() * (jitterMsFallback + 1)))
   if (sleepFor > 0) {
     await new Promise((resolve) => setTimeout(resolve, sleepFor))
   }

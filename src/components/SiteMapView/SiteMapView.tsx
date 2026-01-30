@@ -441,6 +441,7 @@ export function SiteMapView() {
       const res = await crawlService.analyzePage(target, {
         delayMs: crawlSettings.delayMs,
         jitterMs: crawlSettings.jitterMs,
+        analyzeWaitMs: crawlSettings.analyzeWaitMs,
         deduplicateLinks: crawlSettings.deduplicateLinks,
         userAgent: crawlSettings.userAgent,
         acceptLanguage: crawlSettings.acceptLanguage,

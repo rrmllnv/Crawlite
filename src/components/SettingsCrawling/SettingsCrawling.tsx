@@ -25,6 +25,7 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
   const deduplicateLinks = Boolean(settings.deduplicateLinks)
   const delayMsValue = useMemo(() => String(settings.delayMs), [settings.delayMs])
   const jitterMsValue = useMemo(() => String(settings.jitterMs), [settings.jitterMs])
+  const analyzeWaitMsValue = useMemo(() => String(settings.analyzeWaitMs), [settings.analyzeWaitMs])
   const userAgentValue = useMemo(() => String(settings.userAgent), [settings.userAgent])
   const acceptLanguageValue = useMemo(() => String(settings.acceptLanguage), [settings.acceptLanguage])
   const platformValue = useMemo(() => String(settings.platform), [settings.platform])
@@ -128,7 +129,7 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
               }}
             />
             <div className="settings-crawling__hint">
-              Используется как пауза между страницами в крауле. Также влияет на анализ страницы перед извлечением данных (например при открытии URL из карты сайта).
+              Пауза между страницами в крауле. Для анализа страницы применяется только если `analyzeWaitMs` = 0.
             </div>
           </label>
 
@@ -147,7 +148,26 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
               }}
             />
             <div className="settings-crawling__hint">
-              Добавляется к delayMs случайным образом. Также применяется к ожиданию перед извлечением данных при анализе (например из карты сайта).
+              Добавляется к delayMs случайным образом. Для анализа страницы применяется только если `analyzeWaitMs` = 0.
+            </div>
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">analyzeWaitMs (ожидание перед извлечением)</div>
+            <input
+              className="settings-crawling__input"
+              type="number"
+              min={0}
+              max={60000}
+              step={10}
+              value={analyzeWaitMsValue}
+              onChange={(e) => {
+                const next = clampInt(Number(e.target.value), 0, 60000)
+                dispatch(setCrawlSettings({ analyzeWaitMs: next }))
+              }}
+            />
+            <div className="settings-crawling__hint">
+              Ожидание перед `extractPageDataFromView` при анализе страницы (например при открытии URL из карты сайта). Если &gt; 0 — используется вместо `delayMs/jitterMs` именно для анализа. Не влияет на скорость обхода очереди краула.
             </div>
           </label>
 

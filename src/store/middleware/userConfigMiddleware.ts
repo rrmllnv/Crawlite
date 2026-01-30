@@ -33,6 +33,7 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
         acceptLanguage: state.crawl.settings.acceptLanguage,
         platform: state.crawl.settings.platform,
         overrideWebdriver: state.crawl.settings.overrideWebdriver,
+        analyzeWaitMs: state.crawl.settings.analyzeWaitMs,
       },
       sitemap: {
         maxUrls: state.sitemap.settings.maxUrls,

@@ -12,6 +12,8 @@ export type CrawlStartParams = {
     jitterMs?: number
     /** true = убирать дубликаты ссылок по URL; false = сохранять все */
     deduplicateLinks?: boolean
+    /** Доп. ожидание (ms) перед извлечением данных при анализе страницы */
+    analyzeWaitMs?: number
     /** Переопределить User-Agent (пусто = не трогать) */
     userAgent?: string
     /** Переопределить Accept-Language (пусто = не трогать) */

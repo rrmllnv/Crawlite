@@ -18,9 +18,9 @@ export interface UserConfig {
     maxPages: number
     /** true = убирать дубликаты ссылок по URL; false = сохранять все (по умолчанию) */
     deduplicateLinks: boolean
-    /** Задержка (ms): пауза между страницами в крауле; также используется как ожидание перед извлечением данных при анализе страницы (например из карты сайта). */
+    /** Задержка (ms): пауза между страницами в крауле. Для анализа страницы применяется только если analyzeWaitMs не задан. */
     delayMs: number
-    /** Джиттер (ms): случайная добавка к delayMs; также применяется к ожиданию перед извлечением при анализе (например из карты сайта). */
+    /** Джиттер (ms): случайная добавка к delayMs. Для анализа страницы применяется только если analyzeWaitMs не задан. */
     jitterMs: number
     /** Переопределение User-Agent для краула (пусто = не трогаем) */
     userAgent: string
@@ -30,6 +30,8 @@ export interface UserConfig {
     platform: string
     /** Попытка скрыть navigator.webdriver (JS-override) */
     overrideWebdriver: boolean
+    /** Ожидание (ms) перед извлечением данных при анализе страницы (например из карты сайта). Если задано — используется вместо delayMs/jitterMs именно для анализа. */
+    analyzeWaitMs: number
   }
   /** Настройки построения карты сайта */
   sitemap: {
@@ -65,6 +67,7 @@ export const defaultUserConfig: UserConfig = {
     acceptLanguage: '',
     platform: '',
     overrideWebdriver: false,
+    analyzeWaitMs: 0,
   },
   sitemap: {
     maxUrls: 200000,
