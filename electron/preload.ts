@@ -14,6 +14,10 @@ export type CrawlStartParams = {
     maxPages?: number
     delayMs?: number
     jitterMs?: number
+    userAgent?: string
+    acceptLanguage?: string
+    platform?: string
+    overrideWebdriver?: boolean
   }
 }
 

@@ -27,6 +27,12 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
         maxDepth: state.crawl.settings.maxDepth,
         maxPages: state.crawl.settings.maxPages,
         deduplicateLinks: state.crawl.settings.deduplicateLinks,
+        delayMs: state.crawl.settings.delayMs,
+        jitterMs: state.crawl.settings.jitterMs,
+        userAgent: state.crawl.settings.userAgent,
+        acceptLanguage: state.crawl.settings.acceptLanguage,
+        platform: state.crawl.settings.platform,
+        overrideWebdriver: state.crawl.settings.overrideWebdriver,
       },
       sitemap: {
         maxUrls: state.sitemap.settings.maxUrls,

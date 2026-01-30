@@ -102,6 +102,10 @@ export function Header() {
           delayMs: 0,
           jitterMs: 0,
           deduplicateLinks: crawlSettings.deduplicateLinks,
+          userAgent: crawlSettings.userAgent,
+          acceptLanguage: crawlSettings.acceptLanguage,
+          platform: crawlSettings.platform,
+          overrideWebdriver: crawlSettings.overrideWebdriver,
         },
       })
       .then((res) => {
@@ -139,9 +143,13 @@ export function Header() {
         options: {
           maxDepth: crawlSettings.maxDepth,
           maxPages: crawlSettings.maxPages,
-          delayMs: 650,
-          jitterMs: 350,
+          delayMs: crawlSettings.delayMs,
+          jitterMs: crawlSettings.jitterMs,
           deduplicateLinks: crawlSettings.deduplicateLinks,
+          userAgent: crawlSettings.userAgent,
+          acceptLanguage: crawlSettings.acceptLanguage,
+          platform: crawlSettings.platform,
+          overrideWebdriver: crawlSettings.overrideWebdriver,
         },
       })
       .then((res) => {

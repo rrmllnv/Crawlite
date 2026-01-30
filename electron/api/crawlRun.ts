@@ -1,3 +1,4 @@
+import type { WebContents } from 'electron'
 import type { CrawlPageData, CrawlStartParams } from '../types'
 import { appState } from '../state'
 import { safeParseUrl, normalizeUrl, normalizeHostname, isInternalByHost, isDocumentOrMediaUrl } from './urlUtils'
@@ -51,6 +52,64 @@ function makeDiscoveredStub(url: string, normalizedUrl: string): CrawlPageData {
   }
 }
 
+function parseAcceptLanguagePrimary(raw: string): string {
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  const first = s.split(',')[0] || ''
+  const cleaned = first.split(';')[0] || ''
+  return cleaned.trim()
+}
+
+async function tryApplyNavigatorOverrides(
+  wc: WebContents,
+  opts: { overrideWebdriver: boolean; acceptLanguage: string; platform: string }
+): Promise<void> {
+  try {
+    const overrideWebdriver = Boolean(opts.overrideWebdriver)
+    const langPrimary = parseAcceptLanguagePrimary(opts.acceptLanguage)
+    const platform = String(opts.platform || '').trim()
+
+    if (!overrideWebdriver && !langPrimary && !platform) {
+      return
+    }
+
+    const js = `
+      (function() {
+        try {
+          var overrideWebdriver = ${overrideWebdriver ? 'true' : 'false'};
+          var langPrimary = ${JSON.stringify(langPrimary)};
+          var platform = ${JSON.stringify(platform)};
+
+          if (overrideWebdriver) {
+            try {
+              Object.defineProperty(navigator, 'webdriver', { get: function() { return false; }, configurable: true });
+            } catch (e) {}
+          }
+
+          if (langPrimary) {
+            try {
+              Object.defineProperty(navigator, 'language', { get: function() { return langPrimary; }, configurable: true });
+            } catch (e) {}
+            try {
+              Object.defineProperty(navigator, 'languages', { get: function() { return [langPrimary]; }, configurable: true });
+            } catch (e) {}
+          }
+
+          if (platform) {
+            try {
+              Object.defineProperty(navigator, 'platform', { get: function() { return platform; }, configurable: true });
+            } catch (e) {}
+          }
+        } catch (e) {}
+      })();
+      true;
+    `
+    await wc.executeJavaScript(js, true)
+  } catch {
+    void 0
+  }
+}
+
 export async function crawlStart(
   params: CrawlStartParams
 ): Promise<{ success: true; runId: string } | { success: false; error: string }> {
@@ -84,12 +143,29 @@ export async function crawlStart(
       ? Math.max(0, Math.floor(params.options.jitterMs))
       : 350
 
+  const userAgentRaw = typeof params?.options?.userAgent === 'string' ? params.options.userAgent : ''
+  const acceptLanguageRaw = typeof params?.options?.acceptLanguage === 'string' ? params.options.acceptLanguage : ''
+  const platformRaw = typeof params?.options?.platform === 'string' ? params.options.platform : ''
+  const overrideWebdriver = Boolean((params?.options as any)?.overrideWebdriver)
+
   ensureCrawlView()
   if (!appState.crawlView) {
     return { success: false, error: 'Crawler view not available' }
   }
 
   const crawlView = appState.crawlView
+  appState.crawlRequestHeadersOverride = {
+    userAgent: userAgentRaw && userAgentRaw.trim() ? userAgentRaw.trim() : undefined,
+    acceptLanguage: acceptLanguageRaw && acceptLanguageRaw.trim() ? acceptLanguageRaw.trim() : undefined,
+  }
+  try {
+    const ua = userAgentRaw && userAgentRaw.trim() ? userAgentRaw.trim() : ''
+    if (ua) {
+      crawlView.webContents.setUserAgent(ua)
+    }
+  } catch {
+    void 0
+  }
   const baseHost = normalizeHostname(start.hostname)
   const queue: Array<{ url: string; depth: number }> = [{ url: start.toString(), depth: 0 }]
   const seen = new Set<string>()
@@ -117,6 +193,7 @@ export async function crawlStart(
   while (queue.length > 0) {
     if (!appState.activeCrawl || appState.activeCrawl.runId !== runId || appState.activeCrawl.cancelled) {
       sendCrawlEvent({ type: 'cancelled', runId, processed, queued: queue.length, finishedAt: Date.now() })
+      appState.crawlRequestHeadersOverride = null
       return { success: true, runId }
     }
 
@@ -156,6 +233,14 @@ export async function crawlStart(
     } catch {
       loadOk = false
     }
+
+    // Пытаемся применить JS-override на navigator.* (после загрузки).
+    // ВАЖНО: это не гарантирует обход антибота (часть проверок выполняется раньше), но помогает для части сайтов.
+    void tryApplyNavigatorOverrides(crawlView.webContents, {
+      overrideWebdriver,
+      acceptLanguage: acceptLanguageRaw,
+      platform: platformRaw,
+    }).catch(() => void 0)
 
     try {
       await crawlView.webContents.executeJavaScript(`
@@ -283,6 +368,7 @@ export async function crawlStart(
   }
 
   sendCrawlEvent({ type: 'finished', runId, processed, finishedAt: Date.now(), queued: queue.length })
+  appState.crawlRequestHeadersOverride = null
   return { success: true, runId }
 }
 

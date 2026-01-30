@@ -22,7 +22,13 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
 
   const maxDepthValue = useMemo(() => String(settings.maxDepth), [settings.maxDepth])
   const maxPagesValue = useMemo(() => String(settings.maxPages), [settings.maxPages])
-  const deduplicateLinks = Boolean((settings as any).deduplicateLinks)
+  const deduplicateLinks = Boolean(settings.deduplicateLinks)
+  const delayMsValue = useMemo(() => String(settings.delayMs), [settings.delayMs])
+  const jitterMsValue = useMemo(() => String(settings.jitterMs), [settings.jitterMs])
+  const userAgentValue = useMemo(() => String(settings.userAgent), [settings.userAgent])
+  const acceptLanguageValue = useMemo(() => String(settings.acceptLanguage), [settings.acceptLanguage])
+  const platformValue = useMemo(() => String(settings.platform), [settings.platform])
+  const overrideWebdriver = Boolean(settings.overrideWebdriver)
 
   useEffect(() => {
     if (!isOpen) {
@@ -101,6 +107,96 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
               />
               <div className="settings-crawling__hint">
                 Если включено — ссылки на странице будут уникализированы по URL.<br/>Если выключено — сохраняем дубли.
+              </div>
+            </div>
+          </label>
+
+          <div className="settings-crawling__section-title">Антибот / сеть</div>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">delayMs (задержка между страницами)</div>
+            <input
+              className="settings-crawling__input"
+              type="number"
+              min={0}
+              max={60000}
+              step={10}
+              value={delayMsValue}
+              onChange={(e) => {
+                const next = clampInt(Number(e.target.value), 0, 60000)
+                dispatch(setCrawlSettings({ delayMs: next }))
+              }}
+            />
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">jitterMs (случайная добавка к delay)</div>
+            <input
+              className="settings-crawling__input"
+              type="number"
+              min={0}
+              max={60000}
+              step={10}
+              value={jitterMsValue}
+              onChange={(e) => {
+                const next = clampInt(Number(e.target.value), 0, 60000)
+                dispatch(setCrawlSettings({ jitterMs: next }))
+              }}
+            />
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">User-Agent (для краула)</div>
+            <input
+              className="settings-crawling__input"
+              type="text"
+              value={userAgentValue}
+              onChange={(e) => {
+                dispatch(setCrawlSettings({ userAgent: String(e.target.value || '') }))
+              }}
+              placeholder="Пусто = не трогаем"
+            />
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">Accept-Language</div>
+            <input
+              className="settings-crawling__input"
+              type="text"
+              value={acceptLanguageValue}
+              onChange={(e) => {
+                dispatch(setCrawlSettings({ acceptLanguage: String(e.target.value || '') }))
+              }}
+              placeholder="Напр.: ru-RU,ru;q=0.9,en;q=0.8"
+            />
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">navigator.platform</div>
+            <input
+              className="settings-crawling__input"
+              type="text"
+              value={platformValue}
+              onChange={(e) => {
+                dispatch(setCrawlSettings({ platform: String(e.target.value || '') }))
+              }}
+              placeholder="Напр.: Win32"
+            />
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">Скрывать navigator.webdriver</div>
+            <div className="settings-crawling__checkbox-row">
+              <input
+                className="settings-crawling__checkbox"
+                type="checkbox"
+                checked={overrideWebdriver}
+                onChange={(e) => {
+                  dispatch(setCrawlSettings({ overrideWebdriver: Boolean(e.target.checked) }))
+                }}
+              />
+              <div className="settings-crawling__hint">
+                Делается через JS-override в странице. Не гарантирует обход антибота.
               </div>
             </div>
           </label>

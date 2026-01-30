@@ -13,6 +13,39 @@ export function attachCrawlWebRequestListeners(view: WebContentsView): void {
 
   try {
     const webRequest = view.webContents.session.webRequest
+    webRequest.onBeforeSendHeaders({ urls: ['*://*/*'] }, (details: any, callback: any) => {
+      try {
+        if (!details || typeof details !== 'object') {
+          callback({ cancel: false })
+          return
+        }
+        if (typeof details.webContentsId === 'number' && details.webContentsId !== wcId) {
+          callback({ cancel: false })
+          return
+        }
+        const overrides = appState.crawlRequestHeadersOverride
+        if (!overrides || typeof overrides !== 'object') {
+          callback({ cancel: false })
+          return
+        }
+        const headers = (details.requestHeaders && typeof details.requestHeaders === 'object') ? details.requestHeaders : {}
+        const ua = typeof overrides.userAgent === 'string' ? overrides.userAgent.trim() : ''
+        const al = typeof overrides.acceptLanguage === 'string' ? overrides.acceptLanguage.trim() : ''
+        if (ua) {
+          headers['User-Agent'] = ua
+        }
+        if (al) {
+          headers['Accept-Language'] = al
+        }
+        callback({ cancel: false, requestHeaders: headers })
+      } catch {
+        try {
+          callback({ cancel: false })
+        } catch {
+          void 0
+        }
+      }
+    })
     webRequest.onCompleted({ urls: ['*://*/*'] }, (details: any) => {
       try {
         if (!details || typeof details !== 'object') {

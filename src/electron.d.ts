@@ -14,6 +14,10 @@ export type CrawlStartParams = {
     jitterMs?: number
     /** true = убирать дубликаты ссылок по URL; false = сохранять все (по умолчанию) */
     deduplicateLinks?: boolean
+    userAgent?: string
+    acceptLanguage?: string
+    platform?: string
+    overrideWebdriver?: boolean
   }
 }
 

@@ -12,6 +12,14 @@ export type CrawlStartParams = {
     jitterMs?: number
     /** true = убирать дубликаты ссылок по URL; false = сохранять все */
     deduplicateLinks?: boolean
+    /** Переопределить User-Agent (пусто = не трогать) */
+    userAgent?: string
+    /** Переопределить Accept-Language (пусто = не трогать) */
+    acceptLanguage?: string
+    /** Переопределить navigator.platform (пусто = не трогать) */
+    platform?: string
+    /** Попытаться скрыть navigator.webdriver (JS-override) */
+    overrideWebdriver?: boolean
   }
 }
 
@@ -72,4 +80,5 @@ export type AppState = {
   activeCrawl: ActiveCrawl
   crawlMainFrameMetaByUrl: Map<string, { statusCode: number | null; contentLength: number | null }>
   crawlWebRequestAttachedForWebContentsId: number | null
+  crawlRequestHeadersOverride: { userAgent?: string; acceptLanguage?: string } | null
 }

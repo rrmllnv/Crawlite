@@ -19,6 +19,12 @@ interface CrawlState {
     maxDepth: number
     maxPages: number
     deduplicateLinks: boolean
+    delayMs: number
+    jitterMs: number
+    userAgent: string
+    acceptLanguage: string
+    platform: string
+    overrideWebdriver: boolean
   }
   pagesByUrl: Record<string, CrawlPageData>
   pageOrder: string[]
@@ -36,6 +42,12 @@ const initialState: CrawlState = {
     maxDepth: 2,
     maxPages: 200,
     deduplicateLinks: false,
+    delayMs: 650,
+    jitterMs: 350,
+    userAgent: '',
+    acceptLanguage: '',
+    platform: '',
+    overrideWebdriver: false,
   },
   pagesByUrl: {},
   pageOrder: [],
@@ -89,12 +101,28 @@ export const crawlSlice = createSlice({
       const maxDepthRaw = (cfg.crawling as any).maxDepth
       const maxPagesRaw = (cfg.crawling as any).maxPages
       const deduplicateLinksRaw = (cfg.crawling as any).deduplicateLinks
+      const delayMsRaw = (cfg.crawling as any).delayMs
+      const jitterMsRaw = (cfg.crawling as any).jitterMs
+      const userAgentRaw = (cfg.crawling as any).userAgent
+      const acceptLanguageRaw = (cfg.crawling as any).acceptLanguage
+      const platformRaw = (cfg.crawling as any).platform
+      const overrideWebdriverRaw = (cfg.crawling as any).overrideWebdriver
       const maxDepth = typeof maxDepthRaw === 'number' && Number.isFinite(maxDepthRaw) ? Math.max(0, Math.floor(maxDepthRaw)) : state.settings.maxDepth
       const maxPages = typeof maxPagesRaw === 'number' && Number.isFinite(maxPagesRaw) ? Math.max(1, Math.floor(maxPagesRaw)) : state.settings.maxPages
       const deduplicateLinks = typeof deduplicateLinksRaw === 'boolean' ? deduplicateLinksRaw : state.settings.deduplicateLinks
       state.settings.maxDepth = maxDepth
       state.settings.maxPages = maxPages
       state.settings.deduplicateLinks = deduplicateLinks
+      if (typeof delayMsRaw === 'number' && Number.isFinite(delayMsRaw)) {
+        state.settings.delayMs = Math.max(0, Math.min(60000, Math.floor(delayMsRaw)))
+      }
+      if (typeof jitterMsRaw === 'number' && Number.isFinite(jitterMsRaw)) {
+        state.settings.jitterMs = Math.max(0, Math.min(60000, Math.floor(jitterMsRaw)))
+      }
+      state.settings.userAgent = typeof userAgentRaw === 'string' ? userAgentRaw : state.settings.userAgent
+      state.settings.acceptLanguage = typeof acceptLanguageRaw === 'string' ? acceptLanguageRaw : state.settings.acceptLanguage
+      state.settings.platform = typeof platformRaw === 'string' ? platformRaw : state.settings.platform
+      state.settings.overrideWebdriver = typeof overrideWebdriverRaw === 'boolean' ? overrideWebdriverRaw : state.settings.overrideWebdriver
     },
     upsertPage: (state, action: PayloadAction<CrawlPageData>) => {
       const page = action.payload

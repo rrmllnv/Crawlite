@@ -18,6 +18,18 @@ export interface UserConfig {
     maxPages: number
     /** true = убирать дубликаты ссылок по URL; false = сохранять все (по умолчанию) */
     deduplicateLinks: boolean
+    /** Задержка между страницами (ms) */
+    delayMs: number
+    /** Случайный джиттер к задержке (ms) */
+    jitterMs: number
+    /** Переопределение User-Agent для краула (пусто = не трогаем) */
+    userAgent: string
+    /** Переопределение Accept-Language для краула (пусто = не трогаем) */
+    acceptLanguage: string
+    /** Переопределение navigator.platform (пусто = не трогаем) */
+    platform: string
+    /** Попытка скрыть navigator.webdriver (JS-override) */
+    overrideWebdriver: boolean
   }
   /** Настройки построения карты сайта */
   sitemap: {
@@ -47,6 +59,12 @@ export const defaultUserConfig: UserConfig = {
     maxDepth: 2,
     maxPages: 200,
     deduplicateLinks: false,
+    delayMs: 650,
+    jitterMs: 350,
+    userAgent: '',
+    acceptLanguage: '',
+    platform: '',
+    overrideWebdriver: false,
   },
   sitemap: {
     maxUrls: 200000,
