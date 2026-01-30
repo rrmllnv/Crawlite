@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { commitBrowserViewLayout, setBrowserViewLayout } from '../../store/slices/appSlice'
+import { browserService } from '../../services/BrowserService'
 import { TreeItem } from '../TreeItem/TreeItem'
 import { BrowserProperties, type TabId } from '../BrowserProperties/BrowserProperties'
 import { ImageModal } from '../ImageModal/ImageModal'
@@ -18,6 +19,8 @@ export function BrowserView() {
   const dispatch = useAppDispatch()
   const deviceMode = useAppSelector((s) => s.browser.deviceMode)
   const isPageLoading = useAppSelector((s) => s.browser.isPageLoading)
+  const canGoBack = useAppSelector((s) => s.browser.canGoBack)
+  const canGoForward = useAppSelector((s) => s.browser.canGoForward)
   const pagesColWidthPx = useAppSelector((s) => s.app.browserViewLayout.pagesColWidthPx)
   const detailsColWidthPx = useAppSelector((s) => s.app.browserViewLayout.detailsColWidthPx)
 
@@ -156,34 +159,70 @@ export function BrowserView() {
         <div className="browser-view__browser-header">
           <div className="browser-view__browser-header-top">
             <div className="browser-view__col-title">Браузер</div>
-            <div className="browser-view__device-toggle" role="group" aria-label="Режим отображения">
-              <button
-                type="button"
-                className={`browser-view__device-button ${deviceMode === 'desktop' ? 'browser-view__device-button--active' : ''}`}
-                onClick={() => void handleSetDeviceMode('desktop')}
-                title="Десктоп"
-                aria-label="Десктоп"
-              >
-                <i className="fa-solid fa-desktop" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className={`browser-view__device-button ${deviceMode === 'mobile' ? 'browser-view__device-button--active' : ''}`}
-                onClick={() => void handleSetDeviceMode('mobile')}
-                title="Мобильная"
-                aria-label="Мобильная"
-              >
-                <i className="fa-solid fa-mobile-screen" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className={`browser-view__device-button ${deviceMode === 'tablet' ? 'browser-view__device-button--active' : ''}`}
-                onClick={() => void handleSetDeviceMode('tablet')}
-                title="Планшет"
-                aria-label="Планшет"
-              >
-                <i className="fa-solid fa-tablet" aria-hidden="true" />
-              </button>
+            <div className="browser-view__controls">
+              <div className="browser-view__nav-controls" role="group" aria-label="Навигация">
+                <button
+                  type="button"
+                  className="browser-view__device-button"
+                  onClick={() => void browserService.goBack().catch(() => void 0)}
+                  title="Назад"
+                  aria-label="Назад"
+                  disabled={!canGoBack}
+                >
+                  <i className="fa-solid fa-arrow-left" aria-hidden="true" />
+                </button>
+
+                <button
+                  type="button"
+                  className="browser-view__device-button"
+                  onClick={() => void browserService.goForward().catch(() => void 0)}
+                  title="Вперёд"
+                  aria-label="Вперёд"
+                  disabled={!canGoForward}
+                >
+                  <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+                </button>
+
+                <button
+                  type="button"
+                  className="browser-view__device-button"
+                  onClick={() => void browserService.reload().catch(() => void 0)}
+                  title="Обновить"
+                  aria-label="Обновить"
+                >
+                  <i className="fa-solid fa-rotate-right" aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="browser-view__device-toggle" role="group" aria-label="Режим отображения">
+                <button
+                  type="button"
+                  className={`browser-view__device-button ${deviceMode === 'desktop' ? 'browser-view__device-button--active' : ''}`}
+                  onClick={() => void handleSetDeviceMode('desktop')}
+                  title="Десктоп"
+                  aria-label="Десктоп"
+                >
+                  <i className="fa-solid fa-desktop" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={`browser-view__device-button ${deviceMode === 'mobile' ? 'browser-view__device-button--active' : ''}`}
+                  onClick={() => void handleSetDeviceMode('mobile')}
+                  title="Мобильная"
+                  aria-label="Мобильная"
+                >
+                  <i className="fa-solid fa-mobile-screen" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={`browser-view__device-button ${deviceMode === 'tablet' ? 'browser-view__device-button--active' : ''}`}
+                  onClick={() => void handleSetDeviceMode('tablet')}
+                  title="Планшет"
+                  aria-label="Планшет"
+                >
+                  <i className="fa-solid fa-tablet" aria-hidden="true" />
+                </button>
+              </div>
             </div>
           </div>
           <div className="browser-view__browser-header-row">

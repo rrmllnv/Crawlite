@@ -5,7 +5,6 @@ import { resetCrawl, setCrawlStatus, setRunId, setStartUrl } from '../../store/s
 import { setBuilding as setSitemapBuilding, setData as setSitemapData, setError as setSitemapError } from '../../store/slices/sitemapSlice'
 import { crawlService } from '../../services/CrawlService'
 import { requestNavigate } from '../../store/slices/browserSlice'
-import { browserService } from '../../services/BrowserService'
 import { SettingsCrawling } from '../SettingsCrawling/SettingsCrawling'
 import './Header.scss'
 
@@ -28,8 +27,6 @@ export function Header() {
   const queued = useAppSelector((s) => s.crawl.queued)
   const crawlSettings = useAppSelector((s) => s.crawl.settings)
   const sitemapSettings = useAppSelector((s) => s.sitemap.settings)
-  const canGoBack = useAppSelector((s) => s.browser.canGoBack)
-  const canGoForward = useAppSelector((s) => s.browser.canGoForward)
 
   const [urlInput, setUrlInput] = useState('')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -194,38 +191,6 @@ export function Header() {
           aria-label="Настройки crawling"
         >
           <i className="fa-solid fa-sliders" aria-hidden="true" />
-        </button>
-
-        <button
-          type="button"
-          className="header__icon-button"
-          onClick={() => void browserService.goBack().catch(() => void 0)}
-          title="Назад"
-          aria-label="Назад"
-          disabled={!canGoBack}
-        >
-          <i className="fa-solid fa-arrow-left" aria-hidden="true" />
-        </button>
-
-        <button
-          type="button"
-          className="header__icon-button"
-          onClick={() => void browserService.goForward().catch(() => void 0)}
-          title="Вперёд"
-          aria-label="Вперёд"
-          disabled={!canGoForward}
-        >
-          <i className="fa-solid fa-arrow-right" aria-hidden="true" />
-        </button>
-
-        <button
-          type="button"
-          className="header__icon-button"
-          onClick={() => void browserService.reload().catch(() => void 0)}
-          title="Обновить"
-          aria-label="Обновить"
-        >
-          <i className="fa-solid fa-rotate-right" aria-hidden="true" />
         </button>
 
         <input

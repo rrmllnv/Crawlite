@@ -53,6 +53,18 @@
   gap: 10px;
 }
 
+.browser-view__controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.browser-view__nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .browser-view__device-toggle {
   display: flex;
   align-items: center;
@@ -80,6 +92,11 @@
     background-color: rgba(255, 255, 255, 0.10);
     color: $text-primary;
   }
+}
+
+.browser-view__device-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .browser-view__device-button--active {
