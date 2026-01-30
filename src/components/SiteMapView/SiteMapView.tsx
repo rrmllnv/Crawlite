@@ -5,6 +5,7 @@ import { ensurePagesTreeExpanded, requestNavigate } from '../../store/slices/bro
 import { crawlService } from '../../services/CrawlService'
 import { selectPage, upsertPage } from '../../store/slices/crawlSlice'
 import { setScrollTop, toggleExpanded } from '../../store/slices/sitemapSlice'
+import { PanelResizer } from '../PanelResizer/PanelResizer'
 import './SiteMapView.scss'
 
 type TreeNode = {
@@ -279,8 +280,42 @@ export function SiteMapView() {
 
   const tree = useMemo(() => buildUrlTree(filteredUrls), [filteredUrls])
   const expanded = useMemo(() => new Set(expandedIds || []), [expandedIds])
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
   const rafRef = useRef<number | null>(null)
+
+  const [sidebarWidthPx, setSidebarWidthPx] = useState<number>(260)
+
+  const clamp = useMemo(() => {
+    return (value: number, min: number, max: number) => {
+      const v = Math.floor(Number(value))
+      if (!Number.isFinite(v)) return min
+      if (v < min) return min
+      if (v > max) return max
+      return v
+    }
+  }, [])
+
+  const getContainerWidth = () => {
+    try {
+      return Math.floor(rootRef.current?.getBoundingClientRect().width || 0)
+    } catch {
+      return 0
+    }
+  }
+
+  const onSidebarResizerDeltaX = (deltaX: number) => {
+    const containerWidth = getContainerWidth()
+    const resizerWidthPx = 10
+    const minSidebarPx = 300
+    const minContentPx = 400
+    const maxSidebarPx =
+      containerWidth > 0
+        ? Math.max(minSidebarPx, containerWidth - minContentPx - resizerWidthPx)
+        : 520
+
+    setSidebarWidthPx((prev) => clamp(prev + deltaX, minSidebarPx, maxSidebarPx))
+  }
 
   const getUrlMeta = useMemo(() => {
     return (url: string) => {
@@ -351,7 +386,11 @@ export function SiteMapView() {
   }
 
   return (
-    <div className="sitemap-view">
+    <div
+      className="sitemap-view"
+      ref={rootRef}
+      style={{ gridTemplateColumns: `${sidebarWidthPx}px 10px 1fr` }}
+    >
       <div className="sitemap-view__sidebar">
         {urls.length > 0 && (
           <details className="sitemap-view__group" open>
@@ -385,6 +424,11 @@ export function SiteMapView() {
           </details>
         )}
       </div>
+
+      <PanelResizer
+        ariaLabel="Изменение ширины колонок: сайдбар/карта сайта"
+        onDeltaX={onSidebarResizerDeltaX}
+      />
 
       <div
         className="sitemap-view__content"

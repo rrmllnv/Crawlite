@@ -3,12 +3,11 @@
 .sitemap-view {
   height: 100%;
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 260px 10px 1fr;
   gap: 0;
 }
 
 .sitemap-view__sidebar {
-  border-right: 1px solid $border-color;
   background: $bg-secondary;
   padding: 10px;
   display: flex;
