@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { setCurrentView, setError as setAppError, setLoading } from '../../store/slices/appSlice'
 import { ensurePagesTreeExpanded, requestNavigate } from '../../store/slices/browserSlice'
@@ -7,6 +8,11 @@ import { selectPage, upsertPage } from '../../store/slices/crawlSlice'
 import { setScrollTop, toggleExpanded } from '../../store/slices/sitemapSlice'
 import { PanelResizer } from '../PanelResizer/PanelResizer'
 import './SiteMapView.scss'
+
+/** Порог: при большем числе детей узел рендерится через виртуальный список */
+const VIRTUAL_CHILDREN_THRESHOLD = 80
+const VIRTUAL_ROW_ESTIMATE_PX = 48
+const VIRTUAL_LIST_HEIGHT_PX = 360
 
 type TreeNode = {
   id: string
@@ -138,6 +144,15 @@ function TreeItem({
 }) {
   const hasChildren = node.children.length > 0
   const isExpanded = expanded.has(node.id)
+  const useVirtualList = hasChildren && isExpanded && node.children.length > VIRTUAL_CHILDREN_THRESHOLD
+
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const virtualizer = useVirtualizer({
+    count: node.children.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => VIRTUAL_ROW_ESTIMATE_PX,
+    overscan: 8,
+  })
   const isLeaf = Boolean(node.url)
   const nestedUrlsCount = (() => {
     if (!hasChildren) return 0
@@ -220,17 +235,55 @@ function TreeItem({
       </div>
       {hasChildren && isExpanded && (
         <div className="sitemap-tree__children">
-          {node.children.map((c) => (
-            <TreeItem
-              key={c.id}
-              node={c}
-              level={level + 1}
-              expanded={expanded}
-              toggle={toggle}
-              onOpen={onOpen}
-              getUrlMeta={getUrlMeta}
-            />
-          ))}
+          {useVirtualList ? (
+            <div
+              ref={scrollRef}
+              className="sitemap-tree__virtual-scroll"
+              style={{ overflow: 'auto', height: VIRTUAL_LIST_HEIGHT_PX }}
+            >
+              <div
+                style={{
+                  height: virtualizer.getTotalSize(),
+                  position: 'relative',
+                  width: '100%',
+                }}
+              >
+                {virtualizer.getVirtualItems().map((virtualRow: { index: number; start: number }) => (
+                  <div
+                    key={node.children[virtualRow.index].id}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <TreeItem
+                      node={node.children[virtualRow.index]}
+                      level={level + 1}
+                      expanded={expanded}
+                      toggle={toggle}
+                      onOpen={onOpen}
+                      getUrlMeta={getUrlMeta}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            node.children.map((c) => (
+              <TreeItem
+                key={c.id}
+                node={c}
+                level={level + 1}
+                expanded={expanded}
+                toggle={toggle}
+                onOpen={onOpen}
+                getUrlMeta={getUrlMeta}
+              />
+            ))
+          )}
         </div>
       )}
     </div>

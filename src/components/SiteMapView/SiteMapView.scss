@@ -318,6 +318,12 @@
   flex-direction: column;
 }
 
+.sitemap-tree__virtual-scroll {
+  border-radius: $border-radius;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .sitemap-view__empty {
   padding: 12px;
   color: $text-secondary;
