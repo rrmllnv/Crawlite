@@ -127,6 +127,9 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
                 dispatch(setCrawlSettings({ delayMs: next }))
               }}
             />
+            <div className="settings-crawling__hint">
+              Используется как пауза между страницами в крауле. Также влияет на анализ страницы перед извлечением данных (например при открытии URL из карты сайта).
+            </div>
           </label>
 
           <label className="settings-crawling__field">
@@ -143,6 +146,9 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
                 dispatch(setCrawlSettings({ jitterMs: next }))
               }}
             />
+            <div className="settings-crawling__hint">
+              Добавляется к delayMs случайным образом. Также применяется к ожиданию перед извлечением данных при анализе (например из карты сайта).
+            </div>
           </label>
 
           <label className="settings-crawling__field">
