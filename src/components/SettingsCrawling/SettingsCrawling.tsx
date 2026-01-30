@@ -20,6 +20,7 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
   const dispatch = useAppDispatch()
   const settings = useAppSelector((s) => s.crawl.settings)
   const sitemapSettings = useAppSelector((s) => s.sitemap.settings)
+  const currentView = useAppSelector((s) => s.app.currentView)
 
   const maxDepthValue = useMemo(() => String(settings.maxDepth), [settings.maxDepth])
   const maxPagesValue = useMemo(() => String(settings.maxPages), [settings.maxPages])
@@ -30,12 +31,15 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
     if (!isOpen) {
       return
     }
-    // `WebContentsView` рисуется поверх DOM, поэтому временно скрываем браузерный view.
+    // WebContentsView рисуется поверх DOM, поэтому временно скрываем браузерный view.
     void browserService.setVisible(false).catch(() => void 0)
     return () => {
-      void browserService.setVisible(true).catch(() => void 0)
+      // Показываем браузер только если активное вью — браузер; иначе остаёмся на карте сайта / дашборде и не показываем его.
+      if (currentView === 'browser') {
+        void browserService.setVisible(true).catch(() => void 0)
+      }
     }
-  }, [isOpen])
+  }, [isOpen, currentView])
 
   if (!isOpen) {
     return null

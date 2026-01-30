@@ -238,7 +238,9 @@ function TreeItem({
 
 export function SiteMapView() {
   const dispatch = useAppDispatch()
-  const startUrl = useAppSelector((s) => s.crawl.startUrl) || useAppSelector((s) => s.browser.currentUrl)
+  const crawlStartUrl = useAppSelector((s) => s.crawl.startUrl)
+  const browserCurrentUrl = useAppSelector((s) => s.browser.currentUrl)
+  const startUrl = crawlStartUrl || browserCurrentUrl
 
   const isBuilding = useAppSelector((s) => s.sitemap.isBuilding)
   const error = useAppSelector((s) => s.sitemap.error)

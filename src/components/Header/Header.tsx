@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
-import { setCurrentView, setError } from '../../store/slices/appSlice'
+import { setError } from '../../store/slices/appSlice'
 import { resetCrawl, setCrawlStatus, setRunId, setStartUrl } from '../../store/slices/crawlSlice'
 import { setBuilding as setSitemapBuilding, setData as setSitemapData, setError as setSitemapError } from '../../store/slices/sitemapSlice'
 import { crawlService } from '../../services/CrawlService'
@@ -93,7 +93,6 @@ export function Header() {
     dispatch(setError(null))
     dispatch(resetCrawl())
     dispatch(setStartUrl(url))
-    dispatch(setCurrentView('browser'))
     dispatch(requestNavigate(url))
     dispatch(setCrawlStatus('running'))
 
@@ -134,7 +133,6 @@ export function Header() {
     dispatch(setError(null))
     dispatch(resetCrawl())
     dispatch(setStartUrl(startUrl))
-    dispatch(setCurrentView('browser'))
     dispatch(requestNavigate(startUrl))
     dispatch(setCrawlStatus('running'))
 
