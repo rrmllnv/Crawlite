@@ -532,7 +532,7 @@ export function SiteMapView() {
           <div className="sitemap-view__header-right">
            <div className="sitemap-view__subtitle">
               {isBuilding ? 'Построение… · ' : ''}
-              {urls.length === 0 ? 'URL: 0' : searchQuery.trim() ? `URL: ${filteredUrls.length} из ${urls.length}` : `URL: ${urls.length}`}
+              {urls.length === 0 ? 'URLs: 0' : searchQuery.trim() ? `URLs: ${filteredUrls.length} из ${urls.length}` : `URLs: ${urls.length}`}
               {truncated && urls.length > 0 ? ` · достигнут лимит ${maxUrlsUsed.toLocaleString('ru-RU')}` : ''}
             </div>
             <div className="sitemap-view__search-wrap">
