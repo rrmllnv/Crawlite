@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { CrawlPageData } from '../../electron'
 import type { CrawlErrorItem } from '../../store/slices/crawlSlice'
 import { browserService } from '../../services/BrowserService'
@@ -96,47 +97,64 @@ export function BrowserProperties({
   onOpenImage,
   onOpenResource,
 }: BrowserPropertiesProps) {
-  return (
-    <>
-      <div className="browser-properties__tabs">
-        <button
-          type="button"
-          className={`browser-properties__tab ${activeTab === 'meta' ? 'browser-properties__tab--active' : ''}`}
-          onClick={() => setActiveTab('meta')}
-        >
-          Мета
-        </button>
-        <button
-          type="button"
-          className={`browser-properties__tab ${activeTab === 'links' ? 'browser-properties__tab--active' : ''}`}
-          onClick={() => setActiveTab('links')}
-        >
-          {selectedPage && tabsCount.links > 0 ? `Ссылки ${tabsCount.links}` : 'Ссылки'}
-        </button>
-        <button
-          type="button"
-          className={`browser-properties__tab ${activeTab === 'images' ? 'browser-properties__tab--active' : ''}`}
-          onClick={() => setActiveTab('images')}
-        >
-          {selectedPage && tabsCount.images > 0 ? `Картинки ${tabsCount.images}` : 'Картинки'}
-        </button>
-        <button
-          type="button"
-          className={`browser-properties__tab ${activeTab === 'resources' ? 'browser-properties__tab--active' : ''}`}
-          onClick={() => setActiveTab('resources')}
-        >
-          {selectedPage && tabsCount.resources > 0 ? `Ресурсы ${tabsCount.resources}` : 'Ресурсы'}
-        </button>
-        <button
-          type="button"
-          className={`browser-properties__tab ${activeTab === 'errors' ? 'browser-properties__tab--active' : ''}`}
-          onClick={() => setActiveTab('errors')}
-        >
-          {tabsCount.errors > 0 ? `Ошибки ${tabsCount.errors}` : 'Ошибки'}
-        </button>
-      </div>
+  const [isOpen, setIsOpen] = useState(true)
 
-      <div className="browser-properties__body">
+  return (
+    <div className="browser-properties">
+      <button
+        type="button"
+        className="browser-properties__header"
+        onClick={() => setIsOpen((prev) => !prev)}
+        aria-expanded={isOpen}
+        aria-controls="browser-properties-content"
+      >
+        <span className="browser-properties__header-title">Данные</span>
+        <i
+          className={`fa-solid fa-chevron-${isOpen ? 'down' : 'left'} browser-properties__header-chevron`}
+          aria-hidden="true"
+        />
+      </button>
+      {isOpen && (
+        <div id="browser-properties-content" className="browser-properties__body-wrap">
+          <div className="browser-properties__tabs">
+                <button
+              type="button"
+              className={`browser-properties__tab ${activeTab === 'meta' ? 'browser-properties__tab--active' : ''}`}
+              onClick={() => setActiveTab('meta')}
+            >
+              Мета
+            </button>
+            <button
+              type="button"
+              className={`browser-properties__tab ${activeTab === 'links' ? 'browser-properties__tab--active' : ''}`}
+              onClick={() => setActiveTab('links')}
+            >
+              {selectedPage && tabsCount.links > 0 ? `Ссылки ${tabsCount.links}` : 'Ссылки'}
+            </button>
+            <button
+              type="button"
+              className={`browser-properties__tab ${activeTab === 'images' ? 'browser-properties__tab--active' : ''}`}
+              onClick={() => setActiveTab('images')}
+            >
+              {selectedPage && tabsCount.images > 0 ? `Картинки ${tabsCount.images}` : 'Картинки'}
+            </button>
+            <button
+              type="button"
+              className={`browser-properties__tab ${activeTab === 'resources' ? 'browser-properties__tab--active' : ''}`}
+              onClick={() => setActiveTab('resources')}
+            >
+              {selectedPage && tabsCount.resources > 0 ? `Ресурсы ${tabsCount.resources}` : 'Ресурсы'}
+            </button>
+            <button
+              type="button"
+              className={`browser-properties__tab ${activeTab === 'errors' ? 'browser-properties__tab--active' : ''}`}
+              onClick={() => setActiveTab('errors')}
+            >
+              {tabsCount.errors > 0 ? `Ошибки ${tabsCount.errors}` : 'Ошибки'}
+            </button>
+          </div>
+
+          <div className="browser-properties__body">
         {!selectedPage && (
           <div className="browser-properties__empty">
             Выберите страницу слева.
@@ -542,7 +560,9 @@ export function BrowserProperties({
             ))}
           </div>
         )}
-      </div>
-    </>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

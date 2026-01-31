@@ -4,6 +4,7 @@ import { commitBrowserViewLayout, setBrowserViewLayout } from '../../store/slice
 import { browserService } from '../../services/BrowserService'
 import { TreeItem } from '../TreeItem/TreeItem'
 import { BrowserProperties, type TabId } from '../BrowserProperties/BrowserProperties'
+import { BrowserInspector } from '../BrowserInspector'
 import { ImageModal } from '../ImageModal/ImageModal'
 import { ResourceModal } from '../ResourceModal/ResourceModal'
 import { PanelResizer } from '../PanelResizer/PanelResizer'
@@ -296,10 +297,6 @@ export function BrowserView() {
         className="browser-view__col browser-view__col--details"
         style={{ width: `${detailsColWidthPx}px` }}
       >
-        <div className="browser-view__col-header">
-          <div className="browser-view__col-title">Данные</div>
-          <div className="browser-view__col-subtitle">{selectedPage ? 'выбрана' : 'нет'}</div>
-        </div>
         <div className="browser-view__details-wrap">
           <BrowserProperties
             activeTab={activeTab}
@@ -320,6 +317,7 @@ export function BrowserView() {
             onOpenImage={setImageModalUrl}
             onOpenResource={(type, url) => setResourceModal({ type, url })}
           />
+          <BrowserInspector />
         </div>
       </div>
 

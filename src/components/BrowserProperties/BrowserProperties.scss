@@ -1,5 +1,50 @@
 @use '../../styles/variables' as *;
 
+.browser-properties {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-bottom: 1px solid $border-color;
+}
+
+.browser-properties__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background-color: $bg-tertiary;
+  color: $text-primary;
+  font-size: $font-size-sm;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color $transition-fast, color $transition-fast;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    color: $text-primary;
+  }
+}
+
+.browser-properties__header-title {
+  flex: 1;
+}
+
+.browser-properties__header-chevron {
+  font-size: 10px;
+  color: $text-secondary;
+}
+
+.browser-properties__body-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .browser-properties__tabs {
   display: flex;
   width: 100%;
