@@ -193,6 +193,7 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
   const [openTreeNodes, setOpenTreeNodes] = useState<Set<string>>(() => new Set())
   const [openUserStyleGroups, setOpenUserStyleGroups] = useState<Set<string>>(() => new Set())
   const [openFontRows, setOpenFontRows] = useState<Set<string>>(() => new Set())
+  const [openSizeRows, setOpenSizeRows] = useState<Set<string>>(() => new Set())
   const [colorDisplayFormat, setColorDisplayFormat] = useState<'hex' | 'rgb' | 'hsl'>('hex')
 
   useEffect(() => {
@@ -664,11 +665,47 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                 <div className="browser-inspector__kv-key">Class</div>
                 <div className="browser-inspector__kv-val">{className ? String(className) : '—'}</div>
               </div>
-              <div className="browser-inspector__kv-row">
-                <div className="browser-inspector__kv-key">Размер</div>
-                <div className="browser-inspector__kv-val">
-                  {rect ? `${Math.round(Number(rect.width) || 0)} × ${Math.round(Number(rect.height) || 0)}` : '—'}
-                </div>
+              <div className="browser-inspector__kv-size-block">
+                <button
+                  type="button"
+                  className="browser-inspector__kv-row browser-inspector__kv-row--button"
+                  onClick={() => {
+                    setOpenSizeRows((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(node.key)) next.delete(node.key)
+                      else next.add(node.key)
+                      return next
+                    })
+                  }}
+                  aria-expanded={openSizeRows.has(node.key)}
+                >
+                  <div className="browser-inspector__kv-key">
+                    <i
+                      className={`fa-solid fa-chevron-${openSizeRows.has(node.key) ? 'down' : 'right'} browser-inspector__kv-chevron`}
+                      aria-hidden="true"
+                    />
+                    Размер
+                  </div>
+                  <div className="browser-inspector__kv-val">
+                    {rect ? `${Math.round(Number(rect.width) || 0)} × ${Math.round(Number(rect.height) || 0)}` : '—'}
+                  </div>
+                </button>
+                {openSizeRows.has(node.key) && (
+                  <div className="browser-inspector__kv-size-expanded">
+                    <div className="browser-inspector__kv-row">
+                      <div className="browser-inspector__kv-key">Ширина</div>
+                      <div className="browser-inspector__kv-val">
+                        {rect ? `${Math.round(Number(rect.width) || 0)}` : '—'}
+                      </div>
+                    </div>
+                    <div className="browser-inspector__kv-row">
+                      <div className="browser-inspector__kv-key">Высота</div>
+                      <div className="browser-inspector__kv-val">
+                        {rect ? `${Math.round(Number(rect.height) || 0)}` : '—'}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               {!isRootLike && (
                 <div className="browser-inspector__kv-row">

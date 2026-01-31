@@ -125,6 +125,20 @@
   border-left: 1px solid $border-color;
 }
 
+.browser-inspector__kv-size-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.browser-inspector__kv-size-expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 16px;
+  border-left: 1px solid $border-color;
+}
+
 .browser-inspector__kv-val--color {
   display: flex;
   align-items: center;
