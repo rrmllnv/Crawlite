@@ -380,9 +380,15 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                 try {
                   const merged = Object.create(null);
                   const rulesOut = [];
+                  const rulesOutBefore = [];
+                  const rulesOutAfter = [];
+
                   const rulesMeta = [];
+                  const rulesMetaBefore = [];
+                  const rulesMetaAfter = [];
+
                   let rulesOrder = 0;
-                  if (!el) return { merged, rules: rulesOut };
+                  if (!el) return { merged, rules: rulesOut, rulesBefore: rulesOutBefore, rulesAfter: rulesOutAfter };
 
                   // 1) Inline styles (style="...")
                   // (дальше pushRule, поэтому inline добавляем тем же путём)
@@ -514,31 +520,87 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                     }
                   };
 
-                  const getMatchedSpecificity = (selectorText) => {
+                  const extractPseudoClasses = (selector) => {
                     try {
-                      const selectors = splitSelectorList(selectorText);
-                      let best = [0, 0, 0];
-                      let matched = false;
-                      for (let i = 0; i < selectors.length; i += 1) {
-                        const sel = selectors[i];
-                        if (!sel) continue;
-                        try {
-                          if (el.matches && el.matches(sel)) {
-                            matched = true;
-                            const sp = calcSpecificity(sel);
-                            if (compareSpec(sp, best) > 0) best = sp;
-                          }
-                        } catch (e) { /* noop */ }
+                      let s = String(selector || '');
+                      if (!s) return [];
+                      // Убираем строки/эскейпы, чтобы не ловить ":" внутри кавычек.
+                      s = s.replace(/"([^"\\\\]|\\\\.)*"/g, '""').replace(/'([^'\\\\]|\\\\.)*'/g, "''");
+                      const out = [];
+                      const re = /:(?!:)[a-zA-Z-]+(?:\\([^)]*\\))?/g;
+                      let m;
+                      while ((m = re.exec(s))) {
+                        const v = String(m[0] || '').trim();
+                        if (v) out.push(v);
+                        if (out.length > 80) break;
                       }
-                      return matched ? best : null;
+                      return out;
+                    } catch (e) {
+                      return [];
+                    }
+                  };
+
+                  const getPseudoElementKind = (selector) => {
+                    try {
+                      const s = String(selector || '');
+                      if (/::before\b/i.test(s) || /:before\b/i.test(s)) return 'before';
+                      if (/::after\b/i.test(s) || /:after\b/i.test(s)) return 'after';
+                      return null;
                     } catch (e) {
                       return null;
                     }
                   };
 
-                  function pushRule(selectorText, styleDecl, sheetSource, mediaText, spec, isInline) {
+                  const stripPseudoElement = (selector) => {
                     try {
-                      if (rulesOut.length >= MAX_RULES) return;
+                      return String(selector || '')
+                        .replace(/::before\b/gi, '')
+                        .replace(/::after\b/gi, '')
+                        .replace(/:before\b/gi, '')
+                        .replace(/:after\b/gi, '');
+                    } catch (e) {
+                      return String(selector || '');
+                    }
+                  };
+
+                  const getMatchedSpecificity = (selectorText, targetPseudo) => {
+                    try {
+                      const selectors = splitSelectorList(selectorText);
+                      let best = [0, 0, 0];
+                      let bestPseudo = [];
+                      let matched = false;
+                      for (let i = 0; i < selectors.length; i += 1) {
+                        const sel = selectors[i];
+                        if (!sel) continue;
+                        const pseudoKind = getPseudoElementKind(sel);
+                        if (targetPseudo) {
+                          if (pseudoKind !== targetPseudo) continue;
+                        } else {
+                          if (pseudoKind) continue;
+                        }
+                        const baseSel = targetPseudo ? stripPseudoElement(sel) : sel;
+                        try {
+                          if (baseSel && el.matches && el.matches(baseSel)) {
+                            matched = true;
+                            const sp = calcSpecificity(baseSel);
+                            if (compareSpec(sp, best) > 0) {
+                              best = sp;
+                              bestPseudo = extractPseudoClasses(baseSel);
+                            }
+                          }
+                        } catch (e) { /* noop */ }
+                      }
+                      return matched ? { spec: best, pseudoClasses: bestPseudo } : null;
+                    } catch (e) {
+                      return null;
+                    }
+                  };
+
+                  function pushRule(target, selectorText, styleDecl, sheetSource, mediaText, matchInfo, isInline) {
+                    try {
+                      const outArr = target === 'before' ? rulesOutBefore : target === 'after' ? rulesOutAfter : rulesOut;
+                      const metaArr = target === 'before' ? rulesMetaBefore : target === 'after' ? rulesMetaAfter : rulesMeta;
+                      if (outArr.length >= MAX_RULES) return;
                       const declAll = extractDecl(styleDecl) || Object.create(null);
                       const keys = Object.keys(declAll);
                       if (keys.length === 0) return;
@@ -546,28 +608,33 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                       if (keys.length > MAX_DECLS_PER_RULE) {
                         const cut = Object.create(null);
                         keys.slice(0, MAX_DECLS_PER_RULE).forEach((k) => { cut[k] = declAll[k]; });
-                        rulesOut.push({
+                        outArr.push({
                           selector: String(selectorText || '').trim(),
                           source: String(sheetSource || ''),
                           media: String(mediaText || ''),
                           declarations: cut,
                           truncated: true,
+                          pseudoClasses: matchInfo && matchInfo.pseudoClasses ? matchInfo.pseudoClasses : [],
                         });
-                        rulesMeta.push({ spec: spec || [0, 0, 0], order: rulesOrder, inline: Boolean(isInline) });
+                        metaArr.push({ spec: (matchInfo && matchInfo.spec) ? matchInfo.spec : [0, 0, 0], order: rulesOrder, inline: Boolean(isInline) });
                         rulesOrder += 1;
                       } else {
-                        rulesOut.push({
+                        outArr.push({
                           selector: String(selectorText || '').trim(),
                           source: String(sheetSource || ''),
                           media: String(mediaText || ''),
                           declarations: declAll,
+                          pseudoClasses: matchInfo && matchInfo.pseudoClasses ? matchInfo.pseudoClasses : [],
                         });
-                        rulesMeta.push({ spec: spec || [0, 0, 0], order: rulesOrder, inline: Boolean(isInline) });
+                        metaArr.push({ spec: (matchInfo && matchInfo.spec) ? matchInfo.spec : [0, 0, 0], order: rulesOrder, inline: Boolean(isInline) });
                         rulesOrder += 1;
                       }
-                      for (let i = 0; i < keys.length; i += 1) {
-                        const k = keys[i];
-                        merged[k] = declAll[k];
+                      // merged — только для обычного элемента (не pseudo).
+                      if (!target) {
+                        for (let i = 0; i < keys.length; i += 1) {
+                          const k = keys[i];
+                          merged[k] = declAll[k];
+                        }
                       }
                     } catch (e) { /* noop */ }
                   }
@@ -576,7 +643,7 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                   try {
                     const st = el.style;
                     if (st && typeof st.length === 'number' && st.length > 0) {
-                      pushRule('element.style', st, 'inline', '', [1000000, 0, 0], true);
+                      pushRule(null, 'element.style', st, 'inline', '', { spec: [1000000, 0, 0], pseudoClasses: [] }, true);
                     }
                   } catch (e) { /* noop */ }
 
@@ -590,8 +657,14 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                         // CSSStyleRule
                         if (r.type === 1 && r.selectorText && r.style) {
                           const selText = String(r.selectorText || '');
-                          const spec = getMatchedSpecificity(selText);
-                          if (spec) pushRule(selText, r.style, sheetSource, mediaText, spec, false);
+                          const matchMain = getMatchedSpecificity(selText, null);
+                          if (matchMain) pushRule(null, selText, r.style, sheetSource, mediaText, matchMain, false);
+
+                          const matchBefore = getMatchedSpecificity(selText, 'before');
+                          if (matchBefore) pushRule('before', selText, r.style, sheetSource, mediaText, matchBefore, false);
+
+                          const matchAfter = getMatchedSpecificity(selText, 'after');
+                          if (matchAfter) pushRule('after', selText, r.style, sheetSource, mediaText, matchAfter, false);
                           continue;
                         }
 
@@ -631,8 +704,8 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                     }
                   } catch (e) { /* noop */ }
 
-                  // Помечаем перебитые свойства (примерно как DevTools: зачёркнутые декларации).
-                  try {
+                  const finalizeRules = (arr, metaArr) => {
+                    // Помечаем перебитые свойства (примерно как DevTools: зачёркнутые декларации).
                     const bestByProp = Object.create(null);
                     const isImportant = (v) => /!\\s*important\\s*$/i.test(String(v || ''));
                     const better = (cand, prev) => {
@@ -643,11 +716,11 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                       return (cand.order | 0) > (prev.order | 0);
                     };
 
-                    for (let i = 0; i < rulesOut.length; i += 1) {
-                      const r = rulesOut[i];
+                    for (let i = 0; i < arr.length; i += 1) {
+                      const r = arr[i];
                       const decls = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null;
                       if (!decls) continue;
-                      const meta = rulesMeta[i] || { spec: [0, 0, 0], order: i };
+                      const meta = metaArr[i] || { spec: [0, 0, 0], order: i };
                       for (const k in decls) {
                         if (!Object.prototype.hasOwnProperty.call(decls, k)) continue;
                         const cand = {
@@ -661,8 +734,8 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                       }
                     }
 
-                    for (let i = 0; i < rulesOut.length; i += 1) {
-                      const r = rulesOut[i];
+                    for (let i = 0; i < arr.length; i += 1) {
+                      const r = arr[i];
                       const decls = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null;
                       if (!decls) continue;
                       const ov = Object.create(null);
@@ -673,11 +746,23 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                       }
                       r.overridden = ov;
                     }
-                  } catch (e) { /* noop */ }
 
-                  return { merged, rules: rulesOut };
+                    // Прокидываем метаданные правила (для сортировки/отображения).
+                    for (let i = 0; i < arr.length; i += 1) {
+                      const meta = metaArr[i] || null;
+                      if (!meta) continue;
+                      arr[i].specificity = meta.spec || [0, 0, 0];
+                      arr[i].order = meta.order | 0;
+                    }
+                  };
+
+                  try { finalizeRules(rulesOut, rulesMeta); } catch (e) { /* noop */ }
+                  try { finalizeRules(rulesOutBefore, rulesMetaBefore); } catch (e) { /* noop */ }
+                  try { finalizeRules(rulesOutAfter, rulesMetaAfter); } catch (e) { /* noop */ }
+
+                  return { merged, rules: rulesOut, rulesBefore: rulesOutBefore, rulesAfter: rulesOutAfter };
                 } catch (e) {
-                  return { merged: Object.create(null), rules: [] };
+                  return { merged: Object.create(null), rules: [], rulesBefore: [], rulesAfter: [] };
                 }
               };
 
@@ -764,6 +849,8 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                   const stylesUserPack = buildUserStyles(el);
                   const stylesUser = stylesUserPack && stylesUserPack.merged ? stylesUserPack.merged : Object.create(null);
                   const stylesUserRules = stylesUserPack && stylesUserPack.rules ? stylesUserPack.rules : [];
+                  const stylesUserRulesBefore = stylesUserPack && stylesUserPack.rulesBefore ? stylesUserPack.rulesBefore : [];
+                  const stylesUserRulesAfter = stylesUserPack && stylesUserPack.rulesAfter ? stylesUserPack.rulesAfter : [];
                   const stylesNonDefault = buildNonDefaultStyles(el, styles);
                   const children = buildChildrenSummary(el);
                   const id = typeof el.id === 'string' ? el.id : '';
@@ -779,6 +866,8 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                     styles,
                     stylesUser,
                     stylesUserRules,
+                    stylesUserRulesBefore,
+                    stylesUserRulesAfter,
                     stylesNonDefault,
                     children,
                     text,

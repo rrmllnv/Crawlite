@@ -153,6 +153,16 @@
     word-break: break-word;
   }
 
+  .browser-inspector__selector-class {
+    color: $text-primary;
+    font-weight: 600;
+  }
+
+  .browser-inspector__selector-pseudo {
+    color: $primary-color;
+    font-weight: 700;
+  }
+
   .browser-inspector__rule-header-file {
     flex: 0 0 auto;
     margin-left: 10px;
@@ -164,6 +174,37 @@
 
 .browser-inspector__style-group-items {
   padding-left: 10px;
+}
+
+.browser-inspector__media-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.browser-inspector__media-title {
+  color: $warning-color;
+  font-size: $font-size-sm;
+  font-weight: 700;
+}
+
+.browser-inspector__pseudo-wrap {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.browser-inspector__pseudo-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.browser-inspector__pseudo-title {
+  color: $primary-color;
+  font-size: $font-size-sm;
+  font-weight: 700;
 }
 
 .browser-inspector__list-key {

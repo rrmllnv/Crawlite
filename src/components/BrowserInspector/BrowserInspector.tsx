@@ -24,6 +24,31 @@ type InspectorElementPayload = {
     truncated?: boolean
     declarations?: Record<string, string>
     overridden?: Record<string, boolean>
+    pseudoClasses?: string[]
+    specificity?: [number, number, number]
+    order?: number
+  }>
+  stylesUserRulesBefore?: Array<{
+    selector?: string
+    source?: string
+    media?: string
+    truncated?: boolean
+    declarations?: Record<string, string>
+    overridden?: Record<string, boolean>
+    pseudoClasses?: string[]
+    specificity?: [number, number, number]
+    order?: number
+  }>
+  stylesUserRulesAfter?: Array<{
+    selector?: string
+    source?: string
+    media?: string
+    truncated?: boolean
+    declarations?: Record<string, string>
+    overridden?: Record<string, boolean>
+    pseudoClasses?: string[]
+    specificity?: [number, number, number]
+    order?: number
   }>
   children?: {
     directCount?: number
@@ -157,6 +182,9 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
       .map((r) => {
         const decl = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null
         const overridden = r && (r as any).overridden && typeof (r as any).overridden === 'object' ? ((r as any).overridden as any) : null
+        const pseudoClasses = r && Array.isArray((r as any).pseudoClasses) ? ((r as any).pseudoClasses as any) : []
+        const specificity = r && Array.isArray((r as any).specificity) ? ((r as any).specificity as any) : null
+        const order = r && typeof (r as any).order === 'number' ? Number((r as any).order) : null
         const declList = decl
           ? Object.keys(decl)
               .sort()
@@ -171,11 +199,151 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
           source: String((r as any).source || '').trim(),
           media: String((r as any).media || '').trim(),
           truncated: Boolean((r as any).truncated),
+          pseudoClasses: pseudoClasses.map((x: any) => String(x || '').trim()).filter(Boolean),
+          specificity: specificity && specificity.length >= 3 ? [Number(specificity[0]) || 0, Number(specificity[1]) || 0, Number(specificity[2]) || 0] : [0, 0, 0],
+          order: typeof order === 'number' && Number.isFinite(order) ? order : 0,
           declarations: declList,
         }
       })
       .filter((x) => x.declarations.length > 0)
+      .sort((a, b) => {
+        // Более специфичные/поздние — выше.
+        const as = a.specificity || [0, 0, 0]
+        const bs = b.specificity || [0, 0, 0]
+        if (as[0] !== bs[0]) return bs[0] - as[0]
+        if (as[1] !== bs[1]) return bs[1] - as[1]
+        if (as[2] !== bs[2]) return bs[2] - as[2]
+        return (b.order || 0) - (a.order || 0)
+      })
   }, [selected])
+
+  const stylesUserRulesBeforeList = useMemo(() => {
+    const rules = selected?.stylesUserRulesBefore
+    if (!Array.isArray(rules)) return []
+    return rules
+      .map((r) => {
+        const decl = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null
+        const overridden = r && (r as any).overridden && typeof (r as any).overridden === 'object' ? ((r as any).overridden as any) : null
+        const pseudoClasses = r && Array.isArray((r as any).pseudoClasses) ? ((r as any).pseudoClasses as any) : []
+        const specificity = r && Array.isArray((r as any).specificity) ? ((r as any).specificity as any) : null
+        const order = r && typeof (r as any).order === 'number' ? Number((r as any).order) : null
+        const declList = decl
+          ? Object.keys(decl)
+              .sort()
+              .map((k) => ({
+                name: k,
+                value: String((decl as any)[k] ?? ''),
+                overridden: overridden ? Boolean(overridden[k]) : false,
+              }))
+          : []
+        return {
+          selector: String((r as any).selector || '').trim() || '—',
+          source: String((r as any).source || '').trim(),
+          media: String((r as any).media || '').trim(),
+          truncated: Boolean((r as any).truncated),
+          pseudoClasses: pseudoClasses.map((x: any) => String(x || '').trim()).filter(Boolean),
+          specificity: specificity && specificity.length >= 3 ? [Number(specificity[0]) || 0, Number(specificity[1]) || 0, Number(specificity[2]) || 0] : [0, 0, 0],
+          order: typeof order === 'number' && Number.isFinite(order) ? order : 0,
+          declarations: declList,
+        }
+      })
+      .filter((x) => x.declarations.length > 0)
+      .sort((a, b) => {
+        const as = a.specificity || [0, 0, 0]
+        const bs = b.specificity || [0, 0, 0]
+        if (as[0] !== bs[0]) return bs[0] - as[0]
+        if (as[1] !== bs[1]) return bs[1] - as[1]
+        if (as[2] !== bs[2]) return bs[2] - as[2]
+        return (b.order || 0) - (a.order || 0)
+      })
+  }, [selected])
+
+  const stylesUserRulesAfterList = useMemo(() => {
+    const rules = selected?.stylesUserRulesAfter
+    if (!Array.isArray(rules)) return []
+    return rules
+      .map((r) => {
+        const decl = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null
+        const overridden = r && (r as any).overridden && typeof (r as any).overridden === 'object' ? ((r as any).overridden as any) : null
+        const pseudoClasses = r && Array.isArray((r as any).pseudoClasses) ? ((r as any).pseudoClasses as any) : []
+        const specificity = r && Array.isArray((r as any).specificity) ? ((r as any).specificity as any) : null
+        const order = r && typeof (r as any).order === 'number' ? Number((r as any).order) : null
+        const declList = decl
+          ? Object.keys(decl)
+              .sort()
+              .map((k) => ({
+                name: k,
+                value: String((decl as any)[k] ?? ''),
+                overridden: overridden ? Boolean(overridden[k]) : false,
+              }))
+          : []
+        return {
+          selector: String((r as any).selector || '').trim() || '—',
+          source: String((r as any).source || '').trim(),
+          media: String((r as any).media || '').trim(),
+          truncated: Boolean((r as any).truncated),
+          pseudoClasses: pseudoClasses.map((x: any) => String(x || '').trim()).filter(Boolean),
+          specificity: specificity && specificity.length >= 3 ? [Number(specificity[0]) || 0, Number(specificity[1]) || 0, Number(specificity[2]) || 0] : [0, 0, 0],
+          order: typeof order === 'number' && Number.isFinite(order) ? order : 0,
+          declarations: declList,
+        }
+      })
+      .filter((x) => x.declarations.length > 0)
+      .sort((a, b) => {
+        const as = a.specificity || [0, 0, 0]
+        const bs = b.specificity || [0, 0, 0]
+        if (as[0] !== bs[0]) return bs[0] - as[0]
+        if (as[1] !== bs[1]) return bs[1] - as[1]
+        if (as[2] !== bs[2]) return bs[2] - as[2]
+        return (b.order || 0) - (a.order || 0)
+      })
+  }, [selected])
+
+  const groupRulesByMedia = <T extends { media: string }>(rules: T[]) => {
+    const map = new Map<string, T[]>()
+    for (let i = 0; i < rules.length; i += 1) {
+      const r = rules[i]
+      const k = String(r.media || '').trim()
+      const arr = map.get(k)
+      if (arr) arr.push(r)
+      else map.set(k, [r])
+    }
+    const keys = Array.from(map.keys())
+    keys.sort((a, b) => {
+      if (!a && b) return -1
+      if (a && !b) return 1
+      return a.localeCompare(b)
+    })
+    return keys.map((k) => ({ media: k, rules: map.get(k) || [] }))
+  }
+
+  const renderSelector = (selector: string) => {
+    const s = String(selector || '')
+    if (!s) return '—'
+    const re = /:(?!:)[a-zA-Z-]+(?:\([^)]*\))?|\.[\w-]+/g
+    const parts: Array<{ t: string; k: 'text' | 'pseudo' | 'class' }> = []
+    let last = 0
+    for (let m = re.exec(s); m; m = re.exec(s)) {
+      const idx = m.index
+      if (idx > last) parts.push({ t: s.slice(last, idx), k: 'text' })
+      const token = String(m[0] || '')
+      if (token.startsWith(':') && !token.startsWith('::')) parts.push({ t: token, k: 'pseudo' })
+      else if (token.startsWith('.')) parts.push({ t: token, k: 'class' })
+      else parts.push({ t: token, k: 'text' })
+      last = idx + token.length
+      if (parts.length > 400) break
+    }
+    if (last < s.length) parts.push({ t: s.slice(last), k: 'text' })
+    return (
+      <>
+        {parts.map((p, i) => {
+          if (p.k === 'pseudo') return <span key={`p:${i}`} className="browser-inspector__selector-pseudo">{p.t}</span>
+          if (p.k === 'class') return <span key={`c:${i}`} className="browser-inspector__selector-class">{p.t}</span>
+          return <span key={`t:${i}`}>{p.t}</span>
+        })}
+      </>
+    )
+  }
 
   const stylesGrouped = useMemo(() => ({ entries: buildStyleGroupEntries(stylesList) }), [stylesList])
 
@@ -299,76 +467,242 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
 
               {stylesUserRulesList.length > 0 && (
                 <div className="browser-inspector__list">
-                  {stylesUserRulesList.map((r, ruleIdx) => {
-                    const ruleEntries = buildStyleGroupEntries(r.declarations)
-                    const fileName = r.source ? r.source.replace(/^.*[/\\]/, '') : ''
-                    return (
-                      <div key={`${r.selector}:${ruleIdx}`} className="browser-inspector__style-group">
-                        <div className="browser-inspector__list-row browser-inspector__rule-header">
-                          <div className="browser-inspector__rule-header-selector">{r.selector}</div>
-                          <div className="browser-inspector__rule-header-file">
-                            {fileName || '—'}
-                            {r.media ? ` @media ${r.media}` : ''}
-                            {r.truncated ? ' (truncated)' : ''}
+                  {groupRulesByMedia(stylesUserRulesList).map((mg) => (
+                    <div key={`media:${mg.media || 'all'}`} className="browser-inspector__media-block">
+                      {mg.media ? <div className="browser-inspector__media-title">{`@media ${mg.media}`}</div> : null}
+                      {mg.rules.map((r, ruleIdx) => {
+                        const ruleEntries = buildStyleGroupEntries(r.declarations)
+                        const fileName = r.source ? r.source.replace(/^.*[/\\]/, '') : ''
+                        return (
+                          <div key={`${mg.media}:${r.selector}:${ruleIdx}`} className="browser-inspector__style-group">
+                            <div className="browser-inspector__list-row browser-inspector__rule-header">
+                              <div className="browser-inspector__rule-header-selector">{renderSelector(r.selector)}</div>
+                              <div className="browser-inspector__rule-header-file">
+                                {fileName || '—'}
+                                {r.truncated ? ' (truncated)' : ''}
+                              </div>
+                            </div>
+                            <div className="browser-inspector__style-group-items">
+                              {ruleEntries.map((e) => {
+                                if (e.kind === 'prop') {
+                                  const s = e.prop
+                                  return (
+                                    <div
+                                      key={s.name}
+                                      className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                    >
+                                      <div className="browser-inspector__list-key">{s.name}</div>
+                                      <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                    </div>
+                                  )
+                                }
+                                const groupKey = `rule:${mg.media || 'all'}:${ruleIdx}:${e.group}`
+                                const opened = openUserStyleGroups.has(groupKey)
+                                return (
+                                  <div key={`group:${groupKey}`} className="browser-inspector__style-group">
+                                    <button
+                                      type="button"
+                                      className="browser-inspector__list-row browser-inspector__list-row--button browser-inspector__style-group-row"
+                                      onClick={() => {
+                                        setOpenUserStyleGroups((prev) => {
+                                          const next = new Set(prev)
+                                          if (next.has(groupKey)) next.delete(groupKey)
+                                          else next.add(groupKey)
+                                          return next
+                                        })
+                                      }}
+                                      aria-expanded={opened}
+                                    >
+                                      <div className="browser-inspector__list-key">
+                                        <i className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__style-group-chevron`} aria-hidden="true" />
+                                        <span className="browser-inspector__style-group-title">{e.group}</span>
+                                      </div>
+                                      <div className="browser-inspector__list-val">({e.items.length})</div>
+                                    </button>
+                                    {opened && (
+                                      <div className="browser-inspector__style-group-items">
+                                        {e.items.map((s) => (
+                                          <div
+                                            key={s.name}
+                                            className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                          >
+                                            <div className="browser-inspector__list-key">{s.name}</div>
+                                            <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
                           </div>
-                        </div>
-                        <div className="browser-inspector__style-group-items">
-                          {ruleEntries.map((e) => {
-                            if (e.kind === 'prop') {
-                              const s = e.prop
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(stylesUserRulesBeforeList.length > 0 || stylesUserRulesAfterList.length > 0) && (
+                <div className="browser-inspector__pseudo-wrap">
+                  {stylesUserRulesBeforeList.length > 0 && (
+                    <div className="browser-inspector__pseudo-block">
+                      <div className="browser-inspector__pseudo-title">Pseudo ::before</div>
+                      <div className="browser-inspector__list">
+                        {groupRulesByMedia(stylesUserRulesBeforeList).map((mg) => (
+                          <div key={`before:media:${mg.media || 'all'}`} className="browser-inspector__media-block">
+                            {mg.media ? <div className="browser-inspector__media-title">{`@media ${mg.media}`}</div> : null}
+                            {mg.rules.map((r, idx) => {
+                              const ruleEntries = buildStyleGroupEntries(r.declarations)
+                              const fileName = r.source ? r.source.replace(/^.*[/\\]/, '') : ''
                               return (
-                                <div
-                                  key={s.name}
-                                  className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
-                                >
-                                  <div className="browser-inspector__list-key">{s.name}</div>
-                                  <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                <div key={`before:${mg.media}:${r.selector}:${idx}`} className="browser-inspector__style-group">
+                                  <div className="browser-inspector__list-row browser-inspector__rule-header">
+                                    <div className="browser-inspector__rule-header-selector">{renderSelector(r.selector)}</div>
+                                    <div className="browser-inspector__rule-header-file">{fileName || '—'}</div>
+                                  </div>
+                                  <div className="browser-inspector__style-group-items">
+                                    {ruleEntries.map((e) => {
+                                      if (e.kind === 'prop') {
+                                        const s = e.prop
+                                        return (
+                                          <div
+                                            key={s.name}
+                                            className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                          >
+                                            <div className="browser-inspector__list-key">{s.name}</div>
+                                            <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                          </div>
+                                        )
+                                      }
+                                      const groupKey = `before:${mg.media || 'all'}:${idx}:${e.group}`
+                                      const opened = openUserStyleGroups.has(groupKey)
+                                      return (
+                                        <div key={`group:${groupKey}`} className="browser-inspector__style-group">
+                                          <button
+                                            type="button"
+                                            className="browser-inspector__list-row browser-inspector__list-row--button browser-inspector__style-group-row"
+                                            onClick={() => {
+                                              setOpenUserStyleGroups((prev) => {
+                                                const next = new Set(prev)
+                                                if (next.has(groupKey)) next.delete(groupKey)
+                                                else next.add(groupKey)
+                                                return next
+                                              })
+                                            }}
+                                            aria-expanded={opened}
+                                          >
+                                            <div className="browser-inspector__list-key">
+                                              <i className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__style-group-chevron`} aria-hidden="true" />
+                                              <span className="browser-inspector__style-group-title">{e.group}</span>
+                                            </div>
+                                            <div className="browser-inspector__list-val">({e.items.length})</div>
+                                          </button>
+                                          {opened && (
+                                            <div className="browser-inspector__style-group-items">
+                                              {e.items.map((s) => (
+                                                <div
+                                                  key={s.name}
+                                                  className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                                >
+                                                  <div className="browser-inspector__list-key">{s.name}</div>
+                                                  <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
                                 </div>
                               )
-                            }
-                            const groupKey = `rule:${ruleIdx}:${e.group}`
-                            const opened = openUserStyleGroups.has(groupKey)
-                            return (
-                              <div key={`group:${groupKey}`} className="browser-inspector__style-group">
-                                <button
-                                  type="button"
-                                  className="browser-inspector__list-row browser-inspector__list-row--button browser-inspector__style-group-row"
-                                  onClick={() => {
-                                    setOpenUserStyleGroups((prev) => {
-                                      const next = new Set(prev)
-                                      if (next.has(groupKey)) next.delete(groupKey)
-                                      else next.add(groupKey)
-                                      return next
-                                    })
-                                  }}
-                                  aria-expanded={opened}
-                                >
-                                  <div className="browser-inspector__list-key">
-                                    <i className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__style-group-chevron`} aria-hidden="true" />
-                                    <span className="browser-inspector__style-group-title">{e.group}</span>
-                                  </div>
-                                  <div className="browser-inspector__list-val">({e.items.length})</div>
-                                </button>
-                                {opened && (
-                                  <div className="browser-inspector__style-group-items">
-                                    {e.items.map((s) => (
-                                      <div
-                                        key={s.name}
-                                        className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
-                                      >
-                                        <div className="browser-inspector__list-key">{s.name}</div>
-                                        <div className="browser-inspector__list-val">{s.value || '—'}</div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
+                            })}
+                          </div>
+                        ))}
                       </div>
-                    )
-                  })}
+                    </div>
+                  )}
+
+                  {stylesUserRulesAfterList.length > 0 && (
+                    <div className="browser-inspector__pseudo-block">
+                      <div className="browser-inspector__pseudo-title">Pseudo ::after</div>
+                      <div className="browser-inspector__list">
+                        {groupRulesByMedia(stylesUserRulesAfterList).map((mg) => (
+                          <div key={`after:media:${mg.media || 'all'}`} className="browser-inspector__media-block">
+                            {mg.media ? <div className="browser-inspector__media-title">{`@media ${mg.media}`}</div> : null}
+                            {mg.rules.map((r, idx) => {
+                              const ruleEntries = buildStyleGroupEntries(r.declarations)
+                              const fileName = r.source ? r.source.replace(/^.*[/\\]/, '') : ''
+                              return (
+                                <div key={`after:${mg.media}:${r.selector}:${idx}`} className="browser-inspector__style-group">
+                                  <div className="browser-inspector__list-row browser-inspector__rule-header">
+                                    <div className="browser-inspector__rule-header-selector">{renderSelector(r.selector)}</div>
+                                    <div className="browser-inspector__rule-header-file">{fileName || '—'}</div>
+                                  </div>
+                                  <div className="browser-inspector__style-group-items">
+                                    {ruleEntries.map((e) => {
+                                      if (e.kind === 'prop') {
+                                        const s = e.prop
+                                        return (
+                                          <div
+                                            key={s.name}
+                                            className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                          >
+                                            <div className="browser-inspector__list-key">{s.name}</div>
+                                            <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                          </div>
+                                        )
+                                      }
+                                      const groupKey = `after:${mg.media || 'all'}:${idx}:${e.group}`
+                                      const opened = openUserStyleGroups.has(groupKey)
+                                      return (
+                                        <div key={`group:${groupKey}`} className="browser-inspector__style-group">
+                                          <button
+                                            type="button"
+                                            className="browser-inspector__list-row browser-inspector__list-row--button browser-inspector__style-group-row"
+                                            onClick={() => {
+                                              setOpenUserStyleGroups((prev) => {
+                                                const next = new Set(prev)
+                                                if (next.has(groupKey)) next.delete(groupKey)
+                                                else next.add(groupKey)
+                                                return next
+                                              })
+                                            }}
+                                            aria-expanded={opened}
+                                          >
+                                            <div className="browser-inspector__list-key">
+                                              <i className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__style-group-chevron`} aria-hidden="true" />
+                                              <span className="browser-inspector__style-group-title">{e.group}</span>
+                                            </div>
+                                            <div className="browser-inspector__list-val">({e.items.length})</div>
+                                          </button>
+                                          {opened && (
+                                            <div className="browser-inspector__style-group-items">
+                                              {e.items.map((s) => (
+                                                <div
+                                                  key={s.name}
+                                                  className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                                >
+                                                  <div className="browser-inspector__list-key">{s.name}</div>
+                                                  <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
