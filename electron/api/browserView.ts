@@ -64,6 +64,51 @@ export function ensureBrowserView(bounds: BrowserBounds): void {
         }
       }
 
+      const INSPECT_LOG_PREFIX = '__CRAWLITE_INSPECTOR_ELEMENT__:'
+      browserView.webContents.on('console-message', (_event, _level, message) => {
+        try {
+          const msg = typeof message === 'string' ? message : ''
+          if (!msg.startsWith(INSPECT_LOG_PREFIX)) return
+          const requestId = msg.slice(INSPECT_LOG_PREFIX.length).trim()
+          if (!requestId) return
+
+          void (async () => {
+            try {
+              if (!appState.browserView) return
+              const wc = appState.browserView.webContents
+              if (wc.isDestroyed()) return
+              const payload = await wc.executeJavaScript(
+                `
+                  (function() {
+                    try {
+                      const KEY = '__crawlite_inspector_selected_element';
+                      const v = window[KEY] || null;
+                      if (v && v.requestId && String(v.requestId) === ${JSON.stringify(requestId)}) {
+                        try { window[KEY] = null; } catch (e) { /* noop */ }
+                        return v;
+                      }
+                      return null;
+                    } catch (e) {
+                      return null;
+                    }
+                  })()
+                `,
+                true
+              )
+              if (!payload) return
+              appState.mainWindow?.webContents.send('browser:event', {
+                type: 'inspector:element',
+                element: payload,
+              })
+            } catch {
+              void 0
+            }
+          })()
+        } catch {
+          void 0
+        }
+      })
+
       browserView.webContents.on('did-start-loading', () => {
         try {
           appState.mainWindow?.webContents.send('browser:event', { type: 'loading', isLoading: true })

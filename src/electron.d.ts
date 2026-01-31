@@ -33,6 +33,7 @@ export type BrowserDeviceMode = 'desktop' | 'mobile' | 'tablet'
 export type BrowserEvent =
   | { type: 'loading'; isLoading: boolean }
   | { type: 'nav'; canGoBack: boolean; canGoForward: boolean; url?: string }
+  | { type: 'inspector:element'; element: any }
 
 export type CrawlEvent =
   | {

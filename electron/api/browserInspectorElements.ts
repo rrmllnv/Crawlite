@@ -310,6 +310,9 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
             try {
               if (state.clickBlocker && state.clickBlocker.enabled) return;
 
+              const INSPECT_LAST_KEY = '__crawlite_inspector_selected_element';
+              const INSPECT_LOG_PREFIX = '__CRAWLITE_INSPECTOR_ELEMENT__:';
+
               const shouldIgnoreTarget = (t) => {
                 try {
                   if (!t) return false;
@@ -321,11 +324,138 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                 }
               };
 
+              const buildRect = (el) => {
+                try {
+                  const r = el.getBoundingClientRect();
+                  return {
+                    left: Number(r.left) || 0,
+                    top: Number(r.top) || 0,
+                    right: Number(r.right) || 0,
+                    bottom: Number(r.bottom) || 0,
+                    width: Number(r.width) || 0,
+                    height: Number(r.height) || 0,
+                  };
+                } catch (e) {
+                  return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+                }
+              };
+
+              const buildAttributes = (el) => {
+                try {
+                  const out = Object.create(null);
+                  if (!el || !el.attributes) return out;
+                  const attrs = el.attributes;
+                  for (let i = 0; i < attrs.length; i += 1) {
+                    const a = attrs[i];
+                    if (!a) continue;
+                    const n = String(a.name || '');
+                    if (!n) continue;
+                    out[n] = String(a.value || '');
+                  }
+                  return out;
+                } catch (e) {
+                  return Object.create(null);
+                }
+              };
+
+              const buildComputedStyles = (el) => {
+                try {
+                  const st = window.getComputedStyle(el);
+                  const out = Object.create(null);
+                  if (!st) return out;
+                  for (let i = 0; i < st.length; i += 1) {
+                    const prop = st[i];
+                    if (!prop) continue;
+                    try {
+                      out[String(prop)] = String(st.getPropertyValue(prop));
+                    } catch (e) { /* noop */ }
+                  }
+                  return out;
+                } catch (e) {
+                  return Object.create(null);
+                }
+              };
+
+              const buildChildrenSummary = (el) => {
+                try {
+                  const direct = el && el.children ? el.children : null;
+                  const directCount = direct ? direct.length : 0;
+                  const directTagCounts = Object.create(null);
+                  if (direct && directCount > 0) {
+                    for (let i = 0; i < directCount; i += 1) {
+                      const c = direct[i];
+                      const tag = c && c.tagName ? String(c.tagName).toLowerCase() : '';
+                      if (!tag) continue;
+                      directTagCounts[tag] = (directTagCounts[tag] || 0) + 1;
+                    }
+                  }
+                  let descendantsCount = 0;
+                  try {
+                    descendantsCount = el && el.querySelectorAll ? el.querySelectorAll('*').length : 0;
+                  } catch (e) {
+                    descendantsCount = 0;
+                  }
+                  let directTextNodes = 0;
+                  try {
+                    const cn = el && el.childNodes ? el.childNodes : null;
+                    if (cn && cn.length) {
+                      for (let i = 0; i < cn.length; i += 1) {
+                        const n = cn[i];
+                        if (n && n.nodeType === 3 && String(n.textContent || '').trim()) directTextNodes += 1;
+                      }
+                    }
+                  } catch (e) { /* noop */ }
+                  return { directCount, directTagCounts, descendantsCount, directTextNodes };
+                } catch (e) {
+                  return { directCount: 0, directTagCounts: Object.create(null), descendantsCount: 0, directTextNodes: 0 };
+                }
+              };
+
+              const captureElementInfo = (el) => {
+                try {
+                  if (!el || !el.tagName) return null;
+                  const tag = String(el.tagName || '').toLowerCase();
+                  const requestId = String(Date.now()) + ':' + String(Math.random()).slice(2);
+                  const rect = buildRect(el);
+                  const attributes = buildAttributes(el);
+                  const styles = buildComputedStyles(el);
+                  const children = buildChildrenSummary(el);
+                  const id = typeof el.id === 'string' ? el.id : '';
+                  const className = typeof el.className === 'string' ? el.className : '';
+                  const text = safeText(el.textContent || '', 220);
+                  return {
+                    requestId,
+                    tag,
+                    id,
+                    className,
+                    rect,
+                    attributes,
+                    styles,
+                    children,
+                    text,
+                  };
+                } catch (e) {
+                  return null;
+                }
+              };
+
               const block = (evt) => {
                 try {
                   if (!evt) return;
                   const t = evt.target || null;
                   if (shouldIgnoreTarget(t)) return;
+
+                  // На обычный click сохраняем полный снимок элемента для панели инспектора.
+                  try {
+                    if (evt.type === 'click' && t && t.tagName) {
+                      const payload = captureElementInfo(t);
+                      if (payload) {
+                        try { window[INSPECT_LAST_KEY] = payload; } catch (e) { /* noop */ }
+                        try { console.log(INSPECT_LOG_PREFIX + payload.requestId); } catch (e) { /* noop */ }
+                      }
+                    }
+                  } catch (e) { /* noop */ }
+
                   if (typeof evt.preventDefault === 'function') evt.preventDefault();
                   if (typeof evt.stopImmediatePropagation === 'function') evt.stopImmediatePropagation();
                   if (typeof evt.stopPropagation === 'function') evt.stopPropagation();
