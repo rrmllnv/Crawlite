@@ -17,6 +17,13 @@ type InspectorElementPayload = {
   styles?: Record<string, string>
   stylesUser?: Record<string, string>
   stylesNonDefault?: Record<string, string>
+  stylesUserRules?: Array<{
+    selector?: string
+    source?: string
+    media?: string
+    truncated?: boolean
+    declarations?: Record<string, string>
+  }>
   children?: {
     directCount?: number
     directTagCounts?: Record<string, number>
@@ -80,6 +87,28 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
     return Object.keys(st)
       .sort()
       .map((k) => ({ name: k, value: String((st as any)[k] ?? '') }))
+  }, [selected])
+
+  const stylesUserRulesList = useMemo(() => {
+    const rules = selected?.stylesUserRules
+    if (!Array.isArray(rules)) return []
+    return rules
+      .map((r) => {
+        const decl = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null
+        const declList = decl
+          ? Object.keys(decl)
+              .sort()
+              .map((k) => ({ name: k, value: String((decl as any)[k] ?? '') }))
+          : []
+        return {
+          selector: String((r as any).selector || '').trim() || '—',
+          source: String((r as any).source || '').trim(),
+          media: String((r as any).media || '').trim(),
+          truncated: Boolean((r as any).truncated),
+          declarations: declList,
+        }
+      })
+      .filter((x) => x.declarations.length > 0)
   }, [selected])
 
   const stylesGrouped = useMemo(() => {
@@ -252,8 +281,34 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
           {selected && (
             <div className="browser-inspector__section">
               <div className="browser-inspector__section-title">Стили (user)</div>
-              {stylesUserList.length === 0 && <div className="browser-inspector__empty">—</div>}
-              {stylesUserList.length > 0 && (
+              {stylesUserRulesList.length === 0 && stylesUserList.length === 0 && <div className="browser-inspector__empty">—</div>}
+
+              {stylesUserRulesList.length > 0 && (
+                <div className="browser-inspector__list">
+                  {stylesUserRulesList.map((r, idx) => (
+                    <div key={`${r.selector}:${idx}`} className="browser-inspector__style-group">
+                      <div className="browser-inspector__list-row">
+                        <div className="browser-inspector__list-key">{r.selector}</div>
+                        <div className="browser-inspector__list-val">
+                          {r.source ? r.source : ''}
+                          {r.media ? ` @media ${r.media}` : ''}
+                          {r.truncated ? ' (truncated)' : ''}
+                        </div>
+                      </div>
+                      <div className="browser-inspector__style-group-items">
+                        {r.declarations.map((d) => (
+                          <div key={d.name} className="browser-inspector__list-row">
+                            <div className="browser-inspector__list-key">{d.name}</div>
+                            <div className="browser-inspector__list-val">{d.value || '—'}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {stylesUserRulesList.length === 0 && stylesUserList.length > 0 && (
                 <div className="browser-inspector__list">
                   {stylesUserList.map((s) => (
                     <div key={s.name} className="browser-inspector__list-row">

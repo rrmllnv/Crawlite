@@ -378,27 +378,40 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
 
               const buildUserStyles = (el) => {
                 try {
-                  const out = Object.create(null);
-                  if (!el) return out;
+                  const merged = Object.create(null);
+                  const rulesOut = [];
+                  if (!el) return { merged, rules: rulesOut };
 
                   // 1) Inline styles (style="...")
                   try {
                     const st = el.style;
                     if (st && typeof st.length === 'number') {
+                      const decl = Object.create(null);
                       for (let i = 0; i < st.length; i += 1) {
                         const name = st[i];
                         if (!name) continue;
                         const value = String(st.getPropertyValue(name) || '').trim();
                         const pr = String(st.getPropertyPriority(name) || '').trim();
                         if (!value) continue;
-                        out[name] = pr ? (value + ' !' + pr) : value;
+                        const v = pr ? (value + ' !' + pr) : value;
+                        merged[name] = v;
+                        decl[name] = v;
+                      }
+                      if (Object.keys(decl).length > 0) {
+                        rulesOut.push({
+                          selector: 'element.style',
+                          source: 'inline',
+                          media: '',
+                          declarations: decl,
+                        });
                       }
                     }
                   } catch (e) { /* noop */ }
 
                   // 2) Styles from accessible stylesheets (best-effort; cross-origin may throw)
-                  const applyRuleStyle = (styleDecl) => {
+                  const extractDecl = (styleDecl) => {
                     try {
+                      const decl = Object.create(null);
                       if (!styleDecl || typeof styleDecl.length !== 'number') return;
                       for (let i = 0; i < styleDecl.length; i += 1) {
                         const name = styleDecl[i];
@@ -406,12 +419,63 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                         const value = String(styleDecl.getPropertyValue(name) || '').trim();
                         const pr = String(styleDecl.getPropertyPriority(name) || '').trim();
                         if (!value) continue;
-                        out[name] = pr ? (value + ' !' + pr) : value;
+                        const v = pr ? (value + ' !' + pr) : value;
+                        decl[name] = v;
+                      }
+                      return decl;
+                    } catch (e) { /* noop */ }
+                  };
+
+                  const getSheetSource = (sheet) => {
+                    try {
+                      const href = sheet && sheet.href ? String(sheet.href) : '';
+                      if (href) return href;
+                      const owner = sheet && sheet.ownerNode ? sheet.ownerNode : null;
+                      const tag = owner && owner.tagName ? String(owner.tagName).toLowerCase() : '';
+                      if (tag === 'style') return '<style>';
+                      if (tag === 'link') return '<link>';
+                      return '<stylesheet>';
+                    } catch (e) {
+                      return '<stylesheet>';
+                    }
+                  };
+
+                  const MAX_RULES = 120;
+                  const MAX_DECLS_PER_RULE = 220;
+
+                  const pushRule = (selectorText, styleDecl, sheetSource, mediaText) => {
+                    try {
+                      if (rulesOut.length >= MAX_RULES) return;
+                      const declAll = extractDecl(styleDecl) || Object.create(null);
+                      const keys = Object.keys(declAll);
+                      if (keys.length === 0) return;
+                      // ограничение на размер
+                      if (keys.length > MAX_DECLS_PER_RULE) {
+                        const cut = Object.create(null);
+                        keys.slice(0, MAX_DECLS_PER_RULE).forEach((k) => { cut[k] = declAll[k]; });
+                        rulesOut.push({
+                          selector: String(selectorText || '').trim(),
+                          source: String(sheetSource || ''),
+                          media: String(mediaText || ''),
+                          declarations: cut,
+                          truncated: true,
+                        });
+                      } else {
+                        rulesOut.push({
+                          selector: String(selectorText || '').trim(),
+                          source: String(sheetSource || ''),
+                          media: String(mediaText || ''),
+                          declarations: declAll,
+                        });
+                      }
+                      for (let i = 0; i < keys.length; i += 1) {
+                        const k = keys[i];
+                        merged[k] = declAll[k];
                       }
                     } catch (e) { /* noop */ }
                   };
 
-                  const walkRules = (rules) => {
+                  const walkRules = (rules, sheetSource, mediaText) => {
                     try {
                       if (!rules || typeof rules.length !== 'number') return;
                       for (let i = 0; i < rules.length; i += 1) {
@@ -429,13 +493,21 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                               if (sel && el.matches && el.matches(sel)) { matches = true; break; }
                             } catch (e) { /* noop */ }
                           }
-                          if (matches) applyRuleStyle(r.style);
+                          if (matches) {
+                            pushRule(selText, r.style, sheetSource, mediaText);
+                          }
                           continue;
                         }
 
                         // CSSMediaRule / CSSSupportsRule / etc. with nested cssRules
+                        if (r.type === 4 && r.media && r.cssRules) {
+                          const nextMedia = String(r.media.mediaText || '').trim();
+                          const combined = mediaText ? (mediaText + ' & ' + nextMedia) : nextMedia;
+                          walkRules(r.cssRules, sheetSource, combined);
+                          continue;
+                        }
                         if (r.cssRules) {
-                          walkRules(r.cssRules);
+                          walkRules(r.cssRules, sheetSource, mediaText);
                         }
                       }
                     } catch (e) { /* noop */ }
@@ -449,13 +521,14 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                       let rules = null;
                       try { rules = sheet.cssRules; } catch (e) { rules = null; }
                       if (!rules) continue;
-                      walkRules(rules);
+                      walkRules(rules, getSheetSource(sheet), '');
+                      if (rulesOut.length >= MAX_RULES) break;
                     }
                   } catch (e) { /* noop */ }
 
-                  return out;
+                  return { merged, rules: rulesOut };
                 } catch (e) {
-                  return Object.create(null);
+                  return { merged: Object.create(null), rules: [] };
                 }
               };
 
@@ -539,7 +612,9 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                   const rect = buildRect(el);
                   const attributes = buildAttributes(el);
                   const styles = buildComputedStyles(el);
-                  const stylesUser = buildUserStyles(el);
+                  const stylesUserPack = buildUserStyles(el);
+                  const stylesUser = stylesUserPack && stylesUserPack.merged ? stylesUserPack.merged : Object.create(null);
+                  const stylesUserRules = stylesUserPack && stylesUserPack.rules ? stylesUserPack.rules : [];
                   const stylesNonDefault = buildNonDefaultStyles(el, styles);
                   const children = buildChildrenSummary(el);
                   const id = typeof el.id === 'string' ? el.id : '';
@@ -554,6 +629,7 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                     attributes,
                     styles,
                     stylesUser,
+                    stylesUserRules,
                     stylesNonDefault,
                     children,
                     text,
