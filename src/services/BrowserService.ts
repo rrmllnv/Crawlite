@@ -44,6 +44,18 @@ class BrowserService {
   async highlightImage(url: string) {
     return await window.electronAPI.browserHighlightImage(url)
   }
+
+  async toggleInspectorElements() {
+    return await window.electronAPI.browserInspectorElementsToggle()
+  }
+
+  async toggleInspectorElementsAll() {
+    return await window.electronAPI.browserInspectorElementsAllToggle()
+  }
+
+  async toggleInspectorElementsHover() {
+    return await window.electronAPI.browserInspectorElementsHoverToggle()
+  }
 }
 
 export const browserService = new BrowserService()

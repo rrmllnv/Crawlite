@@ -40,6 +40,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   browserHighlightHeading: (payload: { level: number; text: string }) => ipcRenderer.invoke('browser:highlight-heading', payload),
   browserHighlightLink: (url: string) => ipcRenderer.invoke('browser:highlight-link', url),
   browserHighlightImage: (url: string) => ipcRenderer.invoke('browser:highlight-image', url),
+  browserInspectorElementsToggle: () => ipcRenderer.invoke('browser:inspector-elements-toggle'),
+  browserInspectorElementsAllToggle: () => ipcRenderer.invoke('browser:inspector-elements-all-toggle'),
+  browserInspectorElementsHoverToggle: () => ipcRenderer.invoke('browser:inspector-elements-hover-toggle'),
 
   crawlStart: (params: CrawlStartParams) => ipcRenderer.invoke('crawl:start', params),
   crawlCancel: (runId: string) => ipcRenderer.invoke('crawl:cancel', runId),

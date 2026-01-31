@@ -111,6 +111,9 @@ export interface ElectronAPI {
   browserHighlightHeading: (payload: { level: number; text: string }) => Promise<ElectronResult>
   browserHighlightLink: (url: string) => Promise<ElectronResult>
   browserHighlightImage: (url: string) => Promise<ElectronResult>
+  browserInspectorElementsToggle: () => Promise<ElectronResult<{ enabledAll?: boolean; enabledHover?: boolean }>>
+  browserInspectorElementsAllToggle: () => Promise<ElectronResult<{ enabledAll?: boolean; enabledHover?: boolean }>>
+  browserInspectorElementsHoverToggle: () => Promise<ElectronResult<{ enabledAll?: boolean; enabledHover?: boolean }>>
 
   crawlStart: (params: CrawlStartParams) => Promise<ElectronResult<{ runId?: string }>>
   crawlCancel: (runId: string) => Promise<ElectronResult>

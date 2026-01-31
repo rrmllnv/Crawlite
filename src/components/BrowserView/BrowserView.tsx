@@ -36,6 +36,8 @@ export function BrowserView() {
   const [openHeadingLevels, setOpenHeadingLevels] = useState<Set<string>>(() => new Set())
   const [headInfoByUrl, setHeadInfoByUrl] = useState<Record<string, ResourceHeadInfo>>({})
   const [viewSize, setViewSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
+  const [isInspectorElementsAllEnabled, setIsInspectorElementsAllEnabled] = useState<boolean>(false)
+  const [isInspectorElementsHoverEnabled, setIsInspectorElementsHoverEnabled] = useState<boolean>(false)
 
   const boundsRef = useBrowserBounds(deviceMode)
 
@@ -191,6 +193,46 @@ export function BrowserView() {
                   aria-label="Обновить"
                 >
                   <i className="fa-solid fa-rotate-right" aria-hidden="true" />
+                </button>
+
+                <button
+                  type="button"
+                  className={`browser-view__device-button ${isInspectorElementsAllEnabled ? 'browser-view__device-button--active' : ''}`}
+                  onClick={() =>
+                    void browserService
+                      .toggleInspectorElementsAll()
+                      .then((res) => {
+                        if (!res || res.success !== true) return
+                        setIsInspectorElementsAllEnabled(Boolean(res.enabledAll))
+                        setIsInspectorElementsHoverEnabled(Boolean(res.enabledHover))
+                      })
+                      .catch(() => void 0)
+                  }
+                  title="Подсветить элементы"
+                  aria-label="Подсветить элементы"
+                  aria-pressed={isInspectorElementsAllEnabled}
+                >
+                  <i className="fa-solid fa-border-all" aria-hidden="true" />
+                </button>
+
+                <button
+                  type="button"
+                  className={`browser-view__device-button ${isInspectorElementsHoverEnabled ? 'browser-view__device-button--active' : ''}`}
+                  onClick={() =>
+                    void browserService
+                      .toggleInspectorElementsHover()
+                      .then((res) => {
+                        if (!res || res.success !== true) return
+                        setIsInspectorElementsAllEnabled(Boolean(res.enabledAll))
+                        setIsInspectorElementsHoverEnabled(Boolean(res.enabledHover))
+                      })
+                      .catch(() => void 0)
+                  }
+                  title="Инспектор (наведение)"
+                  aria-label="Инспектор (наведение)"
+                  aria-pressed={isInspectorElementsHoverEnabled}
+                >
+                  <i className="fa-solid fa-arrow-pointer" aria-hidden="true" />
                 </button>
               </div>
 

@@ -23,6 +23,7 @@ import {
   handleHighlightLink,
   handleHighlightImage,
 } from './api/browserHighlight'
+import { handleToggleInspectorElementsAll, handleToggleInspectorElementsHover } from './api/browserInspectorElements'
 import { crawlStart, cancelCrawl } from './api/crawlRun'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -122,6 +123,19 @@ ipcMain.handle('browser:highlight-link', async (_event, url: string) => {
 
 ipcMain.handle('browser:highlight-image', async (_event, url: string) => {
   return handleHighlightImage(url)
+})
+
+ipcMain.handle('browser:inspector-elements-all-toggle', async () => {
+  return handleToggleInspectorElementsAll()
+})
+
+ipcMain.handle('browser:inspector-elements-hover-toggle', async () => {
+  return handleToggleInspectorElementsHover()
+})
+
+// Backward-compat: старый канал оставляем как toggle "all"
+ipcMain.handle('browser:inspector-elements-toggle', async () => {
+  return handleToggleInspectorElementsAll()
 })
 
 ipcMain.handle('page:analyze', async (_event, url: string, options?: CrawlStartParams['options']) => {
