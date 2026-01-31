@@ -662,55 +662,49 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                   <div className="browser-inspector__kv-val">{`#${id}`}</div>
                 </div>
               ) : null}
-              {className ? (
-                <div className="browser-inspector__kv-row">
-                  <div className="browser-inspector__kv-key">Class</div>
-                  <div className="browser-inspector__kv-val">{String(className)}</div>
-                </div>
-              ) : null}
               {rect ? (
-              <div className="browser-inspector__kv-size-block">
-                <button
-                  type="button"
-                  className="browser-inspector__kv-row browser-inspector__kv-row--button"
-                  onClick={() => {
-                    setOpenSizeRows((prev) => {
-                      const next = new Set(prev)
-                      if (next.has(node.key)) next.delete(node.key)
-                      else next.add(node.key)
-                      return next
-                    })
-                  }}
-                  aria-expanded={openSizeRows.has(node.key)}
-                >
-                  <div className="browser-inspector__kv-key">
-                    <i
-                      className={`fa-solid fa-chevron-${openSizeRows.has(node.key) ? 'down' : 'right'} browser-inspector__kv-chevron`}
-                      aria-hidden="true"
-                    />
-                    Размер
-                  </div>
-                  <div className="browser-inspector__kv-val">
-                    {rect ? `${Math.round(Number(rect.width) || 0)} × ${Math.round(Number(rect.height) || 0)}` : '—'}
-                  </div>
-                </button>
-                {openSizeRows.has(node.key) && (
-                  <div className="browser-inspector__kv-size-expanded">
-                    <div className="browser-inspector__kv-row">
-                      <div className="browser-inspector__kv-key">Ширина</div>
-                      <div className="browser-inspector__kv-val">
-                        {rect ? `${Math.round(Number(rect.width) || 0)}` : '—'}
+                <div className="browser-inspector__kv-size-block">
+                  <button
+                    type="button"
+                    className="browser-inspector__kv-row browser-inspector__kv-row--button"
+                    onClick={() => {
+                      setOpenSizeRows((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(node.key)) next.delete(node.key)
+                        else next.add(node.key)
+                        return next
+                      })
+                    }}
+                    aria-expanded={openSizeRows.has(node.key)}
+                  >
+                    <div className="browser-inspector__kv-key">
+                      <i
+                        className={`fa-solid fa-chevron-${openSizeRows.has(node.key) ? 'down' : 'right'} browser-inspector__kv-chevron`}
+                        aria-hidden="true"
+                      />
+                      Размер
+                    </div>
+                    <div className="browser-inspector__kv-val">
+                      {rect ? `${Math.round(Number(rect.width) || 0)} × ${Math.round(Number(rect.height) || 0)}` : '—'}
+                    </div>
+                  </button>
+                  {openSizeRows.has(node.key) && (
+                    <div className="browser-inspector__kv-size-expanded">
+                      <div className="browser-inspector__kv-row">
+                        <div className="browser-inspector__kv-key">Ширина</div>
+                        <div className="browser-inspector__kv-val">
+                          {rect ? `${Math.round(Number(rect.width) || 0)}` : '—'}
+                        </div>
+                      </div>
+                      <div className="browser-inspector__kv-row">
+                        <div className="browser-inspector__kv-key">Высота</div>
+                        <div className="browser-inspector__kv-val">
+                          {rect ? `${Math.round(Number(rect.height) || 0)}` : '—'}
+                        </div>
                       </div>
                     </div>
-                    <div className="browser-inspector__kv-row">
-                      <div className="browser-inspector__kv-key">Высота</div>
-                      <div className="browser-inspector__kv-val">
-                        {rect ? `${Math.round(Number(rect.height) || 0)}` : '—'}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
               ) : null}
               {!isRootLike && rect ? (
                 <div className="browser-inspector__kv-row">
@@ -720,94 +714,94 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                   </div>
                 </div>
               ) : null}
+              {(font?.family || font?.size || font?.weight || font?.style || font?.lineHeight) ? (
+                <div className="browser-inspector__kv-font-block">
+                  <button
+                    type="button"
+                    className="browser-inspector__kv-row browser-inspector__kv-row--button"
+                    onClick={() => {
+                      setOpenFontRows((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(node.key)) next.delete(node.key)
+                        else next.add(node.key)
+                        return next
+                      })
+                    }}
+                    aria-expanded={openFontRows.has(node.key)}
+                  >
+                    <div className="browser-inspector__kv-key">
+                      <i
+                        className={`fa-solid fa-chevron-${openFontRows.has(node.key) ? 'down' : 'right'} browser-inspector__kv-chevron`}
+                        aria-hidden="true"
+                      />
+                      Шрифт
+                    </div>
+                    <div className="browser-inspector__kv-val">
+                      {font?.family || font?.size || font?.weight || font?.lineHeight
+                        ? `${font?.family || ''} ${font?.size || ''} ${font?.weight || ''} ${font?.lineHeight || ''}`.trim()
+                        : '—'}
+                    </div>
+                  </button>
+                  {openFontRows.has(node.key) && (
+                    <div className="browser-inspector__kv-font-expanded">
+                      <div className="browser-inspector__kv-row">
+                        <div className="browser-inspector__kv-key">font-family</div>
+                        <div className="browser-inspector__kv-val">{font?.family ? String(font.family) : '—'}</div>
+                      </div>
+                      <div className="browser-inspector__kv-row">
+                        <div className="browser-inspector__kv-key">font-size</div>
+                        <div className="browser-inspector__kv-val">{font?.size ? String(font.size) : '—'}</div>
+                      </div>
+                      <div className="browser-inspector__kv-row">
+                        <div className="browser-inspector__kv-key">font-weight</div>
+                        <div className="browser-inspector__kv-val">{font?.weight ? String(font.weight) : '—'}</div>
+                      </div>
+                      <div className="browser-inspector__kv-row">
+                        <div className="browser-inspector__kv-key">font-style</div>
+                        <div className="browser-inspector__kv-val">{font?.style ? String(font.style) : '—'}</div>
+                      </div>
+                      <div className="browser-inspector__kv-row">
+                        <div className="browser-inspector__kv-key">line-height</div>
+                        <div className="browser-inspector__kv-val">{font?.lineHeight ? String(font.lineHeight) : '—'}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+              {color ? (
+                <div className="browser-inspector__kv-row browser-inspector__kv-row--color">
+                  <div className="browser-inspector__kv-key">Цвет</div>
+                  <div className="browser-inspector__kv-val browser-inspector__kv-val--color">
+                    <span
+                      className="browser-inspector__color-swatch"
+                      style={{ backgroundColor: color }}
+                      title={color}
+                      aria-hidden
+                    />
+                    <span className="browser-inspector__color-text">
+                      {formatColorValue(color, colorDisplayFormat)}
+                    </span>
+                    <span className="browser-inspector__color-format">
+                      {(['hex', 'rgb', 'hsl'] as const).map((fmt) => (
+                        <button
+                          key={fmt}
+                          type="button"
+                          className={`browser-inspector__color-format-btn${colorDisplayFormat === fmt ? ' browser-inspector__color-format-btn--active' : ''}`}
+                          onClick={() => setColorDisplayFormat(fmt)}
+                          title={fmt === 'hex' ? 'HEX' : fmt === 'rgb' ? 'RGB' : 'HSL'}
+                        >
+                          {fmt.toUpperCase()}
+                        </button>
+                      ))}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
               {!isRootLike && text ? (
                 <div className="browser-inspector__kv-row">
                   <div className="browser-inspector__kv-key">Текст</div>
                   <div className="browser-inspector__kv-val">{String(text)}</div>
                 </div>
-              ) : null}
-              {(font?.family || font?.size || font?.weight || font?.style || font?.lineHeight) ? (
-              <div className="browser-inspector__kv-font-block">
-                <button
-                  type="button"
-                  className="browser-inspector__kv-row browser-inspector__kv-row--button"
-                  onClick={() => {
-                    setOpenFontRows((prev) => {
-                      const next = new Set(prev)
-                      if (next.has(node.key)) next.delete(node.key)
-                      else next.add(node.key)
-                      return next
-                    })
-                  }}
-                  aria-expanded={openFontRows.has(node.key)}
-                >
-                  <div className="browser-inspector__kv-key">
-                    <i
-                      className={`fa-solid fa-chevron-${openFontRows.has(node.key) ? 'down' : 'right'} browser-inspector__kv-chevron`}
-                      aria-hidden="true"
-                    />
-                    Шрифт
-                  </div>
-                  <div className="browser-inspector__kv-val">
-                    {font?.family || font?.size || font?.weight || font?.lineHeight
-                      ? `${font?.family || ''} ${font?.size || ''} ${font?.weight || ''} ${font?.lineHeight || ''}`.trim()
-                      : '—'}
-                  </div>
-                </button>
-                {openFontRows.has(node.key) && (
-                  <div className="browser-inspector__kv-font-expanded">
-                    <div className="browser-inspector__kv-row">
-                      <div className="browser-inspector__kv-key">font-family</div>
-                      <div className="browser-inspector__kv-val">{font?.family ? String(font.family) : '—'}</div>
-                    </div>
-                    <div className="browser-inspector__kv-row">
-                      <div className="browser-inspector__kv-key">font-size</div>
-                      <div className="browser-inspector__kv-val">{font?.size ? String(font.size) : '—'}</div>
-                    </div>
-                    <div className="browser-inspector__kv-row">
-                      <div className="browser-inspector__kv-key">font-weight</div>
-                      <div className="browser-inspector__kv-val">{font?.weight ? String(font.weight) : '—'}</div>
-                    </div>
-                    <div className="browser-inspector__kv-row">
-                      <div className="browser-inspector__kv-key">font-style</div>
-                      <div className="browser-inspector__kv-val">{font?.style ? String(font.style) : '—'}</div>
-                    </div>
-                    <div className="browser-inspector__kv-row">
-                      <div className="browser-inspector__kv-key">line-height</div>
-                      <div className="browser-inspector__kv-val">{font?.lineHeight ? String(font.lineHeight) : '—'}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              ) : null}
-              {color ? (
-              <div className="browser-inspector__kv-row browser-inspector__kv-row--color">
-                <div className="browser-inspector__kv-key">Цвет</div>
-                <div className="browser-inspector__kv-val browser-inspector__kv-val--color">
-                  <span
-                    className="browser-inspector__color-swatch"
-                    style={{ backgroundColor: color }}
-                    title={color}
-                    aria-hidden
-                  />
-                  <span className="browser-inspector__color-text">
-                    {formatColorValue(color, colorDisplayFormat)}
-                  </span>
-                  <span className="browser-inspector__color-format">
-                    {(['hex', 'rgb', 'hsl'] as const).map((fmt) => (
-                      <button
-                        key={fmt}
-                        type="button"
-                        className={`browser-inspector__color-format-btn${colorDisplayFormat === fmt ? ' browser-inspector__color-format-btn--active' : ''}`}
-                        onClick={() => setColorDisplayFormat(fmt)}
-                        title={fmt === 'hex' ? 'HEX' : fmt === 'rgb' ? 'RGB' : 'HSL'}
-                      >
-                        {fmt.toUpperCase()}
-                      </button>
-                    ))}
-                  </span>
-                </div>
-              </div>
               ) : null}
             </div>
           </div>

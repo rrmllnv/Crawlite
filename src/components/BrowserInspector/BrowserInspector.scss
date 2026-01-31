@@ -96,6 +96,7 @@
 .browser-inspector__kv-row {
   display: flex;
   gap: 10px;
+  padding: 0px 10px;
 }
 
 .browser-inspector__kv-key {
@@ -117,7 +118,7 @@
 .browser-inspector__kv-row--button {
   width: 100%;
   border: none;
-  padding: 4px 6px;
+  // padding: 4px 6px;
   background: transparent;
   cursor: pointer;
   text-align: left;
@@ -288,7 +289,7 @@
 
 .browser-inspector__node-details {
   margin: 6px 0 10px 0;
-  padding: 8px 10px;
+  padding: 8px 0px;
   border: 1px solid $border-color;
   border-radius: $border-radius;
   background-color: $bg-tertiary;
