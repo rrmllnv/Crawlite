@@ -15,6 +15,8 @@ type InspectorElementPayload = {
   rect?: { left: number; top: number; right: number; bottom: number; width: number; height: number }
   attributes?: Record<string, string>
   styles?: Record<string, string>
+  stylesUser?: Record<string, string>
+  stylesNonDefault?: Record<string, string>
   children?: {
     directCount?: number
     directTagCounts?: Record<string, number>
@@ -66,6 +68,14 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
 
   const stylesList = useMemo(() => {
     const st = selected?.styles || null
+    if (!st || typeof st !== 'object') return []
+    return Object.keys(st)
+      .sort()
+      .map((k) => ({ name: k, value: String((st as any)[k] ?? '') }))
+  }, [selected])
+
+  const stylesUserList = useMemo(() => {
+    const st = selected?.stylesUser || null
     if (!st || typeof st !== 'object') return []
     return Object.keys(st)
       .sort()
@@ -234,6 +244,23 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                         <span className="browser-inspector__tag-count">{String((selected.children!.directTagCounts as any)[tag])}</span>
                       </div>
                     ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {selected && (
+            <div className="browser-inspector__section">
+              <div className="browser-inspector__section-title">Стили (user)</div>
+              {stylesUserList.length === 0 && <div className="browser-inspector__empty">—</div>}
+              {stylesUserList.length > 0 && (
+                <div className="browser-inspector__list">
+                  {stylesUserList.map((s) => (
+                    <div key={s.name} className="browser-inspector__list-row">
+                      <div className="browser-inspector__list-key">{s.name}</div>
+                      <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

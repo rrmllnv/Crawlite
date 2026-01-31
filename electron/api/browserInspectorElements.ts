@@ -376,6 +376,126 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                 }
               };
 
+              const buildUserStyles = (el) => {
+                try {
+                  const out = Object.create(null);
+                  if (!el) return out;
+
+                  // 1) Inline styles (style="...")
+                  try {
+                    const st = el.style;
+                    if (st && typeof st.length === 'number') {
+                      for (let i = 0; i < st.length; i += 1) {
+                        const name = st[i];
+                        if (!name) continue;
+                        const value = String(st.getPropertyValue(name) || '').trim();
+                        const pr = String(st.getPropertyPriority(name) || '').trim();
+                        if (!value) continue;
+                        out[name] = pr ? (value + ' !' + pr) : value;
+                      }
+                    }
+                  } catch (e) { /* noop */ }
+
+                  // 2) Styles from accessible stylesheets (best-effort; cross-origin may throw)
+                  const applyRuleStyle = (styleDecl) => {
+                    try {
+                      if (!styleDecl || typeof styleDecl.length !== 'number') return;
+                      for (let i = 0; i < styleDecl.length; i += 1) {
+                        const name = styleDecl[i];
+                        if (!name) continue;
+                        const value = String(styleDecl.getPropertyValue(name) || '').trim();
+                        const pr = String(styleDecl.getPropertyPriority(name) || '').trim();
+                        if (!value) continue;
+                        out[name] = pr ? (value + ' !' + pr) : value;
+                      }
+                    } catch (e) { /* noop */ }
+                  };
+
+                  const walkRules = (rules) => {
+                    try {
+                      if (!rules || typeof rules.length !== 'number') return;
+                      for (let i = 0; i < rules.length; i += 1) {
+                        const r = rules[i];
+                        if (!r) continue;
+
+                        // CSSStyleRule
+                        if (r.type === 1 && r.selectorText && r.style) {
+                          const selText = String(r.selectorText || '');
+                          const selectors = selText.split(',').map((x) => String(x || '').trim()).filter(Boolean);
+                          let matches = false;
+                          for (let s = 0; s < selectors.length; s += 1) {
+                            const sel = selectors[s];
+                            try {
+                              if (sel && el.matches && el.matches(sel)) { matches = true; break; }
+                            } catch (e) { /* noop */ }
+                          }
+                          if (matches) applyRuleStyle(r.style);
+                          continue;
+                        }
+
+                        // CSSMediaRule / CSSSupportsRule / etc. with nested cssRules
+                        if (r.cssRules) {
+                          walkRules(r.cssRules);
+                        }
+                      }
+                    } catch (e) { /* noop */ }
+                  };
+
+                  try {
+                    const sheets = document.styleSheets || [];
+                    for (let i = 0; i < sheets.length; i += 1) {
+                      const sheet = sheets[i];
+                      if (!sheet) continue;
+                      let rules = null;
+                      try { rules = sheet.cssRules; } catch (e) { rules = null; }
+                      if (!rules) continue;
+                      walkRules(rules);
+                    }
+                  } catch (e) { /* noop */ }
+
+                  return out;
+                } catch (e) {
+                  return Object.create(null);
+                }
+              };
+
+              const buildNonDefaultStyles = (el, computed) => {
+                try {
+                  const out = Object.create(null);
+                  if (!el || !el.tagName) return out;
+                  const tag = String(el.tagName || '').toLowerCase();
+                  if (!tag) return out;
+
+                  const tmp = document.createElement(tag);
+                  // чтобы не влиять на layout страницы
+                  try {
+                    tmp.style.position = 'absolute';
+                    tmp.style.left = '-99999px';
+                    tmp.style.top = '-99999px';
+                    tmp.style.visibility = 'hidden';
+                    tmp.style.pointerEvents = 'none';
+                  } catch (e) { /* noop */ }
+
+                  try {
+                    (document.body || document.documentElement).appendChild(tmp);
+                  } catch (e) { /* noop */ }
+
+                  const base = buildComputedStyles(tmp);
+                  try { tmp.remove(); } catch (e) { /* noop */ }
+
+                  const src = computed && typeof computed === 'object' ? computed : Object.create(null);
+                  for (const k in src) {
+                    if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
+                    const v = String(src[k] || '');
+                    const b = String(base[k] || '');
+                    if (v !== b) out[k] = v;
+                  }
+                  return out;
+                } catch (e) {
+                  return Object.create(null);
+                }
+              };
+
               const buildChildrenSummary = (el) => {
                 try {
                   const direct = el && el.children ? el.children : null;
@@ -419,6 +539,8 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                   const rect = buildRect(el);
                   const attributes = buildAttributes(el);
                   const styles = buildComputedStyles(el);
+                  const stylesUser = buildUserStyles(el);
+                  const stylesNonDefault = buildNonDefaultStyles(el, styles);
                   const children = buildChildrenSummary(el);
                   const id = typeof el.id === 'string' ? el.id : '';
                   const className = typeof el.className === 'string' ? el.className : '';
@@ -431,6 +553,8 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                     rect,
                     attributes,
                     styles,
+                    stylesUser,
+                    stylesNonDefault,
                     children,
                     text,
                   };
