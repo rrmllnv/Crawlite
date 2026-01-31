@@ -355,6 +355,11 @@ export async function crawlStart(
       ? Math.max(1000, Math.min(300000, Math.floor((params?.options as any).pageLoadTimeoutMs)))
       : 10000
 
+  const analyzeWaitMs =
+    typeof (params?.options as any)?.analyzeWaitMs === 'number' && Number.isFinite((params?.options as any).analyzeWaitMs)
+      ? Math.max(0, Math.min(60000, Math.floor((params?.options as any).analyzeWaitMs)))
+      : 0
+
   const userAgentRaw = typeof params?.options?.userAgent === 'string' ? params.options.userAgent : ''
   const acceptLanguageRaw = typeof params?.options?.acceptLanguage === 'string' ? params.options.acceptLanguage : ''
   const platformRaw = typeof params?.options?.platform === 'string' ? params.options.platform : ''
@@ -483,6 +488,10 @@ export async function crawlStart(
       `)
     } catch {
       void 0
+    }
+
+    if (analyzeWaitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, analyzeWaitMs))
     }
 
     const loadFinishedAt = Date.now()

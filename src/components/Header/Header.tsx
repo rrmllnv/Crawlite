@@ -149,6 +149,7 @@ export function Header() {
           jitterMs: crawlSettings.jitterMs,
           deduplicateLinks: crawlSettings.deduplicateLinks,
           restrictToCurrentFolder: crawlSettings.restrictToCurrentFolder,
+          analyzeWaitMs: crawlSettings.analyzeWaitMs,
           pageLoadTimeoutMs: crawlSettings.pageLoadTimeoutMs,
           userAgent: crawlSettings.userAgent,
           acceptLanguage: crawlSettings.acceptLanguage,
