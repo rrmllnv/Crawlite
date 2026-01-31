@@ -39,6 +39,7 @@ export function BrowserView() {
   const [viewSize, setViewSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
   const [isInspectorElementsAllEnabled, setIsInspectorElementsAllEnabled] = useState<boolean>(false)
   const [isInspectorElementsHoverEnabled, setIsInspectorElementsHoverEnabled] = useState<boolean>(false)
+  const [isInspectorPanelOpen, setIsInspectorPanelOpen] = useState<boolean>(false)
 
   const boundsRef = useBrowserBounds(deviceMode)
 
@@ -226,6 +227,7 @@ export function BrowserView() {
                         if (!res || res.success !== true) return
                         setIsInspectorElementsAllEnabled(Boolean(res.enabledAll))
                         setIsInspectorElementsHoverEnabled(Boolean(res.enabledHover))
+                        setIsInspectorPanelOpen(true)
                       })
                       .catch(() => void 0)
                   }
@@ -317,7 +319,10 @@ export function BrowserView() {
             onOpenImage={setImageModalUrl}
             onOpenResource={(type, url) => setResourceModal({ type, url })}
           />
-          <BrowserInspector />
+          <BrowserInspector
+            isOpen={isInspectorPanelOpen}
+            onOpenChange={setIsInspectorPanelOpen}
+          />
         </div>
       </div>
 
