@@ -265,13 +265,13 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
         {parts.map((p, i) => {
           if (p.k === 'pseudo')
             return (
-              <span key={`p:${i}`} className="browser-inspector__selector-pseudo">
+              <span key={`p:${i}`} className="browser-inspector__rules-sel-pseudo">
                 {p.t}
               </span>
             )
           if (p.k === 'class')
             return (
-              <span key={`c:${i}`} className="browser-inspector__selector-class">
+              <span key={`c:${i}`} className="browser-inspector__rules-sel-class">
                 {p.t}
               </span>
             )
@@ -343,13 +343,13 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
     if (!hasRules && !hasMerged) return null
 
     return (
-      <div className="browser-inspector__node-block">
-        <div className="browser-inspector__node-block-title">Стили (user)</div>
+      <div className="browser-inspector__rules-block">
+        <div className="browser-inspector__rules-block-title">Стили (user)</div>
         {rulesMain.length > 0 && (
-          <div className="browser-inspector__list">
+          <div className="browser-inspector__rules-list">
             {groupRulesByMedia(rulesMain).map((mg) => (
-              <div key={`media:${mg.media || 'all'}`} className="browser-inspector__media-block">
-                {mg.media ? <div className="browser-inspector__media-title">{`@media ${mg.media}`}</div> : null}
+              <div key={`media:${mg.media || 'all'}`} className="browser-inspector__rules-media">
+                {mg.media ? <div className="browser-inspector__rules-media-title">{`@media ${mg.media}`}</div> : null}
                 {sortRules(mg.rules).map((r, ruleIdx) => {
                   const decl = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null
                   const overridden = r && r.overridden && typeof r.overridden === 'object' ? r.overridden : null
@@ -361,35 +361,35 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                   const ruleEntries = buildStyleGroupEntries(declList)
                   const fileName = r && r.source ? String(r.source).replace(/^.*[/\\]/, '') : ''
                   return (
-                    <div key={`${mg.media}:${String(r.selector || '')}:${ruleIdx}`} className="browser-inspector__style-group">
-                      <div className="browser-inspector__list-row browser-inspector__rule-header">
-                        <div className="browser-inspector__rule-header-selector">{renderSelector(String(r.selector || '').trim() || '—')}</div>
-                        <div className="browser-inspector__rule-header-file">
+                    <div key={`${mg.media}:${String(r.selector || '')}:${ruleIdx}`} className="browser-inspector__rules-rule">
+                      <div className="browser-inspector__rules-line browser-inspector__rules-rule-head">
+                        <div className="browser-inspector__rules-rule-selector">{renderSelector(String(r.selector || '').trim() || '—')}</div>
+                        <div className="browser-inspector__rules-rule-file">
                           {fileName || '—'}
                           {r && r.truncated ? ' (truncated)' : ''}
                         </div>
                       </div>
-                      <div className="browser-inspector__style-group-items">
+                      <div className="browser-inspector__rules-rule-body">
                         {ruleEntries.map((e) => {
                           if (e.kind === 'prop') {
                             const s = e.prop
                             return (
                               <div
                                 key={s.name}
-                                className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                className={`browser-inspector__rules-line${s.overridden ? ' browser-inspector__rules-line--overridden' : ''}`}
                               >
-                                <div className="browser-inspector__list-key">{s.name}</div>
-                                <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                <div className="browser-inspector__rules-key">{s.name}</div>
+                                <div className="browser-inspector__rules-val">{s.value || '—'}</div>
                               </div>
                             )
                           }
                           const groupKey = `rule:${mg.media || 'all'}:${ruleIdx}:${e.group}`
                           const opened = openUserStyleGroups.has(groupKey)
                           return (
-                            <div key={`group:${groupKey}`} className="browser-inspector__style-group">
+                            <div key={`group:${groupKey}`} className="browser-inspector__rules-group">
                               <button
                                 type="button"
-                                className="browser-inspector__list-row browser-inspector__list-row--button browser-inspector__style-group-row"
+                                className="browser-inspector__rules-line browser-inspector__rules-line--toggle browser-inspector__rules-group-row"
                                 onClick={() => {
                                   setOpenUserStyleGroups((prev) => {
                                     const next = new Set(prev)
@@ -400,24 +400,24 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                                 }}
                                 aria-expanded={opened}
                               >
-                                <div className="browser-inspector__list-key">
+                                <div className="browser-inspector__rules-key">
                                   <i
-                                    className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__style-group-chevron`}
+                                    className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__rules-group-chevron`}
                                     aria-hidden="true"
                                   />
-                                  <span className="browser-inspector__style-group-title">{e.group}</span>
+                                  <span className="browser-inspector__rules-group-title">{e.group}</span>
                                 </div>
-                                <div className="browser-inspector__list-val">{ /* ( e.items.length  )*/ }</div>
+                                <div className="browser-inspector__rules-val">{ /* ( e.items.length  )*/ }</div>
                               </button>
                               {opened && (
-                                <div className="browser-inspector__style-group-items">
+                                <div className="browser-inspector__rules-group-body">
                                   {e.items.map((s) => (
                                     <div
                                       key={s.name}
-                                      className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                      className={`browser-inspector__rules-line${s.overridden ? ' browser-inspector__rules-line--overridden' : ''}`}
                                     >
-                                      <div className="browser-inspector__list-key">{s.name}</div>
-                                      <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                      <div className="browser-inspector__rules-key">{s.name}</div>
+                                      <div className="browser-inspector__rules-val">{s.value || '—'}</div>
                                     </div>
                                   ))}
                                 </div>
@@ -439,10 +439,10 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
             {rulesBefore.length > 0 && (
               <div className="browser-inspector__pseudo-block">
                 <div className="browser-inspector__pseudo-title">Pseudo ::before</div>
-                <div className="browser-inspector__list">
+                <div className="browser-inspector__rules-list">
                   {groupRulesByMedia(rulesBefore).map((mg) => (
-                    <div key={`before:media:${mg.media || 'all'}`} className="browser-inspector__media-block">
-                      {mg.media ? <div className="browser-inspector__media-title">{`@media ${mg.media}`}</div> : null}
+                    <div key={`before:media:${mg.media || 'all'}`} className="browser-inspector__rules-media">
+                      {mg.media ? <div className="browser-inspector__rules-media-title">{`@media ${mg.media}`}</div> : null}
                       {sortRules(mg.rules).map((r, idx) => {
                         const decl = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null
                         const overridden = r && r.overridden && typeof r.overridden === 'object' ? r.overridden : null
@@ -454,32 +454,32 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                         const ruleEntries = buildStyleGroupEntries(declList)
                         const fileName = r && r.source ? String(r.source).replace(/^.*[/\\]/, '') : ''
                         return (
-                          <div key={`before:${mg.media}:${String(r.selector || '')}:${idx}`} className="browser-inspector__style-group">
-                            <div className="browser-inspector__list-row browser-inspector__rule-header">
-                              <div className="browser-inspector__rule-header-selector">{renderSelector(String(r.selector || '').trim() || '—')}</div>
-                              <div className="browser-inspector__rule-header-file">{fileName || '—'}</div>
+                          <div key={`before:${mg.media}:${String(r.selector || '')}:${idx}`} className="browser-inspector__rules-rule">
+                            <div className="browser-inspector__rules-line browser-inspector__rules-rule-head">
+                              <div className="browser-inspector__rules-rule-selector">{renderSelector(String(r.selector || '').trim() || '—')}</div>
+                              <div className="browser-inspector__rules-rule-file">{fileName || '—'}</div>
                             </div>
-                            <div className="browser-inspector__style-group-items">
+                            <div className="browser-inspector__rules-rule-body">
                               {ruleEntries.map((e) => {
                                 if (e.kind === 'prop') {
                                   const s = e.prop
                                   return (
                                     <div
                                       key={s.name}
-                                      className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                      className={`browser-inspector__rules-line${s.overridden ? ' browser-inspector__rules-line--overridden' : ''}`}
                                     >
-                                      <div className="browser-inspector__list-key">{s.name}</div>
-                                      <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                      <div className="browser-inspector__rules-key">{s.name}</div>
+                                      <div className="browser-inspector__rules-val">{s.value || '—'}</div>
                                     </div>
                                   )
                                 }
                                 const groupKey = `before:${mg.media || 'all'}:${idx}:${e.group}`
                                 const opened = openUserStyleGroups.has(groupKey)
                                 return (
-                                  <div key={`group:${groupKey}`} className="browser-inspector__style-group">
+                                  <div key={`group:${groupKey}`} className="browser-inspector__rules-group">
                                     <button
                                       type="button"
-                                      className="browser-inspector__list-row browser-inspector__list-row--button browser-inspector__style-group-row"
+                                      className="browser-inspector__rules-line browser-inspector__rules-line--toggle browser-inspector__rules-group-row"
                                       onClick={() => {
                                         setOpenUserStyleGroups((prev) => {
                                           const next = new Set(prev)
@@ -490,24 +490,24 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                                       }}
                                       aria-expanded={opened}
                                     >
-                                      <div className="browser-inspector__list-key">
+                                      <div className="browser-inspector__rules-key">
                                         <i
-                                          className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__style-group-chevron`}
+                                          className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__rules-group-chevron`}
                                           aria-hidden="true"
                                         />
-                                        <span className="browser-inspector__style-group-title">{e.group}</span>
+                                        <span className="browser-inspector__rules-group-title">{e.group}</span>
                                       </div>
-                                      <div className="browser-inspector__list-val">({e.items.length})</div>
+                                      <div className="browser-inspector__rules-val">({e.items.length})</div>
                                     </button>
                                     {opened && (
-                                      <div className="browser-inspector__style-group-items">
+                                      <div className="browser-inspector__rules-group-body">
                                         {e.items.map((s) => (
                                           <div
                                             key={s.name}
-                                            className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                            className={`browser-inspector__rules-line${s.overridden ? ' browser-inspector__rules-line--overridden' : ''}`}
                                           >
-                                            <div className="browser-inspector__list-key">{s.name}</div>
-                                            <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                            <div className="browser-inspector__rules-key">{s.name}</div>
+                                            <div className="browser-inspector__rules-val">{s.value || '—'}</div>
                                           </div>
                                         ))}
                                       </div>
@@ -528,10 +528,10 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
             {rulesAfter.length > 0 && (
               <div className="browser-inspector__pseudo-block">
                 <div className="browser-inspector__pseudo-title">Pseudo ::after</div>
-                <div className="browser-inspector__list">
+                <div className="browser-inspector__rules-list">
                   {groupRulesByMedia(rulesAfter).map((mg) => (
-                    <div key={`after:media:${mg.media || 'all'}`} className="browser-inspector__media-block">
-                      {mg.media ? <div className="browser-inspector__media-title">{`@media ${mg.media}`}</div> : null}
+                    <div key={`after:media:${mg.media || 'all'}`} className="browser-inspector__rules-media">
+                      {mg.media ? <div className="browser-inspector__rules-media-title">{`@media ${mg.media}`}</div> : null}
                       {sortRules(mg.rules).map((r, idx) => {
                         const decl = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null
                         const overridden = r && r.overridden && typeof r.overridden === 'object' ? r.overridden : null
@@ -543,32 +543,32 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                         const ruleEntries = buildStyleGroupEntries(declList)
                         const fileName = r && r.source ? String(r.source).replace(/^.*[/\\]/, '') : ''
                         return (
-                          <div key={`after:${mg.media}:${String(r.selector || '')}:${idx}`} className="browser-inspector__style-group">
-                            <div className="browser-inspector__list-row browser-inspector__rule-header">
-                              <div className="browser-inspector__rule-header-selector">{renderSelector(String(r.selector || '').trim() || '—')}</div>
-                              <div className="browser-inspector__rule-header-file">{fileName || '—'}</div>
+                          <div key={`after:${mg.media}:${String(r.selector || '')}:${idx}`} className="browser-inspector__rules-rule">
+                            <div className="browser-inspector__rules-line browser-inspector__rules-rule-head">
+                              <div className="browser-inspector__rules-rule-selector">{renderSelector(String(r.selector || '').trim() || '—')}</div>
+                              <div className="browser-inspector__rules-rule-file">{fileName || '—'}</div>
                             </div>
-                            <div className="browser-inspector__style-group-items">
+                            <div className="browser-inspector__rules-rule-body">
                               {ruleEntries.map((e) => {
                                 if (e.kind === 'prop') {
                                   const s = e.prop
                                   return (
                                     <div
                                       key={s.name}
-                                      className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                      className={`browser-inspector__rules-line${s.overridden ? ' browser-inspector__rules-line--overridden' : ''}`}
                                     >
-                                      <div className="browser-inspector__list-key">{s.name}</div>
-                                      <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                      <div className="browser-inspector__rules-key">{s.name}</div>
+                                      <div className="browser-inspector__rules-val">{s.value || '—'}</div>
                                     </div>
                                   )
                                 }
                                 const groupKey = `after:${mg.media || 'all'}:${idx}:${e.group}`
                                 const opened = openUserStyleGroups.has(groupKey)
                                 return (
-                                  <div key={`group:${groupKey}`} className="browser-inspector__style-group">
+                                  <div key={`group:${groupKey}`} className="browser-inspector__rules-group">
                                     <button
                                       type="button"
-                                      className="browser-inspector__list-row browser-inspector__list-row--button browser-inspector__style-group-row"
+                                      className="browser-inspector__rules-line browser-inspector__rules-line--toggle browser-inspector__rules-group-row"
                                       onClick={() => {
                                         setOpenUserStyleGroups((prev) => {
                                           const next = new Set(prev)
@@ -579,24 +579,24 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                                       }}
                                       aria-expanded={opened}
                                     >
-                                      <div className="browser-inspector__list-key">
+                                      <div className="browser-inspector__rules-key">
                                         <i
-                                          className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__style-group-chevron`}
+                                          className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__rules-group-chevron`}
                                           aria-hidden="true"
                                         />
-                                        <span className="browser-inspector__style-group-title">{e.group}</span>
+                                        <span className="browser-inspector__rules-group-title">{e.group}</span>
                                       </div>
-                                      <div className="browser-inspector__list-val">({e.items.length})</div>
+                                      <div className="browser-inspector__rules-val">({e.items.length})</div>
                                     </button>
                                     {opened && (
-                                      <div className="browser-inspector__style-group-items">
+                                      <div className="browser-inspector__rules-group-body">
                                         {e.items.map((s) => (
                                           <div
                                             key={s.name}
-                                            className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                            className={`browser-inspector__rules-line${s.overridden ? ' browser-inspector__rules-line--overridden' : ''}`}
                                           >
-                                            <div className="browser-inspector__list-key">{s.name}</div>
-                                            <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                            <div className="browser-inspector__rules-key">{s.name}</div>
+                                            <div className="browser-inspector__rules-val">{s.value || '—'}</div>
                                           </div>
                                         ))}
                                       </div>
@@ -617,13 +617,13 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
         )}
 
         {!hasRules && st && (
-          <div className="browser-inspector__list">
+          <div className="browser-inspector__rules-list">
             {Object.keys(st)
               .sort()
               .map((k) => (
-                <div key={k} className="browser-inspector__list-row">
-                  <div className="browser-inspector__list-key">{k}</div>
-                  <div className="browser-inspector__list-val">{String((st as any)[k] ?? '') || '—'}</div>
+                <div key={k} className="browser-inspector__rules-line">
+                  <div className="browser-inspector__rules-key">{k}</div>
+                  <div className="browser-inspector__rules-val">{String((st as any)[k] ?? '') || '—'}</div>
                 </div>
               ))}
           </div>
@@ -647,26 +647,26 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
     const isRootLike = tag === 'html' || tag === 'body'
 
     return (
-      <div className="browser-inspector__node-details">
-          <div className="browser-inspector__node-block">
-            <div className="browser-inspector__kv">
+      <div className="browser-inspector__details">
+          <div className="browser-inspector__details-block">
+            <div className="browser-inspector__details-kv">
             {tag ? (
-              <div className="browser-inspector__kv-row">
-                <div className="browser-inspector__kv-key">Tag</div>
-                <div className="browser-inspector__kv-val">{`<${tag}>`}</div>
+              <div className="browser-inspector__details-kv-row">
+                <div className="browser-inspector__details-kv-key">Tag</div>
+                <div className="browser-inspector__details-kv-val">{`<${tag}>`}</div>
               </div>
             ) : null}
               {id ? (
-                <div className="browser-inspector__kv-row">
-                  <div className="browser-inspector__kv-key">ID</div>
-                  <div className="browser-inspector__kv-val">{`#${id}`}</div>
+                <div className="browser-inspector__details-kv-row">
+                  <div className="browser-inspector__details-kv-key">ID</div>
+                  <div className="browser-inspector__details-kv-val">{`#${id}`}</div>
                 </div>
               ) : null}
               {rect ? (
-                <div className="browser-inspector__kv-size-block">
+                <div className="browser-inspector__details-size-block">
                   <button
                     type="button"
-                    className="browser-inspector__kv-row browser-inspector__kv-row--button"
+                    className="browser-inspector__details-kv-row browser-inspector__details-kv-row--btn"
                     onClick={() => {
                       setOpenSizeRows((prev) => {
                         const next = new Set(prev)
@@ -677,28 +677,28 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                     }}
                     aria-expanded={openSizeRows.has(node.key)}
                   >
-                    <div className="browser-inspector__kv-key">
+                    <div className="browser-inspector__details-kv-key">
                       <i
-                        className={`fa-solid fa-chevron-${openSizeRows.has(node.key) ? 'down' : 'right'} browser-inspector__kv-chevron`}
+                        className={`fa-solid fa-chevron-${openSizeRows.has(node.key) ? 'down' : 'right'} browser-inspector__details-kv-chevron`}
                         aria-hidden="true"
                       />
                       Размер
                     </div>
-                    <div className="browser-inspector__kv-val">
+                    <div className="browser-inspector__details-kv-val">
                       {rect ? `${Math.round(Number(rect.width) || 0)} × ${Math.round(Number(rect.height) || 0)}` : '—'}
                     </div>
                   </button>
                   {openSizeRows.has(node.key) && (
-                    <div className="browser-inspector__kv-size-expanded">
-                      <div className="browser-inspector__kv-row">
-                        <div className="browser-inspector__kv-key">Ширина</div>
-                        <div className="browser-inspector__kv-val">
+                    <div className="browser-inspector__details-size-expanded">
+                      <div className="browser-inspector__details-kv-row">
+                        <div className="browser-inspector__details-kv-key">Ширина</div>
+                        <div className="browser-inspector__details-kv-val">
                           {rect ? `${Math.round(Number(rect.width) || 0)}` : '—'}
                         </div>
                       </div>
-                      <div className="browser-inspector__kv-row">
-                        <div className="browser-inspector__kv-key">Высота</div>
-                        <div className="browser-inspector__kv-val">
+                      <div className="browser-inspector__details-kv-row">
+                        <div className="browser-inspector__details-kv-key">Высота</div>
+                        <div className="browser-inspector__details-kv-val">
                           {rect ? `${Math.round(Number(rect.height) || 0)}` : '—'}
                         </div>
                       </div>
@@ -707,18 +707,18 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                 </div>
               ) : null}
               {!isRootLike && rect ? (
-                <div className="browser-inspector__kv-row">
-                  <div className="browser-inspector__kv-key">Позиция</div>
-                  <div className="browser-inspector__kv-val">
+                <div className="browser-inspector__details-kv-row">
+                  <div className="browser-inspector__details-kv-key">Позиция</div>
+                  <div className="browser-inspector__details-kv-val">
                     {`${Math.round(Number(rect.left) || 0)}, ${Math.round(Number(rect.top) || 0)}`}
                   </div>
                 </div>
               ) : null}
               {(font?.family || font?.size || font?.weight || font?.style || font?.lineHeight) ? (
-                <div className="browser-inspector__kv-font-block">
+                <div className="browser-inspector__details-font-block">
                   <button
                     type="button"
-                    className="browser-inspector__kv-row browser-inspector__kv-row--button"
+                    className="browser-inspector__details-kv-row browser-inspector__details-kv-row--btn"
                     onClick={() => {
                       setOpenFontRows((prev) => {
                         const next = new Set(prev)
@@ -729,64 +729,64 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                     }}
                     aria-expanded={openFontRows.has(node.key)}
                   >
-                    <div className="browser-inspector__kv-key">
+                    <div className="browser-inspector__details-kv-key">
                       <i
-                        className={`fa-solid fa-chevron-${openFontRows.has(node.key) ? 'down' : 'right'} browser-inspector__kv-chevron`}
+                        className={`fa-solid fa-chevron-${openFontRows.has(node.key) ? 'down' : 'right'} browser-inspector__details-kv-chevron`}
                         aria-hidden="true"
                       />
                       Шрифт
                     </div>
-                    <div className="browser-inspector__kv-val">
+                    <div className="browser-inspector__details-kv-val">
                       {font?.family || font?.size || font?.weight || font?.lineHeight
                         ? `${font?.family || ''} ${font?.size || ''} ${font?.weight || ''} ${font?.lineHeight || ''}`.trim()
                         : '—'}
                     </div>
                   </button>
                   {openFontRows.has(node.key) && (
-                    <div className="browser-inspector__kv-font-expanded">
-                      <div className="browser-inspector__kv-row">
-                        <div className="browser-inspector__kv-key">font-family</div>
-                        <div className="browser-inspector__kv-val">{font?.family ? String(font.family) : '—'}</div>
+                    <div className="browser-inspector__details-font-expanded">
+                      <div className="browser-inspector__details-kv-row">
+                        <div className="browser-inspector__details-kv-key">font-family</div>
+                        <div className="browser-inspector__details-kv-val">{font?.family ? String(font.family) : '—'}</div>
                       </div>
-                      <div className="browser-inspector__kv-row">
-                        <div className="browser-inspector__kv-key">font-size</div>
-                        <div className="browser-inspector__kv-val">{font?.size ? String(font.size) : '—'}</div>
+                      <div className="browser-inspector__details-kv-row">
+                        <div className="browser-inspector__details-kv-key">font-size</div>
+                        <div className="browser-inspector__details-kv-val">{font?.size ? String(font.size) : '—'}</div>
                       </div>
-                      <div className="browser-inspector__kv-row">
-                        <div className="browser-inspector__kv-key">font-weight</div>
-                        <div className="browser-inspector__kv-val">{font?.weight ? String(font.weight) : '—'}</div>
+                      <div className="browser-inspector__details-kv-row">
+                        <div className="browser-inspector__details-kv-key">font-weight</div>
+                        <div className="browser-inspector__details-kv-val">{font?.weight ? String(font.weight) : '—'}</div>
                       </div>
-                      <div className="browser-inspector__kv-row">
-                        <div className="browser-inspector__kv-key">font-style</div>
-                        <div className="browser-inspector__kv-val">{font?.style ? String(font.style) : '—'}</div>
+                      <div className="browser-inspector__details-kv-row">
+                        <div className="browser-inspector__details-kv-key">font-style</div>
+                        <div className="browser-inspector__details-kv-val">{font?.style ? String(font.style) : '—'}</div>
                       </div>
-                      <div className="browser-inspector__kv-row">
-                        <div className="browser-inspector__kv-key">line-height</div>
-                        <div className="browser-inspector__kv-val">{font?.lineHeight ? String(font.lineHeight) : '—'}</div>
+                      <div className="browser-inspector__details-kv-row">
+                        <div className="browser-inspector__details-kv-key">line-height</div>
+                        <div className="browser-inspector__details-kv-val">{font?.lineHeight ? String(font.lineHeight) : '—'}</div>
                       </div>
                     </div>
                   )}
                 </div>
               ) : null}
               {color ? (
-                <div className="browser-inspector__kv-row browser-inspector__kv-row--color">
-                  <div className="browser-inspector__kv-key">Цвет</div>
-                  <div className="browser-inspector__kv-val browser-inspector__kv-val--color">
+                <div className="browser-inspector__details-kv-row browser-inspector__details-color-row">
+                  <div className="browser-inspector__details-kv-key">Цвет</div>
+                  <div className="browser-inspector__details-kv-val browser-inspector__details-color-val">
                     <span
-                      className="browser-inspector__color-swatch"
+                      className="browser-inspector__details-color-swatch"
                       style={{ backgroundColor: color }}
                       title={color}
                       aria-hidden
                     />
-                    <span className="browser-inspector__color-text">
+                    <span className="browser-inspector__details-color-text">
                       {formatColorValue(color, colorDisplayFormat)}
                     </span>
-                    <span className="browser-inspector__color-format">
+                    <span className="browser-inspector__details-color-format">
                       {(['hex', 'rgb', 'hsl'] as const).map((fmt) => (
                         <button
                           key={fmt}
                           type="button"
-                          className={`browser-inspector__color-format-btn${colorDisplayFormat === fmt ? ' browser-inspector__color-format-btn--active' : ''}`}
+                          className={`browser-inspector__details-color-btn${colorDisplayFormat === fmt ? ' browser-inspector__details-color-btn--active' : ''}`}
                           onClick={() => setColorDisplayFormat(fmt)}
                           title={fmt === 'hex' ? 'HEX' : fmt === 'rgb' ? 'RGB' : 'HSL'}
                         >
@@ -798,9 +798,9 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                 </div>
               ) : null}
               {!isRootLike && text ? (
-                <div className="browser-inspector__kv-row">
-                  <div className="browser-inspector__kv-key">Текст</div>
-                  <div className="browser-inspector__kv-val">{String(text)}</div>
+                <div className="browser-inspector__details-kv-row">
+                  <div className="browser-inspector__details-kv-key">Текст</div>
+                  <div className="browser-inspector__details-kv-val">{String(text)}</div>
                 </div>
               ) : null}
             </div>
@@ -808,15 +808,15 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
         
 
         {hasAttrs ? (
-          <div className="browser-inspector__node-block">
-            <div className="browser-inspector__node-block-title">Атрибуты</div>
-            <div className="browser-inspector__list">
+          <div className="browser-inspector__details-block">
+            <div className="browser-inspector__details-block-title">Атрибуты</div>
+            <div className="browser-inspector__attrs-list">
               {Object.keys(attrs!)
                 .sort()
                 .map((k) => (
-                  <div key={k} className="browser-inspector__list-row">
-                    <div className="browser-inspector__list-key">{k}</div>
-                    <div className="browser-inspector__list-val">{String((attrs as any)[k] ?? '') || '—'}</div>
+                  <div key={k} className="browser-inspector__attrs-line">
+                    <div className="browser-inspector__attrs-key">{k}</div>
+                    <div className="browser-inspector__attrs-val">{String((attrs as any)[k] ?? '') || '—'}</div>
                   </div>
                 ))}
             </div>
@@ -853,28 +853,28 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
     <div className="browser-inspector">
       <button
         type="button"
-        className="browser-inspector__header"
+        className="browser-inspector__panel-header"
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
         aria-controls="browser-inspector-content"
       >
-        <span className="browser-inspector__title">Инспектор</span>
+        <span className="browser-inspector__panel-title">Инспектор</span>
         <i
-          className={`fa-solid fa-chevron-${isOpen ? 'down' : 'left'} browser-inspector__chevron`}
+          className={`fa-solid fa-chevron-${isOpen ? 'down' : 'left'} browser-inspector__panel-chevron`}
           aria-hidden="true"
         />
       </button>
       {isOpen && (
-        <div id="browser-inspector-content" className="browser-inspector__content">
-          {!tree && <div className="browser-inspector__empty">Кликните по элементу в браузере.</div>}
+        <div id="browser-inspector-content" className="browser-inspector__panel-content">
+          {!tree && <div className="browser-inspector__panel-empty">Кликните по элементу в браузере.</div>}
 
           {tree && (
-            <div className="browser-inspector__section">
-              <div className="browser-inspector__section-header">
-                <div className="browser-inspector__section-title">DOM дерево</div>
+            <div className="browser-inspector__section-dom">
+              <div className="browser-inspector__section-dom-head">
+                <div className="browser-inspector__section-dom-title">DOM дерево</div>
                 <button
                   type="button"
-                  className="browser-inspector__section-expand-btn"
+                  className="browser-inspector__section-dom-btn"
                   onClick={() => {
                     const allOpen = chainList.length > 0 && chainList.every((n) => openTreeNodes.has(n.key))
                     if (allOpen) {
@@ -888,18 +888,18 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                   {chainList.length > 0 && chainList.every((n) => openTreeNodes.has(n.key)) ? 'Свернуть все' : 'Развернуть все'}
                 </button>
               </div>
-              <div className="browser-inspector__tree">
+              <div className="browser-inspector__dom-tree">
                 {chainList.map((node) => {
                   const opened = openTreeNodes.has(node.key)
                   const title = renderTreeRowTitle(node)
                   return (
-                    <div key={node.key} className="browser-inspector__tree-node">
+                    <div key={node.key} className="browser-inspector__dom-node">
                       <button
                         type="button"
                         className={[
-                          'browser-inspector__tree-row',
-                          'browser-inspector__tree-row--button',
-                          node.isClicked ? 'browser-inspector__tree-row--clicked' : '',
+                          'browser-inspector__dom-row',
+                          'browser-inspector__dom-row--btn',
+                          node.isClicked ? 'browser-inspector__dom-row--current' : '',
                         ]
                           .filter(Boolean)
                           .join(' ')}
@@ -914,11 +914,11 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                         aria-expanded={opened}
                       >
                         <i
-                          className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__tree-chevron`}
+                          className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__dom-chevron`}
                           aria-hidden="true"
                         />
-                        <span className="browser-inspector__tree-title">{title}</span>
-                        {node.truncated ? <span className="browser-inspector__tree-truncated">(truncated)</span> : null}
+                        <span className="browser-inspector__dom-title">{title}</span>
+                        {node.truncated ? <span className="browser-inspector__dom-truncated">(truncated)</span> : null}
                       </button>
                       {opened ? renderNodeDetails(node) : null}
                     </div>

@@ -1,19 +1,16 @@
 @use '../../styles/variables' as *;
 
-// =============================================================================
-// Browser Inspector — корневой блок и вложенные секции
-// =============================================================================
+$indent-1: 10px;
+$indent-2: 20px;
 
 .browser-inspector {
   display: flex;
   flex-direction: column;
-  min-height: 31px;
+  min-height: 0;
   border-bottom: 1px solid $border-color;
 
-  // ---------------------------------------------------------------------------
-  // Шапка (кнопка «Инспектор», сворачивание панели)
-  // ---------------------------------------------------------------------------
-  &__header {
+  // --- Панель: шапка и контент ---
+  &__panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -27,7 +24,6 @@
     cursor: pointer;
     text-align: left;
     transition: background-color $transition-fast, color $transition-fast;
-    min-height: 30px;
 
     &:hover {
       background-color: rgba(255, 255, 255, 0.06);
@@ -35,19 +31,16 @@
     }
   }
 
-  &__title {
+  &__panel-title {
     flex: 1;
   }
 
-  &__chevron {
+  &__panel-chevron {
     font-size: 10px;
     color: $text-secondary;
   }
 
-  // ---------------------------------------------------------------------------
-  // Контент (область под шапкой: дерево + детали)
-  // ---------------------------------------------------------------------------
-  &__content {
+  &__panel-content {
     flex: 1;
     min-height: 60px;
     overflow: auto;
@@ -55,15 +48,13 @@
     background-color: $bg-secondary;
   }
 
-  &__empty {
+  &__panel-empty {
     color: $text-secondary;
     font-size: $font-size-sm;
   }
 
-  // ---------------------------------------------------------------------------
-  // Секция «DOM дерево» (заголовок + кнопка Развернуть/Свернуть)
-  // ---------------------------------------------------------------------------
-  &__section {
+  // --- Секция DOM дерево ---
+  &__section-dom {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -71,20 +62,20 @@
     border-bottom: 1px solid $border-color;
   }
 
-  &__section-header {
+  &__section-dom-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
   }
 
-  &__section-title {
+  &__section-dom-title {
     font-size: $font-size-sm;
     font-weight: 700;
     color: $text-primary;
   }
 
-  &__section-expand-btn {
+  &__section-dom-btn {
     flex-shrink: 0;
     padding: 4px 8px;
     border: 1px solid $border-color;
@@ -100,21 +91,18 @@
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Дерево узлов DOM (цепочка от кликнутого до html)
-  // ---------------------------------------------------------------------------
-  &__tree {
+  &__dom-tree {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    width: 100%;
   }
 
-  &__tree-node {
-    // border-left: 1px solid rgba(255, 255, 255, 0.08);
-    // padding-left: 8px;
+  &__dom-node {
+    width: 100%;
   }
 
-  &__tree-row {
+  &__dom-row {
     display: flex;
     align-items: baseline;
     gap: 10px;
@@ -122,13 +110,15 @@
     font-size: $font-size-sm;
     cursor: default;
     list-style: none;
+    width: 100%;
+    box-sizing: border-box;
 
     &:hover {
       background-color: rgba(255, 255, 255, 0.06);
       border-radius: $border-radius;
     }
 
-    &--button {
+    &--btn {
       width: 100%;
       border: none;
       padding: 4px 6px;
@@ -137,89 +127,90 @@
       text-align: left;
     }
 
-    &--clicked {
+    &--current {
       background-color: rgba(74, 163, 255, 0.12);
       border-radius: $border-radius;
     }
   }
 
-  &__tree-title {
+  &__dom-title {
     color: $text-primary;
     font-weight: 700;
     word-break: break-word;
   }
 
-  &__tree-chevron {
+  &__dom-chevron {
     font-size: 10px;
     color: $text-secondary;
     margin-top: 3px;
   }
 
-  &__tree-truncated {
+  &__dom-truncated {
     color: $warning-color;
     font-weight: 700;
   }
 
-  // ---------------------------------------------------------------------------
-  // Карточка деталей узла (Tag, ID, Размер, Шрифт, Цвет, Атрибуты, Стили)
-  // ---------------------------------------------------------------------------
-  &__node-details {
+  // --- Карточка деталей узла (Tag, ID, Размер, Шрифт, Цвет) ---
+  &__details {
     margin: 6px 0 10px 0;
     padding: 8px 0;
     border: 1px solid $border-color;
     border-radius: $border-radius;
     background-color: $bg-tertiary;
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  &__node-block {
+  &__details-block {
     display: flex;
     flex-direction: column;
     gap: 6px;
     margin-top: 10px;
+    width: 100%;
+    box-sizing: border-box;
 
     &:first-child {
       margin-top: 0;
     }
   }
 
-  &__node-block-title {
+  &__details-block-title {
     color: $text-secondary;
     font-size: $font-size-sm;
     font-weight: 700;
-    padding: 0 10px;
+    padding-left: 10px;
   }
 
-  // ---------------------------------------------------------------------------
-  // Ключ-значение (kv): строки Tag, ID, Class, Размер, Позиция, Текст, Шрифт, Цвет
-  // ---------------------------------------------------------------------------
-  &__kv {
+  &__details-kv {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    width: 100%;
   }
 
-  &__kv-row {
+  &__details-kv-row {
     display: flex;
     gap: 10px;
-    padding: 0 10px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 10px;
 
-    &--button {
+    &--btn {
       width: 100%;
       border: none;
       background: transparent;
       cursor: pointer;
       text-align: left;
+      padding: 4px $spacing-sm; 
 
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.06);
-        // border-radius: $border-radius;
-      }
+     
     }
-    
 
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
   }
 
-  &__kv-key {
+  &__details-kv-key {
     flex: 0 0 40%;
     max-width: 40%;
     color: $text-secondary;
@@ -227,14 +218,14 @@
     word-break: break-word;
   }
 
-  &__kv-val {
+  &__details-kv-val {
     flex: 1 1 60%;
     max-width: 60%;
     color: $text-primary;
     font-size: $font-size-sm;
     word-break: break-word;
 
-    &--color {
+    &.browser-inspector__details-color-val {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -242,30 +233,38 @@
     }
   }
 
-  &__kv-chevron {
+  &__details-kv-chevron {
     margin-right: 6px;
     font-size: 10px;
     color: $text-secondary;
   }
 
-  &__kv-font-block,
-  &__kv-size-block {
+  &__details-size-block,
+  &__details-font-block {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    width: 100%;
   }
 
-  &__kv-font-expanded,
-  &__kv-size-expanded {
+  &__details-size-expanded,
+  &__details-font-expanded {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding-left: 16px;
-    //border-left: 1px solid $border-color;
+    width: 100%;
+    box-sizing: border-box;
+
+    .browser-inspector__details-kv-row {
+      padding-left: $indent-2;
+    }
   }
 
-  // Цвет: образец, текст, кнопки HEX/RGB/HSL
-  &__color-swatch {
+  &__details-color-row {
+    width: 100%;
+  }
+
+  &__details-color-swatch {
     flex-shrink: 0;
     width: 16px;
     height: 16px;
@@ -273,19 +272,19 @@
     border-radius: 2px;
   }
 
-  &__color-text {
+  &__details-color-text {
     flex: 0 1 auto;
     min-width: 0;
     word-break: break-word;
   }
 
-  &__color-format {
+  &__details-color-format {
     display: flex;
     gap: 4px;
     flex-shrink: 0;
   }
 
-  &__color-format-btn {
+  &__details-color-btn {
     padding: 2px 6px;
     border: 1px solid $border-color;
     border-radius: 2px;
@@ -306,31 +305,116 @@
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Списки (атрибуты, стили user): строка ключ-значение
-  // ---------------------------------------------------------------------------
-  &__list {
+  // --- Атрибуты: список на всю ширину, отступ у строки ---
+  &__attrs-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    // padding: 0 10px;
+    width: 100%;
   }
 
-  &__list--styles {
-    max-height: 360px;
-    overflow: auto;
-    padding-right: 6px;
-  }
-
-  &__list-row {
+  &__attrs-line {
     display: flex;
     gap: 10px;
     align-items: flex-start;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px $spacing-sm;
 
-    &--button {
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+  }
+
+  &__attrs-key {
+    flex: 0 0 40%;
+    max-width: 40%;
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    word-break: break-word;
+  }
+
+  &__attrs-val {
+    flex: 1 1 60%;
+    max-width: 60%;
+    color: $text-primary;
+    font-size: $font-size-sm;
+    word-break: break-word;
+  }
+
+  // --- User rules (Стили user): список на всю ширину, отступ у строки ---
+  &__rules-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  &__rules-block-title {
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    font-weight: 700;
+    padding-left: 10px;
+  }
+
+  &__rules-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+  }
+
+  &__rules-media {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+  }
+
+  &__rules-media-title {
+    color: $warning-color;
+    font-size: $font-size-sm;
+    font-weight: 700;
+    width: 100%;
+    padding: 0 $spacing-sm;
+    box-sizing: border-box;
+  }
+
+  &__rules-rule {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+  }
+
+  &__rules-rule-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+  }
+
+  &__rules-line {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px $spacing-sm;
+    padding-left: $spacing-sm + $indent-1;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    &.browser-inspector__rules-rule-head {
+      padding-left: $spacing-sm;
+    }
+
+    &--toggle {
       width: 100%;
       border: none;
-      padding: 0;
       background: transparent;
       cursor: pointer;
       text-align: left;
@@ -339,15 +423,50 @@
     &--overridden {
       opacity: 0.65;
 
-      .browser-inspector__list-key,
-      .browser-inspector__list-val {
+      .browser-inspector__rules-key,
+      .browser-inspector__rules-val {
         color: $text-secondary;
         text-decoration: line-through;
       }
     }
   }
 
-  &__list-key {
+  &__rules-group-body .browser-inspector__rules-line {
+    padding-left: $spacing-sm + $indent-2;
+  }
+
+  &__rules-group-row:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+
+  &__rules-rule-selector {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: $text-primary;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    word-break: break-word;
+
+    .browser-inspector__rules-sel-class {
+      color: $text-primary;
+      font-weight: 600;
+    }
+
+    .browser-inspector__rules-sel-pseudo {
+      color: $primary-color;
+      font-weight: 700;
+    }
+  }
+
+  &__rules-rule-file {
+    flex: 0 0 auto;
+    margin-left: 10px;
+    color: $text-primary;
+    font-size: $font-size-sm;
+    white-space: nowrap;
+  }
+
+  &__rules-key {
     flex: 0 0 40%;
     max-width: 40%;
     color: $text-secondary;
@@ -355,7 +474,7 @@
     word-break: break-word;
   }
 
-  &__list-val {
+  &__rules-val {
     flex: 1 1 60%;
     max-width: 60%;
     color: $text-primary;
@@ -363,120 +482,42 @@
     word-break: break-word;
   }
 
-  // ---------------------------------------------------------------------------
-  // Группы стилей (user): правило, селектор, файл, группировка по свойству
-  // ---------------------------------------------------------------------------
-  &__style-group-items {
-    // padding-left: 10px;
+  &__rules-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
   }
 
-  &__style-group-row {
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.06);
-      border-radius: $border-radius;
-    }
-  }
-
-  &__style-group-chevron {
+  &__rules-group-chevron {
     margin-right: 6px;
     font-size: 10px;
     color: $text-secondary;
   }
 
-  &__style-group-title {
+  &__rules-group-title {
     color: $text-secondary;
   }
 
-  &__rule-header {
-    .browser-inspector__rule-header-selector {
-      flex: 1 1 auto;
-      min-width: 0;
-      color: $text-primary;
-      font-size: $font-size-sm;
-      font-weight: 600;
-      word-break: break-word;
-      padding: 0px 10px;
-    }
-
-    .browser-inspector__selector-class {
-      color: $text-primary;
-      font-weight: 600;
-    }
-
-    .browser-inspector__selector-pseudo {
-      color: $primary-color;
-      font-weight: 700;
-    }
-
-    .browser-inspector__rule-header-file {
-      flex: 0 0 auto;
-      margin-left: 10px;
-      color: $text-primary;
-      font-size: $font-size-sm;
-      white-space: nowrap;
-    }
-  }
-
-  &__media-block {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  &__media-title {
-    color: $warning-color;
-    font-size: $font-size-sm;
-    font-weight: 700;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Pseudo ::before / ::after
-  // ---------------------------------------------------------------------------
+  // --- Pseudo ::before / ::after ---
   &__pseudo-wrap {
     margin-top: 8px;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    width: 100%;
   }
 
   &__pseudo-block {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    width: 100%;
   }
 
   &__pseudo-title {
     color: $primary-color;
     font-size: $font-size-sm;
     font-weight: 700;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Теги (если используются)
-  // ---------------------------------------------------------------------------
-  &__tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  &__tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 2px 8px;
-    border-radius: $border-radius;
-    border: 1px solid $border-color;
-    background-color: $bg-tertiary;
-    color: $text-primary;
-    font-size: $font-size-sm;
-  }
-
-  &__tag-name {
-    color: $text-primary;
-  }
-
-  &__tag-count {
-    color: $text-secondary;
   }
 }
