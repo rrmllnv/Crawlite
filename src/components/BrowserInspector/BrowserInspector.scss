@@ -133,6 +133,25 @@
   color: $text-secondary;
 }
 
+.browser-inspector__rule-header {
+  .browser-inspector__rule-header-selector {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: $text-primary;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    word-break: break-word;
+  }
+
+  .browser-inspector__rule-header-file {
+    flex: 0 0 auto;
+    margin-left: 10px;
+    color: $text-primary;
+    font-size: $font-size-sm;
+    white-space: nowrap;
+  }
+}
+
 .browser-inspector__style-group-items {
   padding-left: 10px;
 }

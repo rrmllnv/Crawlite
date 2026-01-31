@@ -293,12 +293,13 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                 <div className="browser-inspector__list">
                   {stylesUserRulesList.map((r, ruleIdx) => {
                     const ruleEntries = buildStyleGroupEntries(r.declarations)
+                    const fileName = r.source ? r.source.replace(/^.*[/\\]/, '') : ''
                     return (
                       <div key={`${r.selector}:${ruleIdx}`} className="browser-inspector__style-group">
-                        <div className="browser-inspector__list-row">
-                          <div className="browser-inspector__list-key">{r.selector}</div>
-                          <div className="browser-inspector__list-val">
-                            {r.source ? r.source : ''}
+                        <div className="browser-inspector__list-row browser-inspector__rule-header">
+                          <div className="browser-inspector__rule-header-selector">{r.selector}</div>
+                          <div className="browser-inspector__rule-header-file">
+                            {fileName || '—'}
                             {r.media ? ` @media ${r.media}` : ''}
                             {r.truncated ? ' (truncated)' : ''}
                           </div>
