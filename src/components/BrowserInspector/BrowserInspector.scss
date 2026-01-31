@@ -1,453 +1,477 @@
 @use '../../styles/variables' as *;
 
+// =============================================================================
+// Browser Inspector — корневой блок и вложенные секции
+// =============================================================================
+
 .browser-inspector {
   display: flex;
   flex-direction: column;
   min-height: 0;
   border-bottom: 1px solid $border-color;
-}
 
-.browser-inspector__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 6px 10px;
-  border: none;
-  background-color: $bg-tertiary;
-  color: $text-primary;
-  font-size: $font-size-sm;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: left;
-  transition: background-color $transition-fast, color $transition-fast;
-
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.06);
-    color: $text-primary;
-  }
-}
-
-.browser-inspector__title {
-  flex: 1;
-}
-
-.browser-inspector__chevron {
-  font-size: 10px;
-  color: $text-secondary;
-}
-
-.browser-inspector__content {
-  flex: 1;
-  min-height: 60px;
-  overflow: auto;
-  padding: 10px 12px;
-  background-color: $bg-secondary;
-}
-
-.browser-inspector__empty {
-  color: $text-secondary;
-  font-size: $font-size-sm;
-}
-
-.browser-inspector__section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 0;
-  border-bottom: 1px solid $border-color;
-}
-
-.browser-inspector__section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.browser-inspector__section-title {
-  font-size: $font-size-sm;
-  font-weight: 700;
-  color: $text-primary;
-}
-
-.browser-inspector__section-expand-btn {
-  flex-shrink: 0;
-  padding: 4px 8px;
-  border: 1px solid $border-color;
-  border-radius: $border-radius;
-  background-color: $bg-tertiary;
-  color: $text-secondary;
-  font-size: 11px;
-  cursor: pointer;
-
-  &:hover {
-    color: $text-primary;
-    background-color: rgba(255, 255, 255, 0.06);
-  }
-}
-
-.browser-inspector__kv {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.browser-inspector__kv-row {
-  display: flex;
-  gap: 10px;
-  padding: 0px 10px;
-}
-
-.browser-inspector__kv-key {
-  flex: 0 0 40%;
-  max-width: 40%;
-  color: $text-secondary;
-  font-size: $font-size-sm;
-  word-break: break-word;
-}
-
-.browser-inspector__kv-val {
-  flex: 1 1 60%;
-  max-width: 60%;
-  color: $text-primary;
-  font-size: $font-size-sm;
-  word-break: break-word;
-}
-
-.browser-inspector__kv-row--button {
-  width: 100%;
-  border: none;
-  // padding: 4px 6px;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.06);
-    border-radius: $border-radius;
-  }
-}
-
-.browser-inspector__kv-chevron {
-  margin-right: 6px;
-  font-size: 10px;
-  color: $text-secondary;
-}
-
-.browser-inspector__kv-font-block {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.browser-inspector__kv-font-expanded {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-left: 16px;
-  border-left: 1px solid $border-color;
-}
-
-.browser-inspector__kv-size-block {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.browser-inspector__kv-size-expanded {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-left: 16px;
-  border-left: 1px solid $border-color;
-}
-
-.browser-inspector__kv-val--color {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.browser-inspector__color-swatch {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  border: 1px solid $border-color;
-  border-radius: 2px;
-}
-
-.browser-inspector__color-text {
-  flex: 0 1 auto;
-  min-width: 0;
-  word-break: break-word;
-}
-
-.browser-inspector__color-format {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.browser-inspector__color-format-btn {
-  padding: 2px 6px;
-  border: 1px solid $border-color;
-  border-radius: 2px;
-  background-color: $bg-tertiary;
-  color: $text-secondary;
-  font-size: 10px;
-  cursor: pointer;
-
-  &:hover {
-    color: $text-primary;
-    background-color: rgba(255, 255, 255, 0.06);
-  }
-
-  &.browser-inspector__color-format-btn--active {
-    background-color: rgba(74, 163, 255, 0.2);
-    color: $primary-color;
-    border-color: $primary-color;
-  }
-}
-
-.browser-inspector__list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.browser-inspector__list--styles {
-  max-height: 360px;
-  overflow: auto;
-  padding-right: 6px;
-}
-
-.browser-inspector__list-row {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.browser-inspector__tree {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.browser-inspector__tree-node {
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  padding-left: 8px;
-}
-
-.browser-inspector__tree-row {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  color: $text-secondary;
-  font-size: $font-size-sm;
-  cursor: default;
-  list-style: none;
-}
-
-.browser-inspector__tree-row--button {
-  width: 100%;
-  border: none;
-  padding: 4px 6px;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-}
-
-.browser-inspector__tree-row:hover {
-  background-color: rgba(255, 255, 255, 0.06);
-  border-radius: $border-radius;
-}
-
-.browser-inspector__tree-row--clicked {
-  background-color: rgba(74, 163, 255, 0.12);
-  border-radius: $border-radius;
-}
-
-.browser-inspector__tree-title {
-  color: $text-primary;
-  font-weight: 700;
-  word-break: break-word;
-}
-
-.browser-inspector__tree-chevron {
-  font-size: 10px;
-  color: $text-secondary;
-  margin-top: 3px;
-}
-
-.browser-inspector__tree-truncated {
-  color: $warning-color;
-  font-weight: 700;
-}
-
-
-.browser-inspector__node-details {
-  margin: 6px 0 10px 0;
-  padding: 8px 0px;
-  border: 1px solid $border-color;
-  border-radius: $border-radius;
-  background-color: $bg-tertiary;
-}
-
-.browser-inspector__node-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.browser-inspector__node-block:first-child {
-  margin-top: 0;
-}
-
-.browser-inspector__node-block-title {
-  color: $text-secondary;
-  font-size: $font-size-sm;
-  font-weight: 700;
-}
-
-.browser-inspector__list-key {
-  flex: 0 0 40%;
-  max-width: 40%;
-  color: $text-secondary;
-  font-size: $font-size-sm;
-  word-break: break-word;
-}
-
-.browser-inspector__list-val {
-  flex: 1 1 60%;
-  max-width: 60%;
-  color: $text-primary;
-  font-size: $font-size-sm;
-  word-break: break-word;
-}
-
-.browser-inspector__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.browser-inspector__tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border-radius: $border-radius;
-  border: 1px solid $border-color;
-  background-color: $bg-tertiary;
-  color: $text-primary;
-  font-size: $font-size-sm;
-}
-
-.browser-inspector__tag-name {
-  color: $text-primary;
-}
-
-.browser-inspector__tag-count {
-  color: $text-secondary;
-}
-
-.browser-inspector__list-row--overridden {
-  opacity: 0.65;
-
-  .browser-inspector__list-key,
-  .browser-inspector__list-val {
-    color: $text-secondary;
-    text-decoration: line-through;
-  }
-}
-
-.browser-inspector__list-row--button {
-  width: 100%;
-  border: none;
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-}
-
-.browser-inspector__style-group-row:hover {
-  background-color: rgba(255, 255, 255, 0.06);
-  border-radius: $border-radius;
-}
-
-.browser-inspector__style-group-chevron {
-  margin-right: 6px;
-  font-size: 10px;
-  color: $text-secondary;
-}
-
-.browser-inspector__style-group-title {
-  color: $text-secondary;
-}
-
-.browser-inspector__rule-header {
-  .browser-inspector__rule-header-selector {
-    flex: 1 1 auto;
-    min-width: 0;
+  // ---------------------------------------------------------------------------
+  // Шапка (кнопка «Инспектор», сворачивание панели)
+  // ---------------------------------------------------------------------------
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    background-color: $bg-tertiary;
     color: $text-primary;
     font-size: $font-size-sm;
     font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color $transition-fast, color $transition-fast;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+      color: $text-primary;
+    }
+  }
+
+  &__title {
+    flex: 1;
+  }
+
+  &__chevron {
+    font-size: 10px;
+    color: $text-secondary;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Контент (область под шапкой: дерево + детали)
+  // ---------------------------------------------------------------------------
+  &__content {
+    flex: 1;
+    min-height: 60px;
+    overflow: auto;
+    padding: 10px 12px;
+    background-color: $bg-secondary;
+  }
+
+  &__empty {
+    color: $text-secondary;
+    font-size: $font-size-sm;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Секция «DOM дерево» (заголовок + кнопка Развернуть/Свернуть)
+  // ---------------------------------------------------------------------------
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 0;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__section-title {
+    font-size: $font-size-sm;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  &__section-expand-btn {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius;
+    background-color: $bg-tertiary;
+    color: $text-secondary;
+    font-size: 11px;
+    cursor: pointer;
+
+    &:hover {
+      color: $text-primary;
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Дерево узлов DOM (цепочка от кликнутого до html)
+  // ---------------------------------------------------------------------------
+  &__tree {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__tree-node {
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    padding-left: 8px;
+  }
+
+  &__tree-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    cursor: default;
+    list-style: none;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+      border-radius: $border-radius;
+    }
+
+    &--button {
+      width: 100%;
+      border: none;
+      padding: 4px 6px;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    &--clicked {
+      background-color: rgba(74, 163, 255, 0.12);
+      border-radius: $border-radius;
+    }
+  }
+
+  &__tree-title {
+    color: $text-primary;
+    font-weight: 700;
     word-break: break-word;
   }
 
-  .browser-inspector__selector-class {
-    color: $text-primary;
-    font-weight: 600;
+  &__tree-chevron {
+    font-size: 10px;
+    color: $text-secondary;
+    margin-top: 3px;
   }
 
-  .browser-inspector__selector-pseudo {
-    color: $primary-color;
+  &__tree-truncated {
+    color: $warning-color;
     font-weight: 700;
   }
 
-  .browser-inspector__rule-header-file {
-    flex: 0 0 auto;
-    margin-left: 10px;
+  // ---------------------------------------------------------------------------
+  // Карточка деталей узла (Tag, ID, Размер, Шрифт, Цвет, Атрибуты, Стили)
+  // ---------------------------------------------------------------------------
+  &__node-details {
+    margin: 6px 0 10px 0;
+    padding: 8px 0;
+    border: 1px solid $border-color;
+    border-radius: $border-radius;
+    background-color: $bg-tertiary;
+  }
+
+  &__node-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  &__node-block-title {
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    font-weight: 700;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ключ-значение (kv): строки Tag, ID, Class, Размер, Позиция, Текст, Шрифт, Цвет
+  // ---------------------------------------------------------------------------
+  &__kv {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__kv-row {
+    display: flex;
+    gap: 10px;
+    padding: 0 10px;
+
+    &--button {
+      width: 100%;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.06);
+        border-radius: $border-radius;
+      }
+    }
+
+  }
+
+  &__kv-key {
+    flex: 0 0 40%;
+    max-width: 40%;
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    word-break: break-word;
+  }
+
+  &__kv-val {
+    flex: 1 1 60%;
+    max-width: 60%;
     color: $text-primary;
     font-size: $font-size-sm;
-    white-space: nowrap;
+    word-break: break-word;
+
+    &--color {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
   }
-}
 
-.browser-inspector__style-group-items {
-  padding-left: 10px;
-}
+  &__kv-chevron {
+    margin-right: 6px;
+    font-size: 10px;
+    color: $text-secondary;
+  }
 
-.browser-inspector__media-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+  &__kv-font-block,
+  &__kv-size-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
 
-.browser-inspector__media-title {
-  color: $warning-color;
-  font-size: $font-size-sm;
-  font-weight: 700;
-}
+  &__kv-font-expanded,
+  &__kv-size-expanded {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 16px;
+    border-left: 1px solid $border-color;
+  }
 
-.browser-inspector__pseudo-wrap {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+  // Цвет: образец, текст, кнопки HEX/RGB/HSL
+  &__color-swatch {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    border: 1px solid $border-color;
+    border-radius: 2px;
+  }
 
-.browser-inspector__pseudo-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+  &__color-text {
+    flex: 0 1 auto;
+    min-width: 0;
+    word-break: break-word;
+  }
 
-.browser-inspector__pseudo-title {
-  color: $primary-color;
-  font-size: $font-size-sm;
-  font-weight: 700;
+  &__color-format {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  &__color-format-btn {
+    padding: 2px 6px;
+    border: 1px solid $border-color;
+    border-radius: 2px;
+    background-color: $bg-tertiary;
+    color: $text-secondary;
+    font-size: 10px;
+    cursor: pointer;
+
+    &:hover {
+      color: $text-primary;
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    &--active {
+      background-color: rgba(74, 163, 255, 0.2);
+      color: $primary-color;
+      border-color: $primary-color;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Списки (атрибуты, стили user): строка ключ-значение
+  // ---------------------------------------------------------------------------
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__list--styles {
+    max-height: 360px;
+    overflow: auto;
+    padding-right: 6px;
+  }
+
+  &__list-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+
+    &--button {
+      width: 100%;
+      border: none;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    &--overridden {
+      opacity: 0.65;
+
+      .browser-inspector__list-key,
+      .browser-inspector__list-val {
+        color: $text-secondary;
+        text-decoration: line-through;
+      }
+    }
+  }
+
+  &__list-key {
+    flex: 0 0 40%;
+    max-width: 40%;
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    word-break: break-word;
+  }
+
+  &__list-val {
+    flex: 1 1 60%;
+    max-width: 60%;
+    color: $text-primary;
+    font-size: $font-size-sm;
+    word-break: break-word;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Группы стилей (user): правило, селектор, файл, группировка по свойству
+  // ---------------------------------------------------------------------------
+  &__style-group-items {
+    padding-left: 10px;
+  }
+
+  &__style-group-row {
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+      border-radius: $border-radius;
+    }
+  }
+
+  &__style-group-chevron {
+    margin-right: 6px;
+    font-size: 10px;
+    color: $text-secondary;
+  }
+
+  &__style-group-title {
+    color: $text-secondary;
+  }
+
+  &__rule-header {
+    .browser-inspector__rule-header-selector {
+      flex: 1 1 auto;
+      min-width: 0;
+      color: $text-primary;
+      font-size: $font-size-sm;
+      font-weight: 600;
+      word-break: break-word;
+    }
+
+    .browser-inspector__selector-class {
+      color: $text-primary;
+      font-weight: 600;
+    }
+
+    .browser-inspector__selector-pseudo {
+      color: $primary-color;
+      font-weight: 700;
+    }
+
+    .browser-inspector__rule-header-file {
+      flex: 0 0 auto;
+      margin-left: 10px;
+      color: $text-primary;
+      font-size: $font-size-sm;
+      white-space: nowrap;
+    }
+  }
+
+  &__media-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__media-title {
+    color: $warning-color;
+    font-size: $font-size-sm;
+    font-weight: 700;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pseudo ::before / ::after
+  // ---------------------------------------------------------------------------
+  &__pseudo-wrap {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__pseudo-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__pseudo-title {
+    color: $primary-color;
+    font-size: $font-size-sm;
+    font-weight: 700;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Теги (если используются)
+  // ---------------------------------------------------------------------------
+  &__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-radius: $border-radius;
+    border: 1px solid $border-color;
+    background-color: $bg-tertiary;
+    color: $text-primary;
+    font-size: $font-size-sm;
+  }
+
+  &__tag-name {
+    color: $text-primary;
+  }
+
+  &__tag-count {
+    color: $text-secondary;
+  }
 }
