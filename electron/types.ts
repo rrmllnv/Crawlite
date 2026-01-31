@@ -12,6 +12,8 @@ export type CrawlStartParams = {
     jitterMs?: number
     /** true = убирать дубликаты ссылок по URL; false = сохранять все */
     deduplicateLinks?: boolean
+    /** true = не переходить по ссылкам, ведущим на уровни выше стартового URL (папки) */
+    restrictToCurrentFolder?: boolean
     /** Доп. ожидание (ms) перед извлечением данных при анализе страницы */
     analyzeWaitMs?: number
     /** Таймаут (ms) загрузки страницы */

@@ -23,6 +23,7 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
   const maxDepthValue = useMemo(() => String(settings.maxDepth), [settings.maxDepth])
   const maxPagesValue = useMemo(() => String(settings.maxPages), [settings.maxPages])
   const deduplicateLinks = Boolean(settings.deduplicateLinks)
+  const restrictToCurrentFolder = Boolean(settings.restrictToCurrentFolder)
   const delayMsValue = useMemo(() => String(settings.delayMs), [settings.delayMs])
   const jitterMsValue = useMemo(() => String(settings.jitterMs), [settings.jitterMs])
   const analyzeWaitMsValue = useMemo(() => String(settings.analyzeWaitMs), [settings.analyzeWaitMs])
@@ -109,6 +110,23 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
               />
               <div className="settings-crawling__hint">
                 Если включено — ссылки на странице будут уникализированы по URL.<br/>Если выключено — сохраняем дубли.
+              </div>
+            </div>
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">Ограничить сканирование текущей папкой</div>
+            <div className="settings-crawling__checkbox-row">
+              <input
+                className="settings-crawling__checkbox"
+                type="checkbox"
+                checked={restrictToCurrentFolder}
+                onChange={(e) => {
+                  dispatch(setCrawlSettings({ restrictToCurrentFolder: Boolean(e.target.checked) }))
+                }}
+              />
+              <div className="settings-crawling__hint">
+                Краулер не будет переходить по ссылкам, ведущим на уровни выше указанного адреса.
               </div>
             </div>
           </label>

@@ -18,6 +18,8 @@ export interface UserConfig {
     maxPages: number
     /** true = убирать дубликаты ссылок по URL; false = сохранять все (по умолчанию) */
     deduplicateLinks: boolean
+    /** true = не переходить по ссылкам, ведущим на уровни выше стартового URL (папки) */
+    restrictToCurrentFolder: boolean
     /** Задержка (ms): пауза между страницами в крауле. Для анализа страницы применяется только если analyzeWaitMs не задан. */
     delayMs: number
     /** Джиттер (ms): случайная добавка к delayMs. Для анализа страницы применяется только если analyzeWaitMs не задан. */
@@ -63,6 +65,7 @@ export const defaultUserConfig: UserConfig = {
     maxDepth: 2,
     maxPages: 200,
     deduplicateLinks: false,
+    restrictToCurrentFolder: true,
     delayMs: 650,
     jitterMs: 350,
     userAgent: '',

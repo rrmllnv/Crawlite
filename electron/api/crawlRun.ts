@@ -60,6 +60,33 @@ function parseAcceptLanguagePrimary(raw: string): string {
   return cleaned.trim()
 }
 
+function normalizePathBoundaryForFolderRestriction(pathname: string): string {
+  const raw = String(pathname || '/')
+  if (raw === '/') {
+    return '/'
+  }
+  const trimmed = raw.replace(/\/+$/, '')
+  return trimmed ? trimmed : '/'
+}
+
+function getFolderPathnameForFolderRestriction(startPathname: string): string {
+  const raw = String(startPathname || '/')
+  if (!raw || raw === '/') {
+    return '/'
+  }
+  if (raw.endsWith('/')) {
+    return raw
+  }
+  const lastSlashIdx = raw.lastIndexOf('/')
+  const lastSegment = lastSlashIdx >= 0 ? raw.slice(lastSlashIdx + 1) : raw
+  const looksLikeFile = Boolean(lastSegment) && lastSegment.includes('.')
+  if (looksLikeFile) {
+    const dir = lastSlashIdx >= 0 ? raw.slice(0, lastSlashIdx + 1) : '/'
+    return dir || '/'
+  }
+  return `${raw}/`
+}
+
 async function loadUrlWithTimeout(
   wc: WebContents,
   url: string,
@@ -332,6 +359,8 @@ export async function crawlStart(
   const acceptLanguageRaw = typeof params?.options?.acceptLanguage === 'string' ? params.options.acceptLanguage : ''
   const platformRaw = typeof params?.options?.platform === 'string' ? params.options.platform : ''
   const overrideWebdriver = Boolean((params?.options as any)?.overrideWebdriver)
+  const restrictToCurrentFolderRaw = (params?.options as any)?.restrictToCurrentFolder
+  const restrictToCurrentFolder = typeof restrictToCurrentFolderRaw === 'boolean' ? restrictToCurrentFolderRaw : true
 
   ensureCrawlView()
   if (!appState.crawlView) {
@@ -362,6 +391,9 @@ export async function crawlStart(
     void 0
   }
   const baseHost = normalizeHostname(start.hostname)
+  const startFolderPathname = getFolderPathnameForFolderRestriction(start.pathname)
+  const startPathBoundary = normalizePathBoundaryForFolderRestriction(startFolderPathname)
+  const startPathPrefix = startPathBoundary === '/' ? '/' : `${startPathBoundary}/`
   const queue: Array<{ url: string; depth: number }> = [{ url: start.toString(), depth: 0 }]
   const seen = new Set<string>()
   const enqueued = new Set<string>()
@@ -542,6 +574,13 @@ export async function crawlStart(
       }
       if (!isInternalByHost(lu, baseHost)) {
         continue
+      }
+      if (restrictToCurrentFolder && startPathBoundary !== '/') {
+        const linkPathBoundary = normalizePathBoundaryForFolderRestriction(lu.pathname)
+        const okByFolder = linkPathBoundary === startPathBoundary || linkPathBoundary.startsWith(startPathPrefix)
+        if (!okByFolder) {
+          continue
+        }
       }
       enqueued.add(normalizedLink)
       queue.push({ url: lu.toString(), depth: depth + 1 })

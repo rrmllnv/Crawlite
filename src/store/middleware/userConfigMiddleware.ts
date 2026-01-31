@@ -27,6 +27,7 @@ export const userConfigMiddleware: Middleware = (store) => (next) => (action) =>
         maxDepth: state.crawl.settings.maxDepth,
         maxPages: state.crawl.settings.maxPages,
         deduplicateLinks: state.crawl.settings.deduplicateLinks,
+        restrictToCurrentFolder: state.crawl.settings.restrictToCurrentFolder,
         delayMs: state.crawl.settings.delayMs,
         jitterMs: state.crawl.settings.jitterMs,
         userAgent: state.crawl.settings.userAgent,

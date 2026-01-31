@@ -19,6 +19,8 @@ interface CrawlState {
     maxDepth: number
     maxPages: number
     deduplicateLinks: boolean
+    /** true = не переходить по ссылкам, ведущим на уровни выше стартового URL (папки) */
+    restrictToCurrentFolder: boolean
     delayMs: number
     jitterMs: number
     userAgent: string
@@ -44,6 +46,7 @@ const initialState: CrawlState = {
     maxDepth: 2,
     maxPages: 200,
     deduplicateLinks: false,
+    restrictToCurrentFolder: true,
     delayMs: 650,
     jitterMs: 350,
     userAgent: '',
@@ -105,6 +108,7 @@ export const crawlSlice = createSlice({
       const maxDepthRaw = (cfg.crawling as any).maxDepth
       const maxPagesRaw = (cfg.crawling as any).maxPages
       const deduplicateLinksRaw = (cfg.crawling as any).deduplicateLinks
+      const restrictToCurrentFolderRaw = (cfg.crawling as any).restrictToCurrentFolder
       const delayMsRaw = (cfg.crawling as any).delayMs
       const jitterMsRaw = (cfg.crawling as any).jitterMs
       const userAgentRaw = (cfg.crawling as any).userAgent
@@ -119,6 +123,9 @@ export const crawlSlice = createSlice({
       state.settings.maxDepth = maxDepth
       state.settings.maxPages = maxPages
       state.settings.deduplicateLinks = deduplicateLinks
+      if (typeof restrictToCurrentFolderRaw === 'boolean') {
+        state.settings.restrictToCurrentFolder = restrictToCurrentFolderRaw
+      }
       if (typeof delayMsRaw === 'number' && Number.isFinite(delayMsRaw)) {
         state.settings.delayMs = Math.max(0, Math.min(60000, Math.floor(delayMsRaw)))
       }
