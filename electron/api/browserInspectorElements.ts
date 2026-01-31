@@ -358,45 +358,28 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                 }
               };
 
-              const buildComputedStyles = (el) => {
-                try {
-                  const st = window.getComputedStyle(el);
-                  const out = Object.create(null);
-                  if (!st) return out;
-                  for (let i = 0; i < st.length; i += 1) {
-                    const prop = st[i];
-                    if (!prop) continue;
-                    try {
-                      out[String(prop)] = String(st.getPropertyValue(prop));
-                    } catch (e) { /* noop */ }
-                  }
-                  return out;
-                } catch (e) {
-                  return Object.create(null);
-                }
-              };
-
-              const buildUserStyles = (el) => {
+              const buildUserStylesMerged = (el) => {
                 try {
                   const merged = Object.create(null);
-                  const rulesOut = [];
-                  const rulesOutBefore = [];
-                  const rulesOutAfter = [];
+                  if (!el) return merged;
+                  // inline style="..."
+                  try {
+                    const st = el.style;
+                    if (st && typeof st.length === 'number') {
+                      for (let i = 0; i < st.length; i += 1) {
+                        const name = st[i];
+                        if (!name) continue;
+                        const value = String(st.getPropertyValue(name) || '').trim();
+                        const pr = String(st.getPropertyPriority(name) || '').trim();
+                        if (!value) continue;
+                        merged[name] = pr ? (value + ' !' + pr) : value;
+                      }
+                    }
+                  } catch (e) { /* noop */ }
 
-                  const rulesMeta = [];
-                  const rulesMetaBefore = [];
-                  const rulesMetaAfter = [];
-
-                  let rulesOrder = 0;
-                  if (!el) return { merged, rules: rulesOut, rulesBefore: rulesOutBefore, rulesAfter: rulesOutAfter };
-
-                  // 1) Inline styles (style="...")
-                  // (дальше pushRule, поэтому inline добавляем тем же путём)
-
-                  // 2) Styles from accessible stylesheets (best-effort; cross-origin may throw)
+                  // matched CSS rules (best-effort)
                   const extractDecl = (styleDecl) => {
                     try {
-                      const decl = Object.create(null);
                       if (!styleDecl || typeof styleDecl.length !== 'number') return;
                       for (let i = 0; i < styleDecl.length; i += 1) {
                         const name = styleDecl[i];
@@ -404,250 +387,12 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                         const value = String(styleDecl.getPropertyValue(name) || '').trim();
                         const pr = String(styleDecl.getPropertyPriority(name) || '').trim();
                         if (!value) continue;
-                        const v = pr ? (value + ' !' + pr) : value;
-                        decl[name] = v;
-                      }
-                      return decl;
-                    } catch (e) { /* noop */ }
-                  };
-
-                  const getSheetSource = (sheet) => {
-                    try {
-                      const href = sheet && sheet.href ? String(sheet.href) : '';
-                      if (href) return href;
-                      const owner = sheet && sheet.ownerNode ? sheet.ownerNode : null;
-                      const tag = owner && owner.tagName ? String(owner.tagName).toLowerCase() : '';
-                      if (tag === 'style') return '<style>';
-                      if (tag === 'link') return '<link>';
-                      return '<stylesheet>';
-                    } catch (e) {
-                      return '<stylesheet>';
-                    }
-                  };
-
-                  const MAX_RULES = 120;
-                  const MAX_DECLS_PER_RULE = 220;
-
-                  const splitSelectorList = (selText) => {
-                    try {
-                      const src = String(selText || '');
-                      const out = [];
-                      let buf = '';
-                      let par = 0;
-                      let br = 0;
-                      let quote = '';
-                      for (let i = 0; i < src.length; i += 1) {
-                        const ch = src[i];
-                        if (quote) {
-                          buf += ch;
-                          if (ch === '\\\\') {
-                            if (i + 1 < src.length) { buf += src[i + 1]; i += 1; }
-                            continue;
-                          }
-                          if (ch === quote) quote = '';
-                          continue;
-                        }
-                        if (ch === '"' || ch === "'") { quote = ch; buf += ch; continue; }
-                        if (ch === '(') { par += 1; buf += ch; continue; }
-                        if (ch === ')') { par = Math.max(0, par - 1); buf += ch; continue; }
-                        if (ch === '[') { br += 1; buf += ch; continue; }
-                        if (ch === ']') { br = Math.max(0, br - 1); buf += ch; continue; }
-                        if (ch === ',' && par === 0 && br === 0) {
-                          const v = String(buf || '').trim();
-                          if (v) out.push(v);
-                          buf = '';
-                          continue;
-                        }
-                        buf += ch;
-                      }
-                      const last = String(buf || '').trim();
-                      if (last) out.push(last);
-                      return out;
-                    } catch (e) {
-                      return String(selText || '').split(',').map((x) => String(x || '').trim()).filter(Boolean);
-                    }
-                  };
-
-                  const compareSpec = (a, b) => {
-                    try {
-                      const a0 = a && a.length ? (a[0] | 0) : 0;
-                      const a1 = a && a.length ? (a[1] | 0) : 0;
-                      const a2 = a && a.length ? (a[2] | 0) : 0;
-                      const b0 = b && b.length ? (b[0] | 0) : 0;
-                      const b1 = b && b.length ? (b[1] | 0) : 0;
-                      const b2 = b && b.length ? (b[2] | 0) : 0;
-                      if (a0 !== b0) return a0 - b0;
-                      if (a1 !== b1) return a1 - b1;
-                      return a2 - b2;
-                    } catch (e) { return 0; }
-                  };
-
-                  const calcSpecificity = (selector) => {
-                    try {
-                      let s = String(selector || '');
-                      if (!s) return [0, 0, 0];
-                      // Убираем строки, чтобы не ловить символы внутри кавычек.
-                      // ВАЖНО: это код внутри template string, поэтому backslash нужно экранировать.
-                      s = s.replace(/"([^"\\\\]|\\\\.)*"/g, '""').replace(/'([^'\\\\]|\\\\.)*'/g, "''");
-                      // :not() не даёт специфику само по себе, но аргументы учитываются.
-                      s = s.replace(/:not\\(/g, '(');
-
-                      const ids = (s.match(/#[\\w-]+/g) || []).length;
-                      const classes = (s.match(/\\.[\\w-]+/g) || []).length;
-                      const attrs = (s.match(/\\[[^\\]]+\\]/g) || []).length;
-
-                      const pseudoElements1 = (s.match(/::[\\w-]+/g) || []).length;
-                      const pseudoElements2 = (s.match(/:(before|after|first-line|first-letter)\\b/g) || []).length;
-                      const pseudoElements = pseudoElements1 + pseudoElements2;
-
-                      const pseudoClassesRaw = (s.match(/:(?!:)[\\w-]+(\\([^)]*\\))?/g) || []).length;
-                      const pseudoClasses = Math.max(0, pseudoClassesRaw - pseudoElements2);
-
-                      // Type selectors
-                      let types = 0;
-                      const re = /(^|[\\s>+~,(])([a-zA-Z][\\w-]*)/g;
-                      let m;
-                      while ((m = re.exec(s))) {
-                        const name = String(m[2] || '').toLowerCase();
-                        if (!name) continue;
-                        if (name === '*') continue;
-                        types += 1;
-                      }
-
-                      return [ids, classes + attrs + pseudoClasses, types + pseudoElements];
-                    } catch (e) {
-                      return [0, 0, 0];
-                    }
-                  };
-
-                  const extractPseudoClasses = (selector) => {
-                    try {
-                      let s = String(selector || '');
-                      if (!s) return [];
-                      // Убираем строки/эскейпы, чтобы не ловить ":" внутри кавычек.
-                      s = s.replace(/"([^"\\\\]|\\\\.)*"/g, '""').replace(/'([^'\\\\]|\\\\.)*'/g, "''");
-                      const out = [];
-                      const re = /:(?!:)[a-zA-Z-]+(?:\\([^)]*\\))?/g;
-                      let m;
-                      while ((m = re.exec(s))) {
-                        const v = String(m[0] || '').trim();
-                        if (v) out.push(v);
-                        if (out.length > 80) break;
-                      }
-                      return out;
-                    } catch (e) {
-                      return [];
-                    }
-                  };
-
-                  const getPseudoElementKind = (selector) => {
-                    try {
-                      const s = String(selector || '');
-                      if (/::before\b/i.test(s) || /:before\b/i.test(s)) return 'before';
-                      if (/::after\b/i.test(s) || /:after\b/i.test(s)) return 'after';
-                      return null;
-                    } catch (e) {
-                      return null;
-                    }
-                  };
-
-                  const stripPseudoElement = (selector) => {
-                    try {
-                      return String(selector || '')
-                        .replace(/::before\b/gi, '')
-                        .replace(/::after\b/gi, '')
-                        .replace(/:before\b/gi, '')
-                        .replace(/:after\b/gi, '');
-                    } catch (e) {
-                      return String(selector || '');
-                    }
-                  };
-
-                  const getMatchedSpecificity = (selectorText, targetPseudo) => {
-                    try {
-                      const selectors = splitSelectorList(selectorText);
-                      let best = [0, 0, 0];
-                      let bestPseudo = [];
-                      let matched = false;
-                      for (let i = 0; i < selectors.length; i += 1) {
-                        const sel = selectors[i];
-                        if (!sel) continue;
-                        const pseudoKind = getPseudoElementKind(sel);
-                        if (targetPseudo) {
-                          if (pseudoKind !== targetPseudo) continue;
-                        } else {
-                          if (pseudoKind) continue;
-                        }
-                        const baseSel = targetPseudo ? stripPseudoElement(sel) : sel;
-                        try {
-                          if (baseSel && el.matches && el.matches(baseSel)) {
-                            matched = true;
-                            const sp = calcSpecificity(baseSel);
-                            if (compareSpec(sp, best) > 0) {
-                              best = sp;
-                              bestPseudo = extractPseudoClasses(baseSel);
-                            }
-                          }
-                        } catch (e) { /* noop */ }
-                      }
-                      return matched ? { spec: best, pseudoClasses: bestPseudo } : null;
-                    } catch (e) {
-                      return null;
-                    }
-                  };
-
-                  function pushRule(target, selectorText, styleDecl, sheetSource, mediaText, matchInfo, isInline) {
-                    try {
-                      const outArr = target === 'before' ? rulesOutBefore : target === 'after' ? rulesOutAfter : rulesOut;
-                      const metaArr = target === 'before' ? rulesMetaBefore : target === 'after' ? rulesMetaAfter : rulesMeta;
-                      if (outArr.length >= MAX_RULES) return;
-                      const declAll = extractDecl(styleDecl) || Object.create(null);
-                      const keys = Object.keys(declAll);
-                      if (keys.length === 0) return;
-                      // ограничение на размер
-                      if (keys.length > MAX_DECLS_PER_RULE) {
-                        const cut = Object.create(null);
-                        keys.slice(0, MAX_DECLS_PER_RULE).forEach((k) => { cut[k] = declAll[k]; });
-                        outArr.push({
-                          selector: String(selectorText || '').trim(),
-                          source: String(sheetSource || ''),
-                          media: String(mediaText || ''),
-                          declarations: cut,
-                          truncated: true,
-                          pseudoClasses: matchInfo && matchInfo.pseudoClasses ? matchInfo.pseudoClasses : [],
-                        });
-                        metaArr.push({ spec: (matchInfo && matchInfo.spec) ? matchInfo.spec : [0, 0, 0], order: rulesOrder, inline: Boolean(isInline) });
-                        rulesOrder += 1;
-                      } else {
-                        outArr.push({
-                          selector: String(selectorText || '').trim(),
-                          source: String(sheetSource || ''),
-                          media: String(mediaText || ''),
-                          declarations: declAll,
-                          pseudoClasses: matchInfo && matchInfo.pseudoClasses ? matchInfo.pseudoClasses : [],
-                        });
-                        metaArr.push({ spec: (matchInfo && matchInfo.spec) ? matchInfo.spec : [0, 0, 0], order: rulesOrder, inline: Boolean(isInline) });
-                        rulesOrder += 1;
-                      }
-                      // merged — только для обычного элемента (не pseudo).
-                      if (!target) {
-                        for (let i = 0; i < keys.length; i += 1) {
-                          const k = keys[i];
-                          merged[k] = declAll[k];
-                        }
+                        merged[name] = pr ? (value + ' !' + pr) : value;
                       }
                     } catch (e) { /* noop */ }
-                  }
+                  };
 
-                  // 1) Inline styles (style="...")
-                  try {
-                    const st = el.style;
-                    if (st && typeof st.length === 'number' && st.length > 0) {
-                      pushRule(null, 'element.style', st, 'inline', '', { spec: [1000000, 0, 0], pseudoClasses: [] }, true);
-                    }
-                  } catch (e) { /* noop */ }
-
-                  const walkRules = (rules, sheetSource, mediaText) => {
+                  const walkRules = (rules, mediaText) => {
                     try {
                       if (!rules || typeof rules.length !== 'number') return;
                       for (let i = 0; i < rules.length; i += 1) {
@@ -657,18 +402,19 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                         // CSSStyleRule
                         if (r.type === 1 && r.selectorText && r.style) {
                           const selText = String(r.selectorText || '');
-                          const matchMain = getMatchedSpecificity(selText, null);
-                          if (matchMain) pushRule(null, selText, r.style, sheetSource, mediaText, matchMain, false);
-
-                          const matchBefore = getMatchedSpecificity(selText, 'before');
-                          if (matchBefore) pushRule('before', selText, r.style, sheetSource, mediaText, matchBefore, false);
-
-                          const matchAfter = getMatchedSpecificity(selText, 'after');
-                          if (matchAfter) pushRule('after', selText, r.style, sheetSource, mediaText, matchAfter, false);
+                          const selectors = selText.split(',').map((x) => String(x || '').trim()).filter(Boolean);
+                          let matches = false;
+                          for (let s = 0; s < selectors.length; s += 1) {
+                            const sel = selectors[s];
+                            try {
+                              if (sel && el.matches && el.matches(sel)) { matches = true; break; }
+                            } catch (e) { /* noop */ }
+                          }
+                          if (matches) extractDecl(r.style);
                           continue;
                         }
 
-                        // CSSMediaRule / CSSSupportsRule / etc. with nested cssRules
+                        // CSSMediaRule with nested cssRules
                         if (r.type === 4 && r.media && r.cssRules) {
                           const nextMedia = String(r.media.mediaText || '').trim();
                           let ok = true;
@@ -680,13 +426,12 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                           }
                           if (ok) {
                             const combined = mediaText ? (mediaText + ' & ' + nextMedia) : nextMedia;
-                            walkRules(r.cssRules, sheetSource, combined);
+                            walkRules(r.cssRules, combined);
                           }
                           continue;
                         }
-                        if (r.cssRules) {
-                          walkRules(r.cssRules, sheetSource, mediaText);
-                        }
+
+                        if (r.cssRules) walkRules(r.cssRules, mediaText);
                       }
                     } catch (e) { /* noop */ }
                   };
@@ -699,178 +444,134 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                       let rules = null;
                       try { rules = sheet.cssRules; } catch (e) { rules = null; }
                       if (!rules) continue;
-                      walkRules(rules, getSheetSource(sheet), '');
-                      if (rulesOut.length >= MAX_RULES) break;
+                      walkRules(rules, '');
                     }
                   } catch (e) { /* noop */ }
 
-                  const finalizeRules = (arr, metaArr) => {
-                    // Помечаем перебитые свойства (примерно как DevTools: зачёркнутые декларации).
-                    const bestByProp = Object.create(null);
-                    const isImportant = (v) => /!\\s*important\\s*$/i.test(String(v || ''));
-                    const better = (cand, prev) => {
-                      if (!prev) return true;
-                      if (cand.important !== prev.important) return cand.important;
-                      const sc = compareSpec(cand.spec, prev.spec);
-                      if (sc !== 0) return sc > 0;
-                      return (cand.order | 0) > (prev.order | 0);
-                    };
-
-                    for (let i = 0; i < arr.length; i += 1) {
-                      const r = arr[i];
-                      const decls = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null;
-                      if (!decls) continue;
-                      const meta = metaArr[i] || { spec: [0, 0, 0], order: i };
-                      for (const k in decls) {
-                        if (!Object.prototype.hasOwnProperty.call(decls, k)) continue;
-                        const cand = {
-                          idx: i,
-                          important: isImportant(decls[k]),
-                          spec: meta.spec || [0, 0, 0],
-                          order: meta.order | 0,
-                        };
-                        const prev = bestByProp[k];
-                        if (better(cand, prev)) bestByProp[k] = cand;
-                      }
-                    }
-
-                    for (let i = 0; i < arr.length; i += 1) {
-                      const r = arr[i];
-                      const decls = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null;
-                      if (!decls) continue;
-                      const ov = Object.create(null);
-                      for (const k in decls) {
-                        if (!Object.prototype.hasOwnProperty.call(decls, k)) continue;
-                        const win = bestByProp[k];
-                        ov[k] = win ? (win.idx !== i) : false;
-                      }
-                      r.overridden = ov;
-                    }
-
-                    // Прокидываем метаданные правила (для сортировки/отображения).
-                    for (let i = 0; i < arr.length; i += 1) {
-                      const meta = metaArr[i] || null;
-                      if (!meta) continue;
-                      arr[i].specificity = meta.spec || [0, 0, 0];
-                      arr[i].order = meta.order | 0;
-                    }
-                  };
-
-                  try { finalizeRules(rulesOut, rulesMeta); } catch (e) { /* noop */ }
-                  try { finalizeRules(rulesOutBefore, rulesMetaBefore); } catch (e) { /* noop */ }
-                  try { finalizeRules(rulesOutAfter, rulesMetaAfter); } catch (e) { /* noop */ }
-
-                  return { merged, rules: rulesOut, rulesBefore: rulesOutBefore, rulesAfter: rulesOutAfter };
-                } catch (e) {
-                  return { merged: Object.create(null), rules: [], rulesBefore: [], rulesAfter: [] };
-                }
-              };
-
-              const buildNonDefaultStyles = (el, computed) => {
-                try {
-                  const out = Object.create(null);
-                  if (!el || !el.tagName) return out;
-                  const tag = String(el.tagName || '').toLowerCase();
-                  if (!tag) return out;
-
-                  const tmp = document.createElement(tag);
-                  // чтобы не влиять на layout страницы
-                  try {
-                    tmp.style.position = 'absolute';
-                    tmp.style.left = '-99999px';
-                    tmp.style.top = '-99999px';
-                    tmp.style.visibility = 'hidden';
-                    tmp.style.pointerEvents = 'none';
-                  } catch (e) { /* noop */ }
-
-                  try {
-                    (document.body || document.documentElement).appendChild(tmp);
-                  } catch (e) { /* noop */ }
-
-                  const base = buildComputedStyles(tmp);
-                  try { tmp.remove(); } catch (e) { /* noop */ }
-
-                  const src = computed && typeof computed === 'object' ? computed : Object.create(null);
-                  for (const k in src) {
-                    if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
-                    const v = String(src[k] || '');
-                    const b = String(base[k] || '');
-                    if (v !== b) out[k] = v;
-                  }
-                  return out;
+                  return merged;
                 } catch (e) {
                   return Object.create(null);
                 }
               };
 
-              const buildChildrenSummary = (el) => {
-                try {
-                  const direct = el && el.children ? el.children : null;
-                  const directCount = direct ? direct.length : 0;
-                  const directTagCounts = Object.create(null);
-                  if (direct && directCount > 0) {
-                    for (let i = 0; i < directCount; i += 1) {
-                      const c = direct[i];
-                      const tag = c && c.tagName ? String(c.tagName).toLowerCase() : '';
-                      if (!tag) continue;
-                      directTagCounts[tag] = (directTagCounts[tag] || 0) + 1;
-                    }
-                  }
-                  let descendantsCount = 0;
-                  try {
-                    descendantsCount = el && el.querySelectorAll ? el.querySelectorAll('*').length : 0;
-                  } catch (e) {
-                    descendantsCount = 0;
-                  }
-                  let directTextNodes = 0;
-                  try {
-                    const cn = el && el.childNodes ? el.childNodes : null;
-                    if (cn && cn.length) {
-                      for (let i = 0; i < cn.length; i += 1) {
-                        const n = cn[i];
-                        if (n && n.nodeType === 3 && String(n.textContent || '').trim()) directTextNodes += 1;
-                      }
-                    }
-                  } catch (e) { /* noop */ }
-                  return { directCount, directTagCounts, descendantsCount, directTextNodes };
-                } catch (e) {
-                  return { directCount: 0, directTagCounts: Object.create(null), descendantsCount: 0, directTextNodes: 0 };
-                }
-              };
-
-              const captureElementInfo = (el) => {
+              const buildNode = (el, key, clickedEl, state, includeAllChildren) => {
                 try {
                   if (!el || !el.tagName) return null;
+                  if (state.count >= state.maxNodes) {
+                    return { key: String(key || ''), tag: String(el.tagName || '').toLowerCase(), truncated: true, children: [] };
+                  }
+                  state.count += 1;
+
                   const tag = String(el.tagName || '').toLowerCase();
-                  const requestId = String(Date.now()) + ':' + String(Math.random()).slice(2);
-                  const rect = buildRect(el);
-                  const attributes = buildAttributes(el);
-                  const styles = buildComputedStyles(el);
-                  const stylesUserPack = buildUserStyles(el);
-                  const stylesUser = stylesUserPack && stylesUserPack.merged ? stylesUserPack.merged : Object.create(null);
-                  const stylesUserRules = stylesUserPack && stylesUserPack.rules ? stylesUserPack.rules : [];
-                  const stylesUserRulesBefore = stylesUserPack && stylesUserPack.rulesBefore ? stylesUserPack.rulesBefore : [];
-                  const stylesUserRulesAfter = stylesUserPack && stylesUserPack.rulesAfter ? stylesUserPack.rulesAfter : [];
-                  const stylesNonDefault = buildNonDefaultStyles(el, styles);
-                  const children = buildChildrenSummary(el);
                   const id = typeof el.id === 'string' ? el.id : '';
                   const className = typeof el.className === 'string' ? el.className : '';
-                  const text = safeText(el.textContent || '', 220);
-                  return {
-                    requestId,
+                  const rect = buildRect(el);
+                  const attributes = buildAttributes(el);
+                  const text = safeText(el.textContent || '', 140);
+
+                  let font = null;
+                  let color = '';
+                  try {
+                    const st = window.getComputedStyle(el);
+                    if (st) {
+                      font = {
+                        family: String(st.fontFamily || ''),
+                        size: String(st.fontSize || ''),
+                        weight: String(st.fontWeight || ''),
+                        style: String(st.fontStyle || ''),
+                        lineHeight: String(st.lineHeight || ''),
+                      };
+                      color = String(st.color || '');
+                    }
+                  } catch (e) { /* noop */ }
+
+                  const isClicked = clickedEl && el === clickedEl;
+                  if (isClicked) state.clickedKey = String(key || '');
+
+                  const node = {
+                    key: String(key || ''),
                     tag,
                     id,
                     className,
                     rect,
                     attributes,
-                    styles,
-                    stylesUser,
-                    stylesUserRules,
-                    stylesUserRulesBefore,
-                    stylesUserRulesAfter,
-                    stylesNonDefault,
-                    children,
                     text,
+                    font: font || null,
+                    color,
+                    isClicked: Boolean(isClicked),
+                    stylesUser: isClicked ? buildUserStylesMerged(el) : Object.create(null),
+                    children: [],
+                  };
+
+                  const kids = el.children;
+                  if (includeAllChildren && kids && typeof kids.length === 'number' && kids.length > 0) {
+                    const maxChildren = 220;
+                    for (let i = 0; i < kids.length && i < maxChildren; i += 1) {
+                      const c = kids[i];
+                      const childKey = String(key || '') + '/' + String(i);
+                      const childNode = buildNode(c, childKey, clickedEl, state, true);
+                      if (childNode) node.children.push(childNode);
+                      if (state.count >= state.maxNodes) break;
+                    }
+                    if (kids.length > maxChildren) node.truncated = true;
+                  }
+
+                  return node;
+                } catch (e) {
+                  return null;
+                }
+              };
+
+              const captureElementInfo = (el) => {
+                try {
+                  const requestId = String(Date.now()) + ':' + String(Math.random()).slice(2);
+                  const root = document && document.documentElement ? document.documentElement : null;
+                  if (!root || !root.tagName) return null;
+
+                  const state = { count: 0, maxNodes: 2200, clickedKey: '' };
+
+                  // Только цепочка html -> ... -> clicked (без сборки детей).
+                  const isInsideRoot = (node) => {
+                    try {
+                      if (!node) return false;
+                      if (node === root) return true;
+                      return Boolean(root.contains && root.contains(node));
+                    } catch (e) {
+                      return false;
+                    }
+                  };
+
+                  const clickedEl = isInsideRoot(el) ? el : root;
+                  const path = [];
+                  try {
+                    let cur = clickedEl;
+                    while (cur && cur !== root && cur.parentElement) {
+                      path.push(cur);
+                      cur = cur.parentElement;
+                    }
+                    if (root) path.push(root);
+                  } catch (e) { /* noop */ }
+                  path.reverse();
+
+                  const buildChain = (idx, keyPrefix) => {
+                    const cur = path[idx] || null;
+                    if (!cur) return null;
+                    const isLast = idx === path.length - 1;
+                    const node = buildNode(cur, keyPrefix, clickedEl, state, false);
+                    if (!node) return null;
+                    if (!isLast) {
+                      const next = buildChain(idx + 1, keyPrefix + '/0');
+                      if (next) node.children = [next];
+                    }
+                    return node;
+                  };
+
+                  const tree = buildChain(0, '0');
+                  if (!tree) return null;
+                  return {
+                    requestId,
+                    clickedKey: String(state.clickedKey || ''),
+                    tree,
                   };
                 } catch (e) {
                   return null;
