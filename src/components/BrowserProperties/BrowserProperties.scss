@@ -3,7 +3,7 @@
 .browser-properties {
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: 31px;
   border-bottom: 1px solid $border-color;
 }
 
@@ -21,6 +21,7 @@
   cursor: pointer;
   text-align: left;
   transition: background-color $transition-fast, color $transition-fast;
+  min-height: 30px;
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.06);
