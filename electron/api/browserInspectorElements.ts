@@ -358,28 +358,27 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                 }
               };
 
-              const buildUserStylesMerged = (el) => {
+              const buildUserStyles = (el) => {
                 try {
                   const merged = Object.create(null);
-                  if (!el) return merged;
-                  // inline style="..."
-                  try {
-                    const st = el.style;
-                    if (st && typeof st.length === 'number') {
-                      for (let i = 0; i < st.length; i += 1) {
-                        const name = st[i];
-                        if (!name) continue;
-                        const value = String(st.getPropertyValue(name) || '').trim();
-                        const pr = String(st.getPropertyPriority(name) || '').trim();
-                        if (!value) continue;
-                        merged[name] = pr ? (value + ' !' + pr) : value;
-                      }
-                    }
-                  } catch (e) { /* noop */ }
+                  const rulesOut = [];
+                  const rulesOutBefore = [];
+                  const rulesOutAfter = [];
 
-                  // matched CSS rules (best-effort)
+                  const rulesMeta = [];
+                  const rulesMetaBefore = [];
+                  const rulesMetaAfter = [];
+
+                  let rulesOrder = 0;
+                  if (!el) return { merged, rules: rulesOut, rulesBefore: rulesOutBefore, rulesAfter: rulesOutAfter };
+
+                  // 1) Inline styles (style="...")
+                  // (дальше pushRule, поэтому inline добавляем тем же путём)
+
+                  // 2) Styles from accessible stylesheets (best-effort; cross-origin may throw)
                   const extractDecl = (styleDecl) => {
                     try {
+                      const decl = Object.create(null);
                       if (!styleDecl || typeof styleDecl.length !== 'number') return;
                       for (let i = 0; i < styleDecl.length; i += 1) {
                         const name = styleDecl[i];
@@ -387,12 +386,250 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                         const value = String(styleDecl.getPropertyValue(name) || '').trim();
                         const pr = String(styleDecl.getPropertyPriority(name) || '').trim();
                         if (!value) continue;
-                        merged[name] = pr ? (value + ' !' + pr) : value;
+                        const v = pr ? (value + ' !' + pr) : value;
+                        decl[name] = v;
                       }
+                      return decl;
                     } catch (e) { /* noop */ }
                   };
 
-                  const walkRules = (rules, mediaText) => {
+                  const getSheetSource = (sheet) => {
+                    try {
+                      const href = sheet && sheet.href ? String(sheet.href) : '';
+                      if (href) return href;
+                      const owner = sheet && sheet.ownerNode ? sheet.ownerNode : null;
+                      const tag = owner && owner.tagName ? String(owner.tagName).toLowerCase() : '';
+                      if (tag === 'style') return '<style>';
+                      if (tag === 'link') return '<link>';
+                      return '<stylesheet>';
+                    } catch (e) {
+                      return '<stylesheet>';
+                    }
+                  };
+
+                  const MAX_RULES = 120;
+                  const MAX_DECLS_PER_RULE = 220;
+
+                  const splitSelectorList = (selText) => {
+                    try {
+                      const src = String(selText || '');
+                      const out = [];
+                      let buf = '';
+                      let par = 0;
+                      let br = 0;
+                      let quote = '';
+                      for (let i = 0; i < src.length; i += 1) {
+                        const ch = src[i];
+                        if (quote) {
+                          buf += ch;
+                          if (ch === '\\\\') {
+                            if (i + 1 < src.length) { buf += src[i + 1]; i += 1; }
+                            continue;
+                          }
+                          if (ch === quote) quote = '';
+                          continue;
+                        }
+                        if (ch === '"' || ch === "'") { quote = ch; buf += ch; continue; }
+                        if (ch === '(') { par += 1; buf += ch; continue; }
+                        if (ch === ')') { par = Math.max(0, par - 1); buf += ch; continue; }
+                        if (ch === '[') { br += 1; buf += ch; continue; }
+                        if (ch === ']') { br = Math.max(0, br - 1); buf += ch; continue; }
+                        if (ch === ',' && par === 0 && br === 0) {
+                          const v = String(buf || '').trim();
+                          if (v) out.push(v);
+                          buf = '';
+                          continue;
+                        }
+                        buf += ch;
+                      }
+                      const last = String(buf || '').trim();
+                      if (last) out.push(last);
+                      return out;
+                    } catch (e) {
+                      return String(selText || '').split(',').map((x) => String(x || '').trim()).filter(Boolean);
+                    }
+                  };
+
+                  const compareSpec = (a, b) => {
+                    try {
+                      const a0 = a && a.length ? (a[0] | 0) : 0;
+                      const a1 = a && a.length ? (a[1] | 0) : 0;
+                      const a2 = a && a.length ? (a[2] | 0) : 0;
+                      const b0 = b && b.length ? (b[0] | 0) : 0;
+                      const b1 = b && b.length ? (b[1] | 0) : 0;
+                      const b2 = b && b.length ? (b[2] | 0) : 0;
+                      if (a0 !== b0) return a0 - b0;
+                      if (a1 !== b1) return a1 - b1;
+                      return a2 - b2;
+                    } catch (e) { return 0; }
+                  };
+
+                  const calcSpecificity = (selector) => {
+                    try {
+                      let s = String(selector || '');
+                      if (!s) return [0, 0, 0];
+                      // Убираем строки, чтобы не ловить символы внутри кавычек.
+                      // ВАЖНО: это код внутри template string, поэтому backslash нужно экранировать.
+                      s = s.replace(/"([^"\\\\]|\\\\.)*"/g, '""').replace(/'([^'\\\\]|\\\\.)*'/g, "''");
+                      // :not() не даёт специфику само по себе, но аргументы учитываются.
+                      s = s.replace(/:not\\(/g, '(');
+
+                      const ids = (s.match(/#[\\w-]+/g) || []).length;
+                      const classes = (s.match(/\\.[\\w-]+/g) || []).length;
+                      const attrs = (s.match(/\\[[^\\]]+\\]/g) || []).length;
+
+                      const pseudoElements1 = (s.match(/::[\\w-]+/g) || []).length;
+                      const pseudoElements2 = (s.match(/:(before|after|first-line|first-letter)\\b/g) || []).length;
+                      const pseudoElements = pseudoElements1 + pseudoElements2;
+
+                      const pseudoClassesRaw = (s.match(/:(?!:)[\\w-]+(\\([^)]*\\))?/g) || []).length;
+                      const pseudoClasses = Math.max(0, pseudoClassesRaw - pseudoElements2);
+
+                      // Type selectors
+                      let types = 0;
+                      const re = /(^|[\\s>+~,(])([a-zA-Z][\\w-]*)/g;
+                      let m;
+                      while ((m = re.exec(s))) {
+                        const name = String(m[2] || '').toLowerCase();
+                        if (!name) continue;
+                        if (name === '*') continue;
+                        types += 1;
+                      }
+
+                      return [ids, classes + attrs + pseudoClasses, types + pseudoElements];
+                    } catch (e) {
+                      return [0, 0, 0];
+                    }
+                  };
+
+                  const extractPseudoClasses = (selector) => {
+                    try {
+                      let s = String(selector || '');
+                      if (!s) return [];
+                      // Убираем строки/эскейпы, чтобы не ловить ":" внутри кавычек.
+                      s = s.replace(/"([^"\\\\]|\\\\.)*"/g, '""').replace(/'([^'\\\\]|\\\\.)*'/g, "''");
+                      const out = [];
+                      const re = /:(?!:)[a-zA-Z-]+(?:\\([^)]*\\))?/g;
+                      let m;
+                      while ((m = re.exec(s))) {
+                        const v = String(m[0] || '').trim();
+                        if (v) out.push(v);
+                        if (out.length > 80) break;
+                      }
+                      return out;
+                    } catch (e) {
+                      return [];
+                    }
+                  };
+
+                  const getPseudoElementKind = (selector) => {
+                    try {
+                      const s = String(selector || '');
+                      if (/::before\b/i.test(s) || /:before\b/i.test(s)) return 'before';
+                      if (/::after\b/i.test(s) || /:after\b/i.test(s)) return 'after';
+                      return null;
+                    } catch (e) {
+                      return null;
+                    }
+                  };
+
+                  const stripPseudoElement = (selector) => {
+                    try {
+                      return String(selector || '')
+                        .replace(/::before\b/gi, '')
+                        .replace(/::after\b/gi, '')
+                        .replace(/:before\b/gi, '')
+                        .replace(/:after\b/gi, '');
+                    } catch (e) {
+                      return String(selector || '');
+                    }
+                  };
+
+                  const getMatchedSpecificity = (selectorText, targetPseudo) => {
+                    try {
+                      const selectors = splitSelectorList(selectorText);
+                      let best = [0, 0, 0];
+                      let bestPseudo = [];
+                      let matched = false;
+                      for (let i = 0; i < selectors.length; i += 1) {
+                        const sel = selectors[i];
+                        if (!sel) continue;
+                        const pseudoKind = getPseudoElementKind(sel);
+                        if (targetPseudo) {
+                          if (pseudoKind !== targetPseudo) continue;
+                        } else {
+                          if (pseudoKind) continue;
+                        }
+                        const baseSel = targetPseudo ? stripPseudoElement(sel) : sel;
+                        try {
+                          if (baseSel && el.matches && el.matches(baseSel)) {
+                            matched = true;
+                            const sp = calcSpecificity(baseSel);
+                            if (compareSpec(sp, best) > 0) {
+                              best = sp;
+                              bestPseudo = extractPseudoClasses(baseSel);
+                            }
+                          }
+                        } catch (e) { /* noop */ }
+                      }
+                      return matched ? { spec: best, pseudoClasses: bestPseudo } : null;
+                    } catch (e) {
+                      return null;
+                    }
+                  };
+
+                  function pushRule(target, selectorText, styleDecl, sheetSource, mediaText, matchInfo, isInline) {
+                    try {
+                      const outArr = target === 'before' ? rulesOutBefore : target === 'after' ? rulesOutAfter : rulesOut;
+                      const metaArr = target === 'before' ? rulesMetaBefore : target === 'after' ? rulesMetaAfter : rulesMeta;
+                      if (outArr.length >= MAX_RULES) return;
+                      const declAll = extractDecl(styleDecl) || Object.create(null);
+                      const keys = Object.keys(declAll);
+                      if (keys.length === 0) return;
+                      // ограничение на размер
+                      if (keys.length > MAX_DECLS_PER_RULE) {
+                        const cut = Object.create(null);
+                        keys.slice(0, MAX_DECLS_PER_RULE).forEach((k) => { cut[k] = declAll[k]; });
+                        outArr.push({
+                          selector: String(selectorText || '').trim(),
+                          source: String(sheetSource || ''),
+                          media: String(mediaText || ''),
+                          declarations: cut,
+                          truncated: true,
+                          pseudoClasses: matchInfo && matchInfo.pseudoClasses ? matchInfo.pseudoClasses : [],
+                        });
+                        metaArr.push({ spec: (matchInfo && matchInfo.spec) ? matchInfo.spec : [0, 0, 0], order: rulesOrder, inline: Boolean(isInline) });
+                        rulesOrder += 1;
+                      } else {
+                        outArr.push({
+                          selector: String(selectorText || '').trim(),
+                          source: String(sheetSource || ''),
+                          media: String(mediaText || ''),
+                          declarations: declAll,
+                          pseudoClasses: matchInfo && matchInfo.pseudoClasses ? matchInfo.pseudoClasses : [],
+                        });
+                        metaArr.push({ spec: (matchInfo && matchInfo.spec) ? matchInfo.spec : [0, 0, 0], order: rulesOrder, inline: Boolean(isInline) });
+                        rulesOrder += 1;
+                      }
+                      // merged — только для обычного элемента (не pseudo).
+                      if (!target) {
+                        for (let i = 0; i < keys.length; i += 1) {
+                          const k = keys[i];
+                          merged[k] = declAll[k];
+                        }
+                      }
+                    } catch (e) { /* noop */ }
+                  }
+
+                  // 1) Inline styles (style="...")
+                  try {
+                    const st = el.style;
+                    if (st && typeof st.length === 'number' && st.length > 0) {
+                      pushRule(null, 'element.style', st, 'inline', '', { spec: [1000000, 0, 0], pseudoClasses: [] }, true);
+                    }
+                  } catch (e) { /* noop */ }
+
+                  const walkRules = (rules, sheetSource, mediaText) => {
                     try {
                       if (!rules || typeof rules.length !== 'number') return;
                       for (let i = 0; i < rules.length; i += 1) {
@@ -402,19 +639,18 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                         // CSSStyleRule
                         if (r.type === 1 && r.selectorText && r.style) {
                           const selText = String(r.selectorText || '');
-                          const selectors = selText.split(',').map((x) => String(x || '').trim()).filter(Boolean);
-                          let matches = false;
-                          for (let s = 0; s < selectors.length; s += 1) {
-                            const sel = selectors[s];
-                            try {
-                              if (sel && el.matches && el.matches(sel)) { matches = true; break; }
-                            } catch (e) { /* noop */ }
-                          }
-                          if (matches) extractDecl(r.style);
+                          const matchMain = getMatchedSpecificity(selText, null);
+                          if (matchMain) pushRule(null, selText, r.style, sheetSource, mediaText, matchMain, false);
+
+                          const matchBefore = getMatchedSpecificity(selText, 'before');
+                          if (matchBefore) pushRule('before', selText, r.style, sheetSource, mediaText, matchBefore, false);
+
+                          const matchAfter = getMatchedSpecificity(selText, 'after');
+                          if (matchAfter) pushRule('after', selText, r.style, sheetSource, mediaText, matchAfter, false);
                           continue;
                         }
 
-                        // CSSMediaRule with nested cssRules
+                        // CSSMediaRule / CSSSupportsRule / etc. with nested cssRules
                         if (r.type === 4 && r.media && r.cssRules) {
                           const nextMedia = String(r.media.mediaText || '').trim();
                           let ok = true;
@@ -426,12 +662,13 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                           }
                           if (ok) {
                             const combined = mediaText ? (mediaText + ' & ' + nextMedia) : nextMedia;
-                            walkRules(r.cssRules, combined);
+                            walkRules(r.cssRules, sheetSource, combined);
                           }
                           continue;
                         }
-
-                        if (r.cssRules) walkRules(r.cssRules, mediaText);
+                        if (r.cssRules) {
+                          walkRules(r.cssRules, sheetSource, mediaText);
+                        }
                       }
                     } catch (e) { /* noop */ }
                   };
@@ -444,13 +681,70 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                       let rules = null;
                       try { rules = sheet.cssRules; } catch (e) { rules = null; }
                       if (!rules) continue;
-                      walkRules(rules, '');
+                      walkRules(rules, getSheetSource(sheet), '');
+                      if (rulesOut.length >= MAX_RULES) break;
                     }
                   } catch (e) { /* noop */ }
 
-                  return merged;
+                  const finalizeRules = (arr, metaArr) => {
+                    // Помечаем перебитые свойства (примерно как DevTools: зачёркнутые декларации).
+                    const bestByProp = Object.create(null);
+                    const isImportant = (v) => /!\\s*important\\s*$/i.test(String(v || ''));
+                    const better = (cand, prev) => {
+                      if (!prev) return true;
+                      if (cand.important !== prev.important) return cand.important;
+                      const sc = compareSpec(cand.spec, prev.spec);
+                      if (sc !== 0) return sc > 0;
+                      return (cand.order | 0) > (prev.order | 0);
+                    };
+
+                    for (let i = 0; i < arr.length; i += 1) {
+                      const r = arr[i];
+                      const decls = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null;
+                      if (!decls) continue;
+                      const meta = metaArr[i] || { spec: [0, 0, 0], order: i };
+                      for (const k in decls) {
+                        if (!Object.prototype.hasOwnProperty.call(decls, k)) continue;
+                        const cand = {
+                          idx: i,
+                          important: isImportant(decls[k]),
+                          spec: meta.spec || [0, 0, 0],
+                          order: meta.order | 0,
+                        };
+                        const prev = bestByProp[k];
+                        if (better(cand, prev)) bestByProp[k] = cand;
+                      }
+                    }
+
+                    for (let i = 0; i < arr.length; i += 1) {
+                      const r = arr[i];
+                      const decls = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null;
+                      if (!decls) continue;
+                      const ov = Object.create(null);
+                      for (const k in decls) {
+                        if (!Object.prototype.hasOwnProperty.call(decls, k)) continue;
+                        const win = bestByProp[k];
+                        ov[k] = win ? (win.idx !== i) : false;
+                      }
+                      r.overridden = ov;
+                    }
+
+                    // Прокидываем метаданные правила (для сортировки/отображения).
+                    for (let i = 0; i < arr.length; i += 1) {
+                      const meta = metaArr[i] || null;
+                      if (!meta) continue;
+                      arr[i].specificity = meta.spec || [0, 0, 0];
+                      arr[i].order = meta.order | 0;
+                    }
+                  };
+
+                  try { finalizeRules(rulesOut, rulesMeta); } catch (e) { /* noop */ }
+                  try { finalizeRules(rulesOutBefore, rulesMetaBefore); } catch (e) { /* noop */ }
+                  try { finalizeRules(rulesOutAfter, rulesMetaAfter); } catch (e) { /* noop */ }
+
+                  return { merged, rules: rulesOut, rulesBefore: rulesOutBefore, rulesAfter: rulesOutAfter };
                 } catch (e) {
-                  return Object.create(null);
+                  return { merged: Object.create(null), rules: [], rulesBefore: [], rulesAfter: [] };
                 }
               };
 
@@ -488,6 +782,9 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                   const isClicked = clickedEl && el === clickedEl;
                   if (isClicked) state.clickedKey = String(key || '');
 
+                  let userPack = null;
+                  try { if (isClicked) userPack = buildUserStyles(el); } catch (e) { userPack = null; }
+
                   const node = {
                     key: String(key || ''),
                     tag,
@@ -499,7 +796,10 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                     font: font || null,
                     color,
                     isClicked: Boolean(isClicked),
-                    stylesUser: isClicked ? buildUserStylesMerged(el) : Object.create(null),
+                    stylesUser: isClicked && userPack && userPack.merged ? userPack.merged : Object.create(null),
+                    stylesUserRules: isClicked && userPack && userPack.rules ? userPack.rules : [],
+                    stylesUserRulesBefore: isClicked && userPack && userPack.rulesBefore ? userPack.rulesBefore : [],
+                    stylesUserRulesAfter: isClicked && userPack && userPack.rulesAfter ? userPack.rulesAfter : [],
                     children: [],
                   };
 
