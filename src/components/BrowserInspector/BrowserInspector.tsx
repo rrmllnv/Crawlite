@@ -33,6 +33,62 @@ type InspectorElementPayload = {
   text?: string
 }
 
+type StyleEntry =
+  | { kind: 'prop'; prop: { name: string; value: string } }
+  | { kind: 'group'; group: string; items: { name: string; value: string }[] }
+
+function buildStyleGroupEntries(items: { name: string; value: string }[]): StyleEntry[] {
+  const groups = new Map<string, { items: { name: string; value: string }[]; firstIndex: number }>()
+
+  const getGroupKey = (propName: string) => {
+    const raw = String(propName || '')
+    const noLead = raw.replace(/^-+/, '')
+    const dashIdx = noLead.indexOf('-')
+    if (dashIdx <= 0) return null
+    const group = noLead.slice(0, dashIdx).trim()
+    return group ? group : null
+  }
+
+  for (let i = 0; i < items.length; i += 1) {
+    const it = items[i]
+    const g = getGroupKey(it.name)
+    if (!g) continue
+    const existing = groups.get(g)
+    if (!existing) {
+      groups.set(g, { items: [it], firstIndex: i })
+    } else {
+      existing.items.push(it)
+    }
+  }
+
+  const emitted = new Set<string>()
+  const entries: StyleEntry[] = []
+
+  for (let i = 0; i < items.length; i += 1) {
+    const it = items[i]
+    const g = getGroupKey(it.name)
+    if (!g) {
+      entries.push({ kind: 'prop', prop: it })
+      continue
+    }
+    const meta = groups.get(g)
+    if (!meta) {
+      entries.push({ kind: 'prop', prop: it })
+      continue
+    }
+    if (meta.firstIndex === i && !emitted.has(g)) {
+      if (meta.items.length < 2) {
+        entries.push({ kind: 'prop', prop: it })
+      } else {
+        emitted.add(g)
+        entries.push({ kind: 'group', group: g, items: meta.items })
+      }
+    }
+  }
+
+  return entries
+}
+
 export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: BrowserInspectorProps = {}) {
   const [internalOpen, setInternalOpen] = useState(true)
   const isControlled = controlledOpen !== undefined && onOpenChange !== undefined
@@ -40,6 +96,7 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
   const setIsOpen = isControlled ? onOpenChange : setInternalOpen
   const [selected, setSelected] = useState<InspectorElementPayload | null>(null)
   const [openStyleGroups, setOpenStyleGroups] = useState<Set<string>>(() => new Set())
+  const [openUserStyleGroups, setOpenUserStyleGroups] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     if (!window.electronAPI?.onBrowserEvent) return
@@ -51,6 +108,7 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
         if (!el || typeof el !== 'object') return
         setSelected(el)
         setOpenStyleGroups(new Set())
+        setOpenUserStyleGroups(new Set())
         if (onOpenChange) onOpenChange(true)
       } catch {
         void 0
@@ -111,61 +169,9 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
       .filter((x) => x.declarations.length > 0)
   }, [selected])
 
-  const stylesGrouped = useMemo(() => {
-    const groups = new Map<string, { items: { name: string; value: string }[]; firstIndex: number }>()
+  const stylesGrouped = useMemo(() => ({ entries: buildStyleGroupEntries(stylesList) }), [stylesList])
 
-    const getGroupKey = (propName: string) => {
-      const raw = String(propName || '')
-      const noLead = raw.replace(/^-+/, '')
-      const dashIdx = noLead.indexOf('-')
-      if (dashIdx <= 0) return null
-      const group = noLead.slice(0, dashIdx).trim()
-      return group ? group : null
-    }
-
-    for (let i = 0; i < stylesList.length; i += 1) {
-      const it = stylesList[i]
-      const g = getGroupKey(it.name)
-      if (!g) continue
-      const existing = groups.get(g)
-      if (!existing) {
-        groups.set(g, { items: [it], firstIndex: i })
-      } else {
-        existing.items.push(it)
-      }
-    }
-
-    const emitted = new Set<string>()
-    const entries: Array<
-      | { kind: 'prop'; prop: { name: string; value: string } }
-      | { kind: 'group'; group: string; items: { name: string; value: string }[] }
-    > = []
-
-    for (let i = 0; i < stylesList.length; i += 1) {
-      const it = stylesList[i]
-      const g = getGroupKey(it.name)
-      if (!g) {
-        entries.push({ kind: 'prop', prop: it })
-        continue
-      }
-      const meta = groups.get(g)
-      if (!meta) {
-        entries.push({ kind: 'prop', prop: it })
-        continue
-      }
-      if (meta.firstIndex === i && !emitted.has(g)) {
-        // Если в группе всего 1 свойство — не группируем, отображаем как обычную строку.
-        if (meta.items.length < 2) {
-          entries.push({ kind: 'prop', prop: it })
-        } else {
-          emitted.add(g)
-          entries.push({ kind: 'group', group: g, items: meta.items })
-        }
-      }
-    }
-
-    return { entries }
-  }, [stylesList])
+  const stylesUserGrouped = useMemo(() => ({ entries: buildStyleGroupEntries(stylesUserList) }), [stylesUserList])
 
   return (
     <div className="browser-inspector">
@@ -285,37 +291,120 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
 
               {stylesUserRulesList.length > 0 && (
                 <div className="browser-inspector__list">
-                  {stylesUserRulesList.map((r, idx) => (
-                    <div key={`${r.selector}:${idx}`} className="browser-inspector__style-group">
-                      <div className="browser-inspector__list-row">
-                        <div className="browser-inspector__list-key">{r.selector}</div>
-                        <div className="browser-inspector__list-val">
-                          {r.source ? r.source : ''}
-                          {r.media ? ` @media ${r.media}` : ''}
-                          {r.truncated ? ' (truncated)' : ''}
+                  {stylesUserRulesList.map((r, ruleIdx) => {
+                    const ruleEntries = buildStyleGroupEntries(r.declarations)
+                    return (
+                      <div key={`${r.selector}:${ruleIdx}`} className="browser-inspector__style-group">
+                        <div className="browser-inspector__list-row">
+                          <div className="browser-inspector__list-key">{r.selector}</div>
+                          <div className="browser-inspector__list-val">
+                            {r.source ? r.source : ''}
+                            {r.media ? ` @media ${r.media}` : ''}
+                            {r.truncated ? ' (truncated)' : ''}
+                          </div>
+                        </div>
+                        <div className="browser-inspector__style-group-items">
+                          {ruleEntries.map((e) => {
+                            if (e.kind === 'prop') {
+                              const s = e.prop
+                              return (
+                                <div key={s.name} className="browser-inspector__list-row">
+                                  <div className="browser-inspector__list-key">{s.name}</div>
+                                  <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                </div>
+                              )
+                            }
+                            const groupKey = `rule:${ruleIdx}:${e.group}`
+                            const opened = openUserStyleGroups.has(groupKey)
+                            return (
+                              <div key={`group:${groupKey}`} className="browser-inspector__style-group">
+                                <button
+                                  type="button"
+                                  className="browser-inspector__list-row browser-inspector__list-row--button browser-inspector__style-group-row"
+                                  onClick={() => {
+                                    setOpenUserStyleGroups((prev) => {
+                                      const next = new Set(prev)
+                                      if (next.has(groupKey)) next.delete(groupKey)
+                                      else next.add(groupKey)
+                                      return next
+                                    })
+                                  }}
+                                  aria-expanded={opened}
+                                >
+                                  <div className="browser-inspector__list-key">
+                                    <i className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__style-group-chevron`} aria-hidden="true" />
+                                    <span className="browser-inspector__style-group-title">{e.group}</span>
+                                  </div>
+                                  <div className="browser-inspector__list-val">({e.items.length})</div>
+                                </button>
+                                {opened && (
+                                  <div className="browser-inspector__style-group-items">
+                                    {e.items.map((s) => (
+                                      <div key={s.name} className="browser-inspector__list-row">
+                                        <div className="browser-inspector__list-key">{s.name}</div>
+                                        <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
-                      <div className="browser-inspector__style-group-items">
-                        {r.declarations.map((d) => (
-                          <div key={d.name} className="browser-inspector__list-row">
-                            <div className="browser-inspector__list-key">{d.name}</div>
-                            <div className="browser-inspector__list-val">{d.value || '—'}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
 
               {stylesUserRulesList.length === 0 && stylesUserList.length > 0 && (
                 <div className="browser-inspector__list">
-                  {stylesUserList.map((s) => (
-                    <div key={s.name} className="browser-inspector__list-row">
-                      <div className="browser-inspector__list-key">{s.name}</div>
-                      <div className="browser-inspector__list-val">{s.value || '—'}</div>
-                    </div>
-                  ))}
+                  {stylesUserGrouped.entries.map((e) => {
+                    if (e.kind === 'prop') {
+                      const s = e.prop
+                      return (
+                        <div key={s.name} className="browser-inspector__list-row">
+                          <div className="browser-inspector__list-key">{s.name}</div>
+                          <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                        </div>
+                      )
+                    }
+                    const groupKey = `flat:${e.group}`
+                    const opened = openUserStyleGroups.has(groupKey)
+                    return (
+                      <div key={`group:${e.group}`} className="browser-inspector__style-group">
+                        <button
+                          type="button"
+                          className="browser-inspector__list-row browser-inspector__list-row--button browser-inspector__style-group-row"
+                          onClick={() => {
+                            setOpenUserStyleGroups((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(groupKey)) next.delete(groupKey)
+                              else next.add(groupKey)
+                              return next
+                            })
+                          }}
+                          aria-expanded={opened}
+                        >
+                          <div className="browser-inspector__list-key">
+                            <i className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__style-group-chevron`} aria-hidden="true" />
+                            <span className="browser-inspector__style-group-title">{e.group}</span>
+                          </div>
+                          <div className="browser-inspector__list-val">({e.items.length})</div>
+                        </button>
+                        {opened && (
+                          <div className="browser-inspector__style-group-items">
+                            {e.items.map((s) => (
+                              <div key={s.name} className="browser-inspector__list-row">
+                                <div className="browser-inspector__list-key">{s.name}</div>
+                                <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
