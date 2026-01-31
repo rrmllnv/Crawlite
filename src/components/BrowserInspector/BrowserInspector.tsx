@@ -30,6 +30,7 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
   const isOpen = isControlled ? controlledOpen : internalOpen
   const setIsOpen = isControlled ? onOpenChange : setInternalOpen
   const [selected, setSelected] = useState<InspectorElementPayload | null>(null)
+  const [openStyleGroups, setOpenStyleGroups] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     if (!window.electronAPI?.onBrowserEvent) return
@@ -40,6 +41,7 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
         const el = (evt as any).element as InspectorElementPayload | null
         if (!el || typeof el !== 'object') return
         setSelected(el)
+        setOpenStyleGroups(new Set())
         if (onOpenChange) onOpenChange(true)
       } catch {
         void 0
@@ -70,6 +72,62 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
       .map((k) => ({ name: k, value: String((st as any)[k] ?? '') }))
   }, [selected])
 
+  const stylesGrouped = useMemo(() => {
+    const groups = new Map<string, { items: { name: string; value: string }[]; firstIndex: number }>()
+
+    const getGroupKey = (propName: string) => {
+      const raw = String(propName || '')
+      const noLead = raw.replace(/^-+/, '')
+      const dashIdx = noLead.indexOf('-')
+      if (dashIdx <= 0) return null
+      const group = noLead.slice(0, dashIdx).trim()
+      return group ? group : null
+    }
+
+    for (let i = 0; i < stylesList.length; i += 1) {
+      const it = stylesList[i]
+      const g = getGroupKey(it.name)
+      if (!g) continue
+      const existing = groups.get(g)
+      if (!existing) {
+        groups.set(g, { items: [it], firstIndex: i })
+      } else {
+        existing.items.push(it)
+      }
+    }
+
+    const emitted = new Set<string>()
+    const entries: Array<
+      | { kind: 'prop'; prop: { name: string; value: string } }
+      | { kind: 'group'; group: string; items: { name: string; value: string }[] }
+    > = []
+
+    for (let i = 0; i < stylesList.length; i += 1) {
+      const it = stylesList[i]
+      const g = getGroupKey(it.name)
+      if (!g) {
+        entries.push({ kind: 'prop', prop: it })
+        continue
+      }
+      const meta = groups.get(g)
+      if (!meta) {
+        entries.push({ kind: 'prop', prop: it })
+        continue
+      }
+      if (meta.firstIndex === i && !emitted.has(g)) {
+        // Если в группе всего 1 свойство — не группируем, отображаем как обычную строку.
+        if (meta.items.length < 2) {
+          entries.push({ kind: 'prop', prop: it })
+        } else {
+          emitted.add(g)
+          entries.push({ kind: 'group', group: g, items: meta.items })
+        }
+      }
+    }
+
+    return { entries }
+  }, [stylesList])
+
   return (
     <div className="browser-inspector">
       <button
@@ -81,7 +139,7 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
       >
         <span className="browser-inspector__title">Инспектор</span>
         <i
-          className={`fa-solid fa-chevron-${isOpen ? 'down' : 'left'} browser-inspector__chevron`}
+          className={`fa-solid fa-chevron-${isOpen ? 'down' : 'right'} browser-inspector__chevron`}
           aria-hidden="true"
         />
       </button>
@@ -142,24 +200,7 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
             </div>
           )}
 
-          {selected && (
-            <div className="browser-inspector__section">
-              <div className="browser-inspector__section-title">Стили (computed)</div>
-              {stylesList.length === 0 && <div className="browser-inspector__empty">—</div>}
-              {stylesList.length > 0 && (
-                <div className="browser-inspector__list browser-inspector__list--styles">
-                  {stylesList.map((s) => (
-                    <div key={s.name} className="browser-inspector__list-row">
-                      <div className="browser-inspector__list-key">{s.name}</div>
-                      <div className="browser-inspector__list-val">{s.value || '—'}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {selected && (
+{selected && (
             <div className="browser-inspector__section">
               <div className="browser-inspector__section-title">Дочерние элементы (сводка)</div>
               <div className="browser-inspector__kv">
@@ -197,6 +238,64 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
               )}
             </div>
           )}
+
+          {selected && (
+            <div className="browser-inspector__section">
+              <div className="browser-inspector__section-title">Стили (computed)</div>
+              {stylesList.length === 0 && <div className="browser-inspector__empty">—</div>}
+              {stylesList.length > 0 && (
+                <div className="browser-inspector__list ">
+                  {stylesGrouped.entries.map((e) => {
+                    if (e.kind === 'prop') {
+                      const s = e.prop
+                      return (
+                        <div key={s.name} className="browser-inspector__list-row">
+                          <div className="browser-inspector__list-key">{s.name}</div>
+                          <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                        </div>
+                      )
+                    }
+                    const opened = openStyleGroups.has(e.group)
+                    return (
+                      <div key={`group:${e.group}`} className="browser-inspector__style-group">
+                        <button
+                          type="button"
+                          className="browser-inspector__list-row browser-inspector__list-row--button browser-inspector__style-group-row"
+                          onClick={() => {
+                            setOpenStyleGroups((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(e.group)) next.delete(e.group)
+                              else next.add(e.group)
+                              return next
+                            })
+                          }}
+                          aria-expanded={opened}
+                        >
+                          <div className="browser-inspector__list-key">
+                            <i className={`fa-solid fa-chevron-${opened ? 'down' : 'right'} browser-inspector__style-group-chevron`} aria-hidden="true" />
+                            <span className="browser-inspector__style-group-title">{e.group}</span>
+                          </div>
+                          <div className="browser-inspector__list-val">({e.items.length})</div>
+                        </button>
+                        {opened && (
+                          <div className="browser-inspector__style-group-items">
+                            {e.items.map((s) => (
+                              <div key={s.name} className="browser-inspector__list-row">
+                                <div className="browser-inspector__list-key">{s.name}</div>
+                                <div className="browser-inspector__list-val">{s.value || '—'}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+         
         </div>
       )}
     </div>

@@ -76,14 +76,16 @@
 }
 
 .browser-inspector__kv-key {
-  width: 110px;
-  flex-shrink: 0;
+  flex: 0 0 40%;
+  max-width: 40%;
   color: $text-secondary;
   font-size: $font-size-sm;
+  word-break: break-word;
 }
 
 .browser-inspector__kv-val {
-  flex: 1;
+  flex: 1 1 60%;
+  max-width: 60%;
   color: $text-primary;
   font-size: $font-size-sm;
   word-break: break-word;
@@ -107,16 +109,45 @@
   align-items: flex-start;
 }
 
+.browser-inspector__list-row--button {
+  width: 100%;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.browser-inspector__style-group-row:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: $border-radius;
+}
+
+.browser-inspector__style-group-chevron {
+  margin-right: 6px;
+  font-size: 10px;
+  color: $text-secondary;
+}
+
+.browser-inspector__style-group-title {
+  color: $text-secondary;
+}
+
+.browser-inspector__style-group-items {
+  padding-left: 10px;
+}
+
 .browser-inspector__list-key {
-  width: 170px;
-  flex-shrink: 0;
+  flex: 0 0 40%;
+  max-width: 40%;
   color: $text-secondary;
   font-size: $font-size-sm;
   word-break: break-word;
 }
 
 .browser-inspector__list-val {
-  flex: 1;
+  flex: 1 1 60%;
+  max-width: 60%;
   color: $text-primary;
   font-size: $font-size-sm;
   word-break: break-word;
