@@ -16,6 +16,16 @@ export type CrawlStartParams = {
     deduplicateLinks?: boolean
     /** true = не переходить по ссылкам, ведущим на уровни выше стартового URL (папки) */
     restrictToCurrentFolder?: boolean
+    /** Ожидание перед извлечением: умный режим (DOM стабилизировался) */
+    smartWaitDomStabilizedEnabled?: boolean
+    /** Базовая задержка (ms) после загрузки перед извлечением/ожиданием */
+    preExtractDelayMs?: number
+    /** DOM стабилизировался: сколько (ms) DOM должен быть без изменений */
+    domStabilizedQuietMs?: number
+    /** DOM стабилизировался: период опроса (ms) */
+    domStabilizedPollMs?: number
+    /** DOM стабилизировался: таймаут ожидания (ms) */
+    domStabilizedTimeoutMs?: number
     analyzeWaitMs?: number
     pageLoadTimeoutMs?: number
     userAgent?: string

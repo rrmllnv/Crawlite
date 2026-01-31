@@ -21,6 +21,16 @@ interface CrawlState {
     deduplicateLinks: boolean
     /** true = не переходить по ссылкам, ведущим на уровни выше стартового URL (папки) */
     restrictToCurrentFolder: boolean
+    /** Ожидание перед извлечением: умный режим (DOM стабилизировался) */
+    smartWaitDomStabilizedEnabled: boolean
+    /** Базовая задержка (ms) после загрузки перед извлечением/ожиданием (быстрый первый paint) */
+    preExtractDelayMs: number
+    /** DOM стабилизировался: сколько (ms) DOM должен быть без изменений */
+    domStabilizedQuietMs: number
+    /** DOM стабилизировался: период опроса (ms) */
+    domStabilizedPollMs: number
+    /** DOM стабилизировался: таймаут ожидания (ms) */
+    domStabilizedTimeoutMs: number
     delayMs: number
     jitterMs: number
     userAgent: string
@@ -47,6 +57,11 @@ const initialState: CrawlState = {
     maxPages: 200,
     deduplicateLinks: false,
     restrictToCurrentFolder: true,
+    smartWaitDomStabilizedEnabled: false,
+    preExtractDelayMs: 250,
+    domStabilizedQuietMs: 700,
+    domStabilizedPollMs: 50,
+    domStabilizedTimeoutMs: 10000,
     delayMs: 650,
     jitterMs: 350,
     userAgent: '',
@@ -109,6 +124,11 @@ export const crawlSlice = createSlice({
       const maxPagesRaw = (cfg.crawling as any).maxPages
       const deduplicateLinksRaw = (cfg.crawling as any).deduplicateLinks
       const restrictToCurrentFolderRaw = (cfg.crawling as any).restrictToCurrentFolder
+      const smartWaitDomStabilizedEnabledRaw = (cfg.crawling as any).smartWaitDomStabilizedEnabled
+      const preExtractDelayMsRaw = (cfg.crawling as any).preExtractDelayMs
+      const domStabilizedQuietMsRaw = (cfg.crawling as any).domStabilizedQuietMs
+      const domStabilizedPollMsRaw = (cfg.crawling as any).domStabilizedPollMs
+      const domStabilizedTimeoutMsRaw = (cfg.crawling as any).domStabilizedTimeoutMs
       const delayMsRaw = (cfg.crawling as any).delayMs
       const jitterMsRaw = (cfg.crawling as any).jitterMs
       const userAgentRaw = (cfg.crawling as any).userAgent
@@ -125,6 +145,21 @@ export const crawlSlice = createSlice({
       state.settings.deduplicateLinks = deduplicateLinks
       if (typeof restrictToCurrentFolderRaw === 'boolean') {
         state.settings.restrictToCurrentFolder = restrictToCurrentFolderRaw
+      }
+      if (typeof smartWaitDomStabilizedEnabledRaw === 'boolean') {
+        state.settings.smartWaitDomStabilizedEnabled = smartWaitDomStabilizedEnabledRaw
+      }
+      if (typeof preExtractDelayMsRaw === 'number' && Number.isFinite(preExtractDelayMsRaw)) {
+        state.settings.preExtractDelayMs = Math.max(0, Math.min(60000, Math.floor(preExtractDelayMsRaw)))
+      }
+      if (typeof domStabilizedQuietMsRaw === 'number' && Number.isFinite(domStabilizedQuietMsRaw)) {
+        state.settings.domStabilizedQuietMs = Math.max(0, Math.min(60000, Math.floor(domStabilizedQuietMsRaw)))
+      }
+      if (typeof domStabilizedPollMsRaw === 'number' && Number.isFinite(domStabilizedPollMsRaw)) {
+        state.settings.domStabilizedPollMs = Math.max(10, Math.min(2000, Math.floor(domStabilizedPollMsRaw)))
+      }
+      if (typeof domStabilizedTimeoutMsRaw === 'number' && Number.isFinite(domStabilizedTimeoutMsRaw)) {
+        state.settings.domStabilizedTimeoutMs = Math.max(0, Math.min(600000, Math.floor(domStabilizedTimeoutMsRaw)))
       }
       if (typeof delayMsRaw === 'number' && Number.isFinite(delayMsRaw)) {
         state.settings.delayMs = Math.max(0, Math.min(60000, Math.floor(delayMsRaw)))

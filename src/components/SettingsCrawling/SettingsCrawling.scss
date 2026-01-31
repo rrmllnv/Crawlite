@@ -75,6 +75,11 @@
   gap: 6px;
 }
 
+.settings-crawling__field--disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .settings-crawling__label {
   font-size: $font-size-sm;
   color: $text-secondary;
@@ -90,6 +95,11 @@
 
   &:focus {
     border-color: $primary-color;
+  }
+
+  &:disabled {
+    opacity: 0.75;
+    cursor: not-allowed;
   }
 }
 

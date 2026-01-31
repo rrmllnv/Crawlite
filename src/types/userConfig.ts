@@ -20,6 +20,16 @@ export interface UserConfig {
     deduplicateLinks: boolean
     /** true = не переходить по ссылкам, ведущим на уровни выше стартового URL (папки) */
     restrictToCurrentFolder: boolean
+    /** Ожидание перед извлечением: умный режим (DOM стабилизировался) */
+    smartWaitDomStabilizedEnabled: boolean
+    /** Базовая задержка (ms) после загрузки перед извлечением/ожиданием (быстрый первый paint) */
+    preExtractDelayMs: number
+    /** DOM стабилизировался: сколько (ms) DOM должен быть без изменений */
+    domStabilizedQuietMs: number
+    /** DOM стабилизировался: период опроса (ms) */
+    domStabilizedPollMs: number
+    /** DOM стабилизировался: таймаут ожидания (ms) */
+    domStabilizedTimeoutMs: number
     /** Задержка (ms): пауза между страницами в крауле. Для анализа страницы применяется только если analyzeWaitMs не задан. */
     delayMs: number
     /** Джиттер (ms): случайная добавка к delayMs. Для анализа страницы применяется только если analyzeWaitMs не задан. */
@@ -66,6 +76,11 @@ export const defaultUserConfig: UserConfig = {
     maxPages: 200,
     deduplicateLinks: false,
     restrictToCurrentFolder: true,
+    smartWaitDomStabilizedEnabled: false,
+    preExtractDelayMs: 250,
+    domStabilizedQuietMs: 700,
+    domStabilizedPollMs: 50,
+    domStabilizedTimeoutMs: 10000,
     delayMs: 650,
     jitterMs: 350,
     userAgent: '',

@@ -16,6 +16,11 @@ export type CrawlStartParams = {
     jitterMs?: number
     deduplicateLinks?: boolean
     restrictToCurrentFolder?: boolean
+    smartWaitDomStabilizedEnabled?: boolean
+    preExtractDelayMs?: number
+    domStabilizedQuietMs?: number
+    domStabilizedPollMs?: number
+    domStabilizedTimeoutMs?: number
     analyzeWaitMs?: number
     pageLoadTimeoutMs?: number
     userAgent?: string

@@ -24,6 +24,11 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
   const maxPagesValue = useMemo(() => String(settings.maxPages), [settings.maxPages])
   const deduplicateLinks = Boolean(settings.deduplicateLinks)
   const restrictToCurrentFolder = Boolean(settings.restrictToCurrentFolder)
+  const smartWaitDomStabilizedEnabled = Boolean(settings.smartWaitDomStabilizedEnabled)
+  const preExtractDelayMsValue = useMemo(() => String(settings.preExtractDelayMs), [settings.preExtractDelayMs])
+  const domStabilizedQuietMsValue = useMemo(() => String(settings.domStabilizedQuietMs), [settings.domStabilizedQuietMs])
+  const domStabilizedPollMsValue = useMemo(() => String(settings.domStabilizedPollMs), [settings.domStabilizedPollMs])
+  const domStabilizedTimeoutMsValue = useMemo(() => String(settings.domStabilizedTimeoutMs), [settings.domStabilizedTimeoutMs])
   const delayMsValue = useMemo(() => String(settings.delayMs), [settings.delayMs])
   const jitterMsValue = useMemo(() => String(settings.jitterMs), [settings.jitterMs])
   const analyzeWaitMsValue = useMemo(() => String(settings.analyzeWaitMs), [settings.analyzeWaitMs])
@@ -131,6 +136,117 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
             </div>
           </label>
 
+          <div className="settings-crawling__section-title">Ожидание перед извлечением</div>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">Умное ожидание (DOM стабилизировался)</div>
+            <div className="settings-crawling__checkbox-row">
+              <input
+                className="settings-crawling__checkbox"
+                type="checkbox"
+                checked={smartWaitDomStabilizedEnabled}
+                onChange={(e) => {
+                  dispatch(setCrawlSettings({ smartWaitDomStabilizedEnabled: Boolean(e.target.checked) }))
+                }}
+              />
+              <div className="settings-crawling__hint">
+                Если включено — ждём, пока DOM перестанет меняться заданное время. `analyzeWaitMs` ниже не используется.
+              </div>
+            </div>
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">preExtractDelayMs (пауза после загрузки)</div>
+            <input
+              className="settings-crawling__input"
+              type="number"
+              min={0}
+              max={60000}
+              step={10}
+              value={preExtractDelayMsValue}
+              onChange={(e) => {
+                const next = clampInt(Number(e.target.value), 0, 60000)
+                dispatch(setCrawlSettings({ preExtractDelayMs: next }))
+              }}
+            />
+            <div className="settings-crawling__hint">Короткая пауза сразу после loadURL перед ожиданием/извлечением.</div>
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">domStabilizedQuietMs (сколько ждать тишины в DOM)</div>
+            <input
+              className="settings-crawling__input"
+              type="number"
+              min={0}
+              max={60000}
+              step={50}
+              value={domStabilizedQuietMsValue}
+              onChange={(e) => {
+                const next = clampInt(Number(e.target.value), 0, 60000)
+                dispatch(setCrawlSettings({ domStabilizedQuietMs: next }))
+              }}
+            />
+            <div className="settings-crawling__hint">
+              DOM считается «готовым», когда не менялся domStabilizedQuietMs.
+            </div>
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">domStabilizedPollMs (период проверки)</div>
+            <input
+              className="settings-crawling__input"
+              type="number"
+              min={1}
+              max={60000}
+              step={10}
+              value={domStabilizedPollMsValue}
+              onChange={(e) => {
+                const next = clampInt(Number(e.target.value), 1, 60000)
+                dispatch(setCrawlSettings({ domStabilizedPollMs: next }))
+              }}
+            />
+            <div className="settings-crawling__hint">Как часто проверяем, что DOM не меняется.</div>
+          </label>
+
+          <label className="settings-crawling__field">
+            <div className="settings-crawling__label">domStabilizedTimeoutMs (таймаут умного ожидания)</div>
+            <input
+              className="settings-crawling__input"
+              type="number"
+              min={0}
+              max={600000}
+              step={100}
+              value={domStabilizedTimeoutMsValue}
+              onChange={(e) => {
+                const next = clampInt(Number(e.target.value), 0, 600000)
+                dispatch(setCrawlSettings({ domStabilizedTimeoutMs: next }))
+              }}
+            />
+            <div className="settings-crawling__hint">
+              Максимальное ожидание «DOM стабилизировался». 0 = ждать без таймаута (не рекомендуется).
+            </div>
+          </label>
+
+          <label className={`settings-crawling__field ${smartWaitDomStabilizedEnabled ? 'settings-crawling__field--disabled' : ''}`}>
+            <div className="settings-crawling__label">analyzeWaitMs (ожидание перед извлечением)</div>
+            <input
+              className="settings-crawling__input"
+              type="number"
+              min={0}
+              max={60000}
+              step={10}
+              value={analyzeWaitMsValue}
+              disabled={smartWaitDomStabilizedEnabled}
+              onChange={(e) => {
+                const next = clampInt(Number(e.target.value), 0, 60000)
+                dispatch(setCrawlSettings({ analyzeWaitMs: next }))
+              }}
+            />
+            <div className="settings-crawling__hint">
+              Фиксированная пауза перед извлечением данных. Используется только если «Умное ожидание» выключено.
+            </div>
+          </label>
+
           <div className="settings-crawling__section-title">Антибот / сеть</div>
 
           <label className="settings-crawling__field">
@@ -168,25 +284,6 @@ export function SettingsCrawling({ isOpen, onClose }: Props) {
             />
             <div className="settings-crawling__hint">
               Добавляется к delayMs случайным образом. Для анализа страницы применяется только если `analyzeWaitMs` = 0.
-            </div>
-          </label>
-
-          <label className="settings-crawling__field">
-            <div className="settings-crawling__label">analyzeWaitMs (ожидание перед извлечением)</div>
-            <input
-              className="settings-crawling__input"
-              type="number"
-              min={0}
-              max={60000}
-              step={10}
-              value={analyzeWaitMsValue}
-              onChange={(e) => {
-                const next = clampInt(Number(e.target.value), 0, 60000)
-                dispatch(setCrawlSettings({ analyzeWaitMs: next }))
-              }}
-            />
-            <div className="settings-crawling__hint">
-              Ожидание перед извлечением данных (ссылок, заголовков и т.д.). Применяется и при крауле, и при анализе одной страницы. Для React/Vue и прочего JS-контента поставьте 1500–3000 ms, чтобы ссылки успели отрендериться.
             </div>
           </label>
 

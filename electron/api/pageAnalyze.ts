@@ -240,6 +240,74 @@ async function tryApplyNavigatorOverrides(
   }
 }
 
+async function waitForDomStabilized(
+  wc: WebContents,
+  opts: { quietMs: number; pollMs: number; timeoutMs: number }
+): Promise<void> {
+  if (typeof opts.quietMs !== 'number' || !Number.isFinite(opts.quietMs)) return
+  if (typeof opts.pollMs !== 'number' || !Number.isFinite(opts.pollMs)) return
+  if (typeof opts.timeoutMs !== 'number' || !Number.isFinite(opts.timeoutMs)) return
+
+  const quietMs = Math.max(0, Math.floor(opts.quietMs))
+  const pollMs = Math.floor(opts.pollMs)
+  const timeoutMs = Math.max(0, Math.floor(opts.timeoutMs))
+  if (pollMs <= 0) return
+
+  try {
+    await wc.executeJavaScript(
+      `
+        (function() {
+          var quietMs = ${quietMs};
+          var pollMs = ${pollMs};
+          var timeoutMs = ${timeoutMs};
+
+          return new Promise(function(resolve) {
+            try {
+              var startedAt = Date.now();
+              var lastChangeAt = Date.now();
+              var obs = null;
+
+              try {
+                obs = new MutationObserver(function() { lastChangeAt = Date.now(); });
+                obs.observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
+              } catch (e) {
+                obs = null;
+              }
+
+              var tick = function() {
+                try {
+                  var now = Date.now();
+                  if (timeoutMs > 0 && (now - startedAt) >= timeoutMs) {
+                    try { if (obs) obs.disconnect(); } catch (e) {}
+                    resolve(true);
+                    return;
+                  }
+                  if (quietMs <= 0 || (now - lastChangeAt) >= quietMs) {
+                    try { if (obs) obs.disconnect(); } catch (e) {}
+                    resolve(true);
+                    return;
+                  }
+                  setTimeout(tick, pollMs);
+                } catch (e) {
+                  try { if (obs) obs.disconnect(); } catch (e2) {}
+                  resolve(true);
+                }
+              };
+
+              setTimeout(tick, pollMs);
+            } catch (e) {
+              resolve(true);
+            }
+          });
+        })()
+      `,
+      true
+    )
+  } catch {
+    void 0
+  }
+}
+
 export async function handlePageAnalyze(
   url: string,
   options?: CrawlStartParams['options']
@@ -254,6 +322,34 @@ export async function handlePageAnalyze(
     typeof analyzeWaitMsRaw === 'number' && Number.isFinite(analyzeWaitMsRaw)
       ? Math.max(0, Math.min(60000, Math.floor(analyzeWaitMsRaw)))
       : null
+
+  const smartWaitDomStabilizedEnabledRaw = (options as any)?.smartWaitDomStabilizedEnabled
+  const smartWaitDomStabilizedEnabled =
+    typeof smartWaitDomStabilizedEnabledRaw === 'boolean' ? smartWaitDomStabilizedEnabledRaw : false
+
+  const preExtractDelayMsRaw = (options as any)?.preExtractDelayMs
+  const preExtractDelayMs =
+    typeof preExtractDelayMsRaw === 'number' && Number.isFinite(preExtractDelayMsRaw)
+      ? Math.max(0, Math.min(60000, Math.floor(preExtractDelayMsRaw)))
+      : 0
+
+  const domStabilizedQuietMsRaw = (options as any)?.domStabilizedQuietMs
+  const domStabilizedQuietMs =
+    typeof domStabilizedQuietMsRaw === 'number' && Number.isFinite(domStabilizedQuietMsRaw)
+      ? Math.max(0, Math.min(60000, Math.floor(domStabilizedQuietMsRaw)))
+      : 0
+
+  const domStabilizedPollMsRaw = (options as any)?.domStabilizedPollMs
+  const domStabilizedPollMs =
+    typeof domStabilizedPollMsRaw === 'number' && Number.isFinite(domStabilizedPollMsRaw)
+      ? Math.max(1, Math.min(60000, Math.floor(domStabilizedPollMsRaw)))
+      : 0
+
+  const domStabilizedTimeoutMsRaw = (options as any)?.domStabilizedTimeoutMs
+  const domStabilizedTimeoutMs =
+    typeof domStabilizedTimeoutMsRaw === 'number' && Number.isFinite(domStabilizedTimeoutMsRaw)
+      ? Math.max(0, Math.min(600000, Math.floor(domStabilizedTimeoutMsRaw)))
+      : 0
 
   // Backward-compat: если analyzeWaitMs не задан — используем старую схему delay+jitter.
   const delayMsFallback =
@@ -320,24 +416,24 @@ export async function handlePageAnalyze(
     platform: platformRaw,
   }).catch(() => void 0)
 
-  try {
-    await crawlView.webContents.executeJavaScript(`
-      (function() {
-        return new Promise((resolve) => {
-          try { requestAnimationFrame(() => setTimeout(resolve, 250)); } catch (e) { setTimeout(resolve, 250); }
-        });
-      })()
-    `)
-  } catch {
-    void 0
+  if (preExtractDelayMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, preExtractDelayMs))
   }
 
-  const sleepFor =
-    analyzeWaitMs !== null
-      ? analyzeWaitMs
-      : (delayMsFallback + Math.floor(Math.random() * (jitterMsFallback + 1)))
-  if (sleepFor > 0) {
-    await new Promise((resolve) => setTimeout(resolve, sleepFor))
+  if (smartWaitDomStabilizedEnabled) {
+    await waitForDomStabilized(crawlView.webContents, {
+      quietMs: domStabilizedQuietMs,
+      pollMs: domStabilizedPollMs,
+      timeoutMs: domStabilizedTimeoutMs,
+    })
+  } else {
+    const sleepFor =
+      analyzeWaitMs !== null
+        ? analyzeWaitMs
+        : (delayMsFallback + Math.floor(Math.random() * (jitterMsFallback + 1)))
+    if (sleepFor > 0) {
+      await new Promise((resolve) => setTimeout(resolve, sleepFor))
+    }
   }
 
   const finishedAt = Date.now()
