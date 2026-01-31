@@ -427,8 +427,8 @@ export function BrowserProperties({
         {selectedPage && activeTab === 'images' && (
           <div className="browser-properties__list">
             {selectedPage.images.length === 0 && <div className="browser-properties__empty">Нет картинок.</div>}
-            {selectedPage.images.map((x) => (
-              <div key={x} className="browser-properties__row">
+            {selectedPage.images.map((x, idx) => (
+              <div key={`${x}__${idx}`} className="browser-properties__row">
                 <button
                   type="button"
                   className="browser-properties__row-main browser-properties__row-main--with-thumb"
@@ -467,10 +467,10 @@ export function BrowserProperties({
               </summary>
               <div className="browser-properties__group-body">
                 {selectedPage.scripts.length === 0 && <div className="browser-properties__empty">Нет.</div>}
-                {selectedPage.scripts.map((x) => (
+                {selectedPage.scripts.map((x, idx) => (
                   <button
                     type="button"
-                    key={x}
+                    key={`${x}__${idx}`}
                     className="browser-properties__list-item browser-properties__list-item--button browser-properties__list-item--with-meta"
                     onClick={() => onOpenResource('js', x)}
                     disabled={isPageLoading}
@@ -489,10 +489,10 @@ export function BrowserProperties({
               </summary>
               <div className="browser-properties__group-body">
                 {selectedPage.stylesheets.length === 0 && <div className="browser-properties__empty">Нет.</div>}
-                {selectedPage.stylesheets.map((x) => (
+                {selectedPage.stylesheets.map((x, idx) => (
                   <button
                     type="button"
-                    key={x}
+                    key={`${x}__${idx}`}
                     className="browser-properties__list-item browser-properties__list-item--button browser-properties__list-item--with-meta"
                     onClick={() => onOpenResource('css', x)}
                     disabled={isPageLoading}

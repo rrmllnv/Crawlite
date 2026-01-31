@@ -380,33 +380,12 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                 try {
                   const merged = Object.create(null);
                   const rulesOut = [];
+                  const rulesMeta = [];
+                  let rulesOrder = 0;
                   if (!el) return { merged, rules: rulesOut };
 
                   // 1) Inline styles (style="...")
-                  try {
-                    const st = el.style;
-                    if (st && typeof st.length === 'number') {
-                      const decl = Object.create(null);
-                      for (let i = 0; i < st.length; i += 1) {
-                        const name = st[i];
-                        if (!name) continue;
-                        const value = String(st.getPropertyValue(name) || '').trim();
-                        const pr = String(st.getPropertyPriority(name) || '').trim();
-                        if (!value) continue;
-                        const v = pr ? (value + ' !' + pr) : value;
-                        merged[name] = v;
-                        decl[name] = v;
-                      }
-                      if (Object.keys(decl).length > 0) {
-                        rulesOut.push({
-                          selector: 'element.style',
-                          source: 'inline',
-                          media: '',
-                          declarations: decl,
-                        });
-                      }
-                    }
-                  } catch (e) { /* noop */ }
+                  // (дальше pushRule, поэтому inline добавляем тем же путём)
 
                   // 2) Styles from accessible stylesheets (best-effort; cross-origin may throw)
                   const extractDecl = (styleDecl) => {
@@ -443,7 +422,121 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                   const MAX_RULES = 120;
                   const MAX_DECLS_PER_RULE = 220;
 
-                  const pushRule = (selectorText, styleDecl, sheetSource, mediaText) => {
+                  const splitSelectorList = (selText) => {
+                    try {
+                      const src = String(selText || '');
+                      const out = [];
+                      let buf = '';
+                      let par = 0;
+                      let br = 0;
+                      let quote = '';
+                      for (let i = 0; i < src.length; i += 1) {
+                        const ch = src[i];
+                        if (quote) {
+                          buf += ch;
+                          if (ch === '\\\\') {
+                            if (i + 1 < src.length) { buf += src[i + 1]; i += 1; }
+                            continue;
+                          }
+                          if (ch === quote) quote = '';
+                          continue;
+                        }
+                        if (ch === '"' || ch === "'") { quote = ch; buf += ch; continue; }
+                        if (ch === '(') { par += 1; buf += ch; continue; }
+                        if (ch === ')') { par = Math.max(0, par - 1); buf += ch; continue; }
+                        if (ch === '[') { br += 1; buf += ch; continue; }
+                        if (ch === ']') { br = Math.max(0, br - 1); buf += ch; continue; }
+                        if (ch === ',' && par === 0 && br === 0) {
+                          const v = String(buf || '').trim();
+                          if (v) out.push(v);
+                          buf = '';
+                          continue;
+                        }
+                        buf += ch;
+                      }
+                      const last = String(buf || '').trim();
+                      if (last) out.push(last);
+                      return out;
+                    } catch (e) {
+                      return String(selText || '').split(',').map((x) => String(x || '').trim()).filter(Boolean);
+                    }
+                  };
+
+                  const compareSpec = (a, b) => {
+                    try {
+                      const a0 = a && a.length ? (a[0] | 0) : 0;
+                      const a1 = a && a.length ? (a[1] | 0) : 0;
+                      const a2 = a && a.length ? (a[2] | 0) : 0;
+                      const b0 = b && b.length ? (b[0] | 0) : 0;
+                      const b1 = b && b.length ? (b[1] | 0) : 0;
+                      const b2 = b && b.length ? (b[2] | 0) : 0;
+                      if (a0 !== b0) return a0 - b0;
+                      if (a1 !== b1) return a1 - b1;
+                      return a2 - b2;
+                    } catch (e) { return 0; }
+                  };
+
+                  const calcSpecificity = (selector) => {
+                    try {
+                      let s = String(selector || '');
+                      if (!s) return [0, 0, 0];
+                      // Убираем строки, чтобы не ловить символы внутри кавычек.
+                      // ВАЖНО: это код внутри template string, поэтому backslash нужно экранировать.
+                      s = s.replace(/"([^"\\\\]|\\\\.)*"/g, '""').replace(/'([^'\\\\]|\\\\.)*'/g, "''");
+                      // :not() не даёт специфику само по себе, но аргументы учитываются.
+                      s = s.replace(/:not\\(/g, '(');
+
+                      const ids = (s.match(/#[\\w-]+/g) || []).length;
+                      const classes = (s.match(/\\.[\\w-]+/g) || []).length;
+                      const attrs = (s.match(/\\[[^\\]]+\\]/g) || []).length;
+
+                      const pseudoElements1 = (s.match(/::[\\w-]+/g) || []).length;
+                      const pseudoElements2 = (s.match(/:(before|after|first-line|first-letter)\\b/g) || []).length;
+                      const pseudoElements = pseudoElements1 + pseudoElements2;
+
+                      const pseudoClassesRaw = (s.match(/:(?!:)[\\w-]+(\\([^)]*\\))?/g) || []).length;
+                      const pseudoClasses = Math.max(0, pseudoClassesRaw - pseudoElements2);
+
+                      // Type selectors
+                      let types = 0;
+                      const re = /(^|[\\s>+~,(])([a-zA-Z][\\w-]*)/g;
+                      let m;
+                      while ((m = re.exec(s))) {
+                        const name = String(m[2] || '').toLowerCase();
+                        if (!name) continue;
+                        if (name === '*') continue;
+                        types += 1;
+                      }
+
+                      return [ids, classes + attrs + pseudoClasses, types + pseudoElements];
+                    } catch (e) {
+                      return [0, 0, 0];
+                    }
+                  };
+
+                  const getMatchedSpecificity = (selectorText) => {
+                    try {
+                      const selectors = splitSelectorList(selectorText);
+                      let best = [0, 0, 0];
+                      let matched = false;
+                      for (let i = 0; i < selectors.length; i += 1) {
+                        const sel = selectors[i];
+                        if (!sel) continue;
+                        try {
+                          if (el.matches && el.matches(sel)) {
+                            matched = true;
+                            const sp = calcSpecificity(sel);
+                            if (compareSpec(sp, best) > 0) best = sp;
+                          }
+                        } catch (e) { /* noop */ }
+                      }
+                      return matched ? best : null;
+                    } catch (e) {
+                      return null;
+                    }
+                  };
+
+                  function pushRule(selectorText, styleDecl, sheetSource, mediaText, spec, isInline) {
                     try {
                       if (rulesOut.length >= MAX_RULES) return;
                       const declAll = extractDecl(styleDecl) || Object.create(null);
@@ -460,6 +553,8 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                           declarations: cut,
                           truncated: true,
                         });
+                        rulesMeta.push({ spec: spec || [0, 0, 0], order: rulesOrder, inline: Boolean(isInline) });
+                        rulesOrder += 1;
                       } else {
                         rulesOut.push({
                           selector: String(selectorText || '').trim(),
@@ -467,13 +562,23 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                           media: String(mediaText || ''),
                           declarations: declAll,
                         });
+                        rulesMeta.push({ spec: spec || [0, 0, 0], order: rulesOrder, inline: Boolean(isInline) });
+                        rulesOrder += 1;
                       }
                       for (let i = 0; i < keys.length; i += 1) {
                         const k = keys[i];
                         merged[k] = declAll[k];
                       }
                     } catch (e) { /* noop */ }
-                  };
+                  }
+
+                  // 1) Inline styles (style="...")
+                  try {
+                    const st = el.style;
+                    if (st && typeof st.length === 'number' && st.length > 0) {
+                      pushRule('element.style', st, 'inline', '', [1000000, 0, 0], true);
+                    }
+                  } catch (e) { /* noop */ }
 
                   const walkRules = (rules, sheetSource, mediaText) => {
                     try {
@@ -485,25 +590,25 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                         // CSSStyleRule
                         if (r.type === 1 && r.selectorText && r.style) {
                           const selText = String(r.selectorText || '');
-                          const selectors = selText.split(',').map((x) => String(x || '').trim()).filter(Boolean);
-                          let matches = false;
-                          for (let s = 0; s < selectors.length; s += 1) {
-                            const sel = selectors[s];
-                            try {
-                              if (sel && el.matches && el.matches(sel)) { matches = true; break; }
-                            } catch (e) { /* noop */ }
-                          }
-                          if (matches) {
-                            pushRule(selText, r.style, sheetSource, mediaText);
-                          }
+                          const spec = getMatchedSpecificity(selText);
+                          if (spec) pushRule(selText, r.style, sheetSource, mediaText, spec, false);
                           continue;
                         }
 
                         // CSSMediaRule / CSSSupportsRule / etc. with nested cssRules
                         if (r.type === 4 && r.media && r.cssRules) {
                           const nextMedia = String(r.media.mediaText || '').trim();
-                          const combined = mediaText ? (mediaText + ' & ' + nextMedia) : nextMedia;
-                          walkRules(r.cssRules, sheetSource, combined);
+                          let ok = true;
+                          if (nextMedia) {
+                            ok = false;
+                            try {
+                              ok = Boolean(window.matchMedia && window.matchMedia(nextMedia) && window.matchMedia(nextMedia).matches);
+                            } catch (e) { ok = false; }
+                          }
+                          if (ok) {
+                            const combined = mediaText ? (mediaText + ' & ' + nextMedia) : nextMedia;
+                            walkRules(r.cssRules, sheetSource, combined);
+                          }
                           continue;
                         }
                         if (r.cssRules) {
@@ -523,6 +628,50 @@ async function runToggle(kind: 'all' | 'hover'): Promise<ToggleResult> {
                       if (!rules) continue;
                       walkRules(rules, getSheetSource(sheet), '');
                       if (rulesOut.length >= MAX_RULES) break;
+                    }
+                  } catch (e) { /* noop */ }
+
+                  // Помечаем перебитые свойства (примерно как DevTools: зачёркнутые декларации).
+                  try {
+                    const bestByProp = Object.create(null);
+                    const isImportant = (v) => /!\\s*important\\s*$/i.test(String(v || ''));
+                    const better = (cand, prev) => {
+                      if (!prev) return true;
+                      if (cand.important !== prev.important) return cand.important;
+                      const sc = compareSpec(cand.spec, prev.spec);
+                      if (sc !== 0) return sc > 0;
+                      return (cand.order | 0) > (prev.order | 0);
+                    };
+
+                    for (let i = 0; i < rulesOut.length; i += 1) {
+                      const r = rulesOut[i];
+                      const decls = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null;
+                      if (!decls) continue;
+                      const meta = rulesMeta[i] || { spec: [0, 0, 0], order: i };
+                      for (const k in decls) {
+                        if (!Object.prototype.hasOwnProperty.call(decls, k)) continue;
+                        const cand = {
+                          idx: i,
+                          important: isImportant(decls[k]),
+                          spec: meta.spec || [0, 0, 0],
+                          order: meta.order | 0,
+                        };
+                        const prev = bestByProp[k];
+                        if (better(cand, prev)) bestByProp[k] = cand;
+                      }
+                    }
+
+                    for (let i = 0; i < rulesOut.length; i += 1) {
+                      const r = rulesOut[i];
+                      const decls = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null;
+                      if (!decls) continue;
+                      const ov = Object.create(null);
+                      for (const k in decls) {
+                        if (!Object.prototype.hasOwnProperty.call(decls, k)) continue;
+                        const win = bestByProp[k];
+                        ov[k] = win ? (win.idx !== i) : false;
+                      }
+                      r.overridden = ov;
                     }
                   } catch (e) { /* noop */ }
 

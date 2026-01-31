@@ -23,6 +23,7 @@ type InspectorElementPayload = {
     media?: string
     truncated?: boolean
     declarations?: Record<string, string>
+    overridden?: Record<string, boolean>
   }>
   children?: {
     directCount?: number
@@ -33,12 +34,14 @@ type InspectorElementPayload = {
   text?: string
 }
 
-type StyleEntry =
-  | { kind: 'prop'; prop: { name: string; value: string } }
-  | { kind: 'group'; group: string; items: { name: string; value: string }[] }
+type StyleItem = { name: string; value: string }
 
-function buildStyleGroupEntries(items: { name: string; value: string }[]): StyleEntry[] {
-  const groups = new Map<string, { items: { name: string; value: string }[]; firstIndex: number }>()
+type StyleEntry<T extends StyleItem = StyleItem> =
+  | { kind: 'prop'; prop: T }
+  | { kind: 'group'; group: string; items: T[] }
+
+function buildStyleGroupEntries<T extends StyleItem>(items: T[]): StyleEntry<T>[] {
+  const groups = new Map<string, { items: T[]; firstIndex: number }>()
 
   const getGroupKey = (propName: string) => {
     const raw = String(propName || '')
@@ -62,7 +65,7 @@ function buildStyleGroupEntries(items: { name: string; value: string }[]): Style
   }
 
   const emitted = new Set<string>()
-  const entries: StyleEntry[] = []
+  const entries: StyleEntry<T>[] = []
 
   for (let i = 0; i < items.length; i += 1) {
     const it = items[i]
@@ -153,10 +156,15 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
     return rules
       .map((r) => {
         const decl = r && r.declarations && typeof r.declarations === 'object' ? r.declarations : null
+        const overridden = r && (r as any).overridden && typeof (r as any).overridden === 'object' ? ((r as any).overridden as any) : null
         const declList = decl
           ? Object.keys(decl)
               .sort()
-              .map((k) => ({ name: k, value: String((decl as any)[k] ?? '') }))
+              .map((k) => ({
+                name: k,
+                value: String((decl as any)[k] ?? ''),
+                overridden: overridden ? Boolean(overridden[k]) : false,
+              }))
           : []
         return {
           selector: String((r as any).selector || '').trim() || '—',
@@ -309,7 +317,10 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                             if (e.kind === 'prop') {
                               const s = e.prop
                               return (
-                                <div key={s.name} className="browser-inspector__list-row">
+                                <div
+                                  key={s.name}
+                                  className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                >
                                   <div className="browser-inspector__list-key">{s.name}</div>
                                   <div className="browser-inspector__list-val">{s.value || '—'}</div>
                                 </div>
@@ -341,7 +352,10 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                                 {opened && (
                                   <div className="browser-inspector__style-group-items">
                                     {e.items.map((s) => (
-                                      <div key={s.name} className="browser-inspector__list-row">
+                                      <div
+                                        key={s.name}
+                                        className={`browser-inspector__list-row${s.overridden ? ' browser-inspector__list-row--overridden' : ''}`}
+                                      >
                                         <div className="browser-inspector__list-key">{s.name}</div>
                                         <div className="browser-inspector__list-val">{s.value || '—'}</div>
                                       </div>

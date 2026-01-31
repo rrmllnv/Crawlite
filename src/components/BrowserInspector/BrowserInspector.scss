@@ -109,6 +109,16 @@
   align-items: flex-start;
 }
 
+.browser-inspector__list-row--overridden {
+  opacity: 0.65;
+
+  .browser-inspector__list-key,
+  .browser-inspector__list-val {
+    color: $text-secondary;
+    text-decoration: line-through;
+  }
+}
+
 .browser-inspector__list-row--button {
   width: 100%;
   border: none;
