@@ -58,10 +58,33 @@
   border-bottom: 1px solid $border-color;
 }
 
+.browser-inspector__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .browser-inspector__section-title {
   font-size: $font-size-sm;
   font-weight: 700;
   color: $text-primary;
+}
+
+.browser-inspector__section-expand-btn {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+  background-color: $bg-tertiary;
+  color: $text-secondary;
+  font-size: 11px;
+  cursor: pointer;
+
+  &:hover {
+    color: $text-primary;
+    background-color: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .browser-inspector__kv {

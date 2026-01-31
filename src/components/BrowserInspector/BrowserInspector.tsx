@@ -205,17 +205,16 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
         const el = (evt as any).element as InspectorElementPayload | null
         if (!el || typeof el !== 'object') return
         setSelected(el)
-        // По клику раскрываем дерево целиком (все узлы открыты).
+        // По клику раскрываем только текущий (кликнутый) элемент дерева, остальные закрыты.
         try {
-          const next = new Set<string>()
-          const walk = (n: any) => {
-            if (!n || typeof n !== 'object') return
-            if (typeof n.key === 'string') next.add(n.key)
+          const getLeafKey = (n: any): string | null => {
+            if (!n || typeof n !== 'object') return null
             const ch = Array.isArray(n.children) ? n.children : []
-            for (let i = 0; i < ch.length; i += 1) walk(ch[i])
+            if (ch.length === 0) return typeof n.key === 'string' ? n.key : null
+            return getLeafKey(ch[0])
           }
-          walk((el as any).tree)
-          setOpenTreeNodes(next)
+          const leafKey = getLeafKey((el as any).tree)
+          setOpenTreeNodes(leafKey ? new Set([leafKey]) : new Set())
           setOpenUserStyleGroups(new Set())
         } catch {
           setOpenTreeNodes(new Set())
@@ -877,7 +876,24 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
 
           {tree && (
             <div className="browser-inspector__section">
-              <div className="browser-inspector__section-title">DOM дерево</div>
+              <div className="browser-inspector__section-header">
+                <div className="browser-inspector__section-title">DOM дерево</div>
+                <button
+                  type="button"
+                  className="browser-inspector__section-expand-btn"
+                  onClick={() => {
+                    const allOpen = chainList.length > 0 && chainList.every((n) => openTreeNodes.has(n.key))
+                    if (allOpen) {
+                      setOpenTreeNodes(new Set())
+                    } else {
+                      setOpenTreeNodes(new Set(chainList.map((n) => n.key)))
+                    }
+                  }}
+                  title={chainList.length > 0 && chainList.every((n) => openTreeNodes.has(n.key)) ? 'Свернуть все' : 'Развернуть все'}
+                >
+                  {chainList.length > 0 && chainList.every((n) => openTreeNodes.has(n.key)) ? 'Свернуть все' : 'Развернуть все'}
+                </button>
+              </div>
               <div className="browser-inspector__tree">
                 {chainList.map((node) => {
                   const opened = openTreeNodes.has(node.key)
