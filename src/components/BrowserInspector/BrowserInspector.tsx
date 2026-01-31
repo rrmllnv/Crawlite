@@ -408,7 +408,7 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                                   />
                                   <span className="browser-inspector__style-group-title">{e.group}</span>
                                 </div>
-                                <div className="browser-inspector__list-val">({e.items.length})</div>
+                                <div className="browser-inspector__list-val">{ /* ( e.items.length  )*/ }</div>
                               </button>
                               {opened && (
                                 <div className="browser-inspector__style-group-items">
@@ -656,15 +656,20 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                 <div className="browser-inspector__kv-key">Tag</div>
                 <div className="browser-inspector__kv-val">{`<${tag}>`}</div>
               </div>
+            ) : null}
+              {id ? (
+                <div className="browser-inspector__kv-row">
+                  <div className="browser-inspector__kv-key">ID</div>
+                  <div className="browser-inspector__kv-val">{`#${id}`}</div>
+                </div>
               ) : null}
-              <div className="browser-inspector__kv-row">
-                <div className="browser-inspector__kv-key">ID</div>
-                <div className="browser-inspector__kv-val">{id ? `#${id}` : '—'}</div>
-              </div>
-              <div className="browser-inspector__kv-row">
-                <div className="browser-inspector__kv-key">Class</div>
-                <div className="browser-inspector__kv-val">{className ? String(className) : '—'}</div>
-              </div>
+              {className ? (
+                <div className="browser-inspector__kv-row">
+                  <div className="browser-inspector__kv-key">Class</div>
+                  <div className="browser-inspector__kv-val">{String(className)}</div>
+                </div>
+              ) : null}
+              {rect ? (
               <div className="browser-inspector__kv-size-block">
                 <button
                   type="button"
@@ -707,20 +712,22 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                   </div>
                 )}
               </div>
-              {!isRootLike && (
+              ) : null}
+              {!isRootLike && rect ? (
                 <div className="browser-inspector__kv-row">
                   <div className="browser-inspector__kv-key">Позиция</div>
                   <div className="browser-inspector__kv-val">
-                    {rect ? `${Math.round(Number(rect.left) || 0)}, ${Math.round(Number(rect.top) || 0)}` : '—'}
+                    {`${Math.round(Number(rect.left) || 0)}, ${Math.round(Number(rect.top) || 0)}`}
                   </div>
                 </div>
-              )}
-              {!isRootLike && (
+              ) : null}
+              {!isRootLike && text ? (
                 <div className="browser-inspector__kv-row">
                   <div className="browser-inspector__kv-key">Текст</div>
-                  <div className="browser-inspector__kv-val">{text ? String(text) : '—'}</div>
+                  <div className="browser-inspector__kv-val">{String(text)}</div>
                 </div>
-              )}
+              ) : null}
+              {(font?.family || font?.size || font?.weight || font?.style || font?.lineHeight) ? (
               <div className="browser-inspector__kv-font-block">
                 <button
                   type="button"
@@ -773,39 +780,36 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                   </div>
                 )}
               </div>
+              ) : null}
+              {color ? (
               <div className="browser-inspector__kv-row browser-inspector__kv-row--color">
                 <div className="browser-inspector__kv-key">Цвет</div>
                 <div className="browser-inspector__kv-val browser-inspector__kv-val--color">
-                  {color ? (
-                    <>
-                      <span
-                        className="browser-inspector__color-swatch"
-                        style={{ backgroundColor: color }}
-                        title={color}
-                        aria-hidden
-                      />
-                      <span className="browser-inspector__color-text">
-                        {formatColorValue(color, colorDisplayFormat)}
-                      </span>
-                      <span className="browser-inspector__color-format">
-                        {(['hex', 'rgb', 'hsl'] as const).map((fmt) => (
-                          <button
-                            key={fmt}
-                            type="button"
-                            className={`browser-inspector__color-format-btn${colorDisplayFormat === fmt ? ' browser-inspector__color-format-btn--active' : ''}`}
-                            onClick={() => setColorDisplayFormat(fmt)}
-                            title={fmt === 'hex' ? 'HEX' : fmt === 'rgb' ? 'RGB' : 'HSL'}
-                          >
-                            {fmt.toUpperCase()}
-                          </button>
-                        ))}
-                      </span>
-                    </>
-                  ) : (
-                    '—'
-                  )}
+                  <span
+                    className="browser-inspector__color-swatch"
+                    style={{ backgroundColor: color }}
+                    title={color}
+                    aria-hidden
+                  />
+                  <span className="browser-inspector__color-text">
+                    {formatColorValue(color, colorDisplayFormat)}
+                  </span>
+                  <span className="browser-inspector__color-format">
+                    {(['hex', 'rgb', 'hsl'] as const).map((fmt) => (
+                      <button
+                        key={fmt}
+                        type="button"
+                        className={`browser-inspector__color-format-btn${colorDisplayFormat === fmt ? ' browser-inspector__color-format-btn--active' : ''}`}
+                        onClick={() => setColorDisplayFormat(fmt)}
+                        title={fmt === 'hex' ? 'HEX' : fmt === 'rgb' ? 'RGB' : 'HSL'}
+                      >
+                        {fmt.toUpperCase()}
+                      </button>
+                    ))}
+                  </span>
                 </div>
               </div>
+              ) : null}
             </div>
           </div>
         
