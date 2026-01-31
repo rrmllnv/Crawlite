@@ -124,6 +124,66 @@ function groupRulesByMedia<T extends { media?: string }>(rules: T[]) {
   return keys.map((k) => ({ media: k, rules: map.get(k) || [] }))
 }
 
+type Rgb = { r: number; g: number; b: number }
+
+function parseColorToRgb(cssColor: string): Rgb | null {
+  if (!cssColor || typeof cssColor !== 'string' || typeof document === 'undefined') return null
+  const s = cssColor.trim()
+  if (!s) return null
+  const div = document.createElement('div')
+  div.style.color = s
+  document.body.appendChild(div)
+  const computed = getComputedStyle(div).color
+  document.body.removeChild(div)
+  const rgbMatch = computed.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/)
+  if (rgbMatch) {
+    return {
+      r: parseInt(rgbMatch[1], 10),
+      g: parseInt(rgbMatch[2], 10),
+      b: parseInt(rgbMatch[3], 10),
+    }
+  }
+  return null
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const toHex = (n: number) => {
+    const x = Math.max(0, Math.min(255, Math.round(n)))
+    const h = x.toString(16)
+    return h.length === 1 ? '0' + h : h
+  }
+  return '#' + toHex(r) + toHex(g) + toHex(b)
+}
+
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const rn = r / 255
+  const gn = g / 255
+  const bn = b / 255
+  const max = Math.max(rn, gn, bn)
+  const min = Math.min(rn, gn, bn)
+  let h = 0
+  let s = 0
+  const l = (max + min) / 2
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    if (max === rn) h = (gn - bn) / d + (gn < bn ? 6 : 0)
+    else if (max === gn) h = (bn - rn) / d + 2
+    else h = (rn - gn) / d + 4
+    h /= 6
+  }
+  return { h: h * 360, s: s * 100, l: l * 100 }
+}
+
+function formatColorValue(cssColor: string, format: 'hex' | 'rgb' | 'hsl'): string {
+  const rgb = parseColorToRgb(cssColor)
+  if (!rgb) return cssColor
+  if (format === 'hex') return rgbToHex(rgb.r, rgb.g, rgb.b)
+  if (format === 'rgb') return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b)
+  return `hsl(${Math.round(hsl.h)}, ${Math.round(hsl.s)}%, ${Math.round(hsl.l)}%)`
+}
+
 export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: BrowserInspectorProps = {}) {
   const [internalOpen, setInternalOpen] = useState(true)
   const isControlled = controlledOpen !== undefined && onOpenChange !== undefined
@@ -132,6 +192,8 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
   const [selected, setSelected] = useState<InspectorElementPayload | null>(null)
   const [openTreeNodes, setOpenTreeNodes] = useState<Set<string>>(() => new Set())
   const [openUserStyleGroups, setOpenUserStyleGroups] = useState<Set<string>>(() => new Set())
+  const [openFontRows, setOpenFontRows] = useState<Set<string>>(() => new Set())
+  const [colorDisplayFormat, setColorDisplayFormat] = useState<'hex' | 'rgb' | 'hsl'>('hex')
 
   useEffect(() => {
     if (!window.electronAPI?.onBrowserEvent) return
@@ -586,13 +648,14 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
 
     return (
       <div className="browser-inspector__node-details">
-        {tag ? (
           <div className="browser-inspector__node-block">
             <div className="browser-inspector__kv">
+            {tag ? (
               <div className="browser-inspector__kv-row">
                 <div className="browser-inspector__kv-key">Tag</div>
                 <div className="browser-inspector__kv-val">{`<${tag}>`}</div>
               </div>
+              ) : null}
               <div className="browser-inspector__kv-row">
                 <div className="browser-inspector__kv-key">ID</div>
                 <div className="browser-inspector__kv-val">{id ? `#${id}` : '—'}</div>
@@ -621,21 +684,94 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                   <div className="browser-inspector__kv-val">{text ? String(text) : '—'}</div>
                 </div>
               )}
-              <div className="browser-inspector__kv-row">
-                <div className="browser-inspector__kv-key">Шрифт</div>
-                <div className="browser-inspector__kv-val">
-                {font?.family || font?.size || font?.weight || font?.lineHeight
-                  ? `${font?.family || ''} ${font?.size || ''} ${font?.weight || ''} ${font?.lineHeight || ''}`.trim()
-                    : '—'}
-                </div>
+              <div className="browser-inspector__kv-font-block">
+                <button
+                  type="button"
+                  className="browser-inspector__kv-row browser-inspector__kv-row--button"
+                  onClick={() => {
+                    setOpenFontRows((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(node.key)) next.delete(node.key)
+                      else next.add(node.key)
+                      return next
+                    })
+                  }}
+                  aria-expanded={openFontRows.has(node.key)}
+                >
+                  <div className="browser-inspector__kv-key">
+                    <i
+                      className={`fa-solid fa-chevron-${openFontRows.has(node.key) ? 'down' : 'right'} browser-inspector__kv-chevron`}
+                      aria-hidden="true"
+                    />
+                    Шрифт
+                  </div>
+                  <div className="browser-inspector__kv-val">
+                    {font?.family || font?.size || font?.weight || font?.lineHeight
+                      ? `${font?.family || ''} ${font?.size || ''} ${font?.weight || ''} ${font?.lineHeight || ''}`.trim()
+                      : '—'}
+                  </div>
+                </button>
+                {openFontRows.has(node.key) && (
+                  <div className="browser-inspector__kv-font-expanded">
+                    <div className="browser-inspector__kv-row">
+                      <div className="browser-inspector__kv-key">font-family</div>
+                      <div className="browser-inspector__kv-val">{font?.family ? String(font.family) : '—'}</div>
+                    </div>
+                    <div className="browser-inspector__kv-row">
+                      <div className="browser-inspector__kv-key">font-size</div>
+                      <div className="browser-inspector__kv-val">{font?.size ? String(font.size) : '—'}</div>
+                    </div>
+                    <div className="browser-inspector__kv-row">
+                      <div className="browser-inspector__kv-key">font-weight</div>
+                      <div className="browser-inspector__kv-val">{font?.weight ? String(font.weight) : '—'}</div>
+                    </div>
+                    <div className="browser-inspector__kv-row">
+                      <div className="browser-inspector__kv-key">font-style</div>
+                      <div className="browser-inspector__kv-val">{font?.style ? String(font.style) : '—'}</div>
+                    </div>
+                    <div className="browser-inspector__kv-row">
+                      <div className="browser-inspector__kv-key">line-height</div>
+                      <div className="browser-inspector__kv-val">{font?.lineHeight ? String(font.lineHeight) : '—'}</div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="browser-inspector__kv-row">
+              <div className="browser-inspector__kv-row browser-inspector__kv-row--color">
                 <div className="browser-inspector__kv-key">Цвет</div>
-                <div className="browser-inspector__kv-val">{color ? String(color) : '—'}</div>
+                <div className="browser-inspector__kv-val browser-inspector__kv-val--color">
+                  {color ? (
+                    <>
+                      <span
+                        className="browser-inspector__color-swatch"
+                        style={{ backgroundColor: color }}
+                        title={color}
+                        aria-hidden
+                      />
+                      <span className="browser-inspector__color-text">
+                        {formatColorValue(color, colorDisplayFormat)}
+                      </span>
+                      <span className="browser-inspector__color-format">
+                        {(['hex', 'rgb', 'hsl'] as const).map((fmt) => (
+                          <button
+                            key={fmt}
+                            type="button"
+                            className={`browser-inspector__color-format-btn${colorDisplayFormat === fmt ? ' browser-inspector__color-format-btn--active' : ''}`}
+                            onClick={() => setColorDisplayFormat(fmt)}
+                            title={fmt === 'hex' ? 'HEX' : fmt === 'rgb' ? 'RGB' : 'HSL'}
+                          >
+                            {fmt.toUpperCase()}
+                          </button>
+                        ))}
+                      </span>
+                    </>
+                  ) : (
+                    '—'
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        ) : null}
+        
 
         {hasAttrs ? (
           <div className="browser-inspector__node-block">
