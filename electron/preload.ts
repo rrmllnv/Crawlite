@@ -14,6 +14,8 @@ export type CrawlStartParams = {
     maxPages?: number
     delayMs?: number
     jitterMs?: number
+    deduplicateLinks?: boolean
+    restrictToCurrentFolder?: boolean
     analyzeWaitMs?: number
     pageLoadTimeoutMs?: number
     userAgent?: string

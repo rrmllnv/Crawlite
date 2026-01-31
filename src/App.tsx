@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Header } from './components/Header/Header'
 import { SidebarNav } from './components/SidebarNav/SidebarNav'
 import { useAppDispatch, useAppSelector } from './store/hooks'
@@ -20,6 +20,12 @@ function App() {
   const isLoading = useAppSelector((state) => state.app.isLoading)
   const error = useAppSelector((state) => state.app.error)
   const currentView = useAppSelector((state) => state.app.currentView)
+  const activeRunId = useAppSelector((state) => state.crawl.runId)
+  const activeRunIdRef = useRef<string | null>(activeRunId)
+
+  useEffect(() => {
+    activeRunIdRef.current = activeRunId
+  }, [activeRunId])
 
   // Загружаем UserConfig и применяем theme/locale при старте
   useUserConfig()
@@ -60,11 +66,18 @@ function App() {
       if (!evt || typeof evt !== 'object') {
         return
       }
+      const evtRunId = typeof (evt as any).runId === 'string' ? (evt as any).runId : null
       if (evt.type === 'started') {
+        activeRunIdRef.current = evt.runId
         dispatch(setRunId(evt.runId))
         dispatch(setStartUrl(evt.startUrl))
         dispatch(setCrawlStatus('running'))
         dispatch(setProgress({ processed: 0, queued: 0 }))
+        return
+      }
+      // ВАЖНО: игнорируем "хвост" событий от предыдущего запуска,
+      // иначе старые страницы могут повторно попасть в стор после resetCrawl().
+      if (activeRunIdRef.current && evtRunId && evtRunId !== activeRunIdRef.current) {
         return
       }
       if (evt.type === 'cancelled') {

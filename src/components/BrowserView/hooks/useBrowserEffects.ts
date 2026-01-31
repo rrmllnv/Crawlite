@@ -81,6 +81,24 @@ export function useBrowserEffects({
     }
     void (async () => {
       try {
+        // ensureBrowserView может ещё не успеть создаться после монтирования BrowserView,
+        // поэтому перед navigate гарантируем, что WebContentsView существует и имеет bounds.
+        const el = boundsRef.current
+        if (el) {
+          try {
+            const r = el.getBoundingClientRect()
+            const bounds = {
+              x: Math.max(0, Math.floor(r.left)),
+              y: Math.max(0, Math.floor(r.top)),
+              width: Math.max(0, Math.floor(r.width)),
+              height: Math.max(0, Math.floor(r.height)),
+            }
+            await browserService.ensure(bounds)
+            await browserService.resize(bounds)
+          } catch {
+            void 0
+          }
+        }
         const res = await browserService.navigate(requestedUrl)
         if (res?.success) {
           dispatch(setCurrentUrl(requestedUrl))
@@ -89,7 +107,7 @@ export function useBrowserEffects({
         dispatch(clearRequestedNavigate())
       }
     })()
-  }, [requestedUrl, dispatch])
+  }, [requestedUrl, dispatch, boundsRef])
 
   useEffect(() => {
     if (!window.electronAPI?.onBrowserEvent) {
