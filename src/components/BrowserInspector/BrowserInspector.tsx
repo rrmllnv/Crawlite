@@ -572,72 +572,76 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
 
   const renderNodeDetails = (node: DomTreeNode) => {
     if (!node || typeof node !== 'object') return null
-    const tag = typeof node.tag === 'string' ? node.tag : ''
+    const tag = typeof node.tag === 'string' ? node.tag.trim() : ''
     const id = typeof node.id === 'string' ? node.id : ''
     const className = typeof node.className === 'string' ? node.className : ''
     const text = typeof node.text === 'string' ? node.text : ''
     const color = typeof node.color === 'string' ? node.color : ''
 
     const attrs = node.attributes && typeof node.attributes === 'object' ? node.attributes : undefined
+    const hasAttrs = attrs && Object.keys(attrs).length > 0
     const rect = node.rect && typeof node.rect === 'object' ? node.rect : undefined
     const font = node.font && typeof node.font === 'object' ? node.font : undefined
     const isRootLike = tag === 'html' || tag === 'body'
+
     return (
       <div className="browser-inspector__node-details">
-        <div className="browser-inspector__node-block">
-          <div className="browser-inspector__kv">
-            <div className="browser-inspector__kv-row">
-              <div className="browser-inspector__kv-key">Tag</div>
-              <div className="browser-inspector__kv-val">{tag ? `<${tag}>` : '—'}</div>
-            </div>
-            <div className="browser-inspector__kv-row">
-              <div className="browser-inspector__kv-key">ID</div>
-              <div className="browser-inspector__kv-val">{id ? `#${id}` : '—'}</div>
-            </div>
-            <div className="browser-inspector__kv-row">
-              <div className="browser-inspector__kv-key">Class</div>
-              <div className="browser-inspector__kv-val">{className ? String(className) : '—'}</div>
-            </div>
-            <div className="browser-inspector__kv-row">
-              <div className="browser-inspector__kv-key">Размер</div>
-              <div className="browser-inspector__kv-val">
-                {rect ? `${Math.round(Number(rect.width) || 0)} × ${Math.round(Number(rect.height) || 0)}` : '—'}
-              </div>
-            </div>
-            {!isRootLike && (
+        {tag ? (
+          <div className="browser-inspector__node-block">
+            <div className="browser-inspector__kv">
               <div className="browser-inspector__kv-row">
-                <div className="browser-inspector__kv-key">Позиция</div>
+                <div className="browser-inspector__kv-key">Tag</div>
+                <div className="browser-inspector__kv-val">{`<${tag}>`}</div>
+              </div>
+              <div className="browser-inspector__kv-row">
+                <div className="browser-inspector__kv-key">ID</div>
+                <div className="browser-inspector__kv-val">{id ? `#${id}` : '—'}</div>
+              </div>
+              <div className="browser-inspector__kv-row">
+                <div className="browser-inspector__kv-key">Class</div>
+                <div className="browser-inspector__kv-val">{className ? String(className) : '—'}</div>
+              </div>
+              <div className="browser-inspector__kv-row">
+                <div className="browser-inspector__kv-key">Размер</div>
                 <div className="browser-inspector__kv-val">
-                  {rect ? `${Math.round(Number(rect.left) || 0)}, ${Math.round(Number(rect.top) || 0)}` : '—'}
+                  {rect ? `${Math.round(Number(rect.width) || 0)} × ${Math.round(Number(rect.height) || 0)}` : '—'}
                 </div>
               </div>
-            )}
-            {!isRootLike && (
+              {!isRootLike && (
+                <div className="browser-inspector__kv-row">
+                  <div className="browser-inspector__kv-key">Позиция</div>
+                  <div className="browser-inspector__kv-val">
+                    {rect ? `${Math.round(Number(rect.left) || 0)}, ${Math.round(Number(rect.top) || 0)}` : '—'}
+                  </div>
+                </div>
+              )}
+              {!isRootLike && (
+                <div className="browser-inspector__kv-row">
+                  <div className="browser-inspector__kv-key">Текст</div>
+                  <div className="browser-inspector__kv-val">{text ? String(text) : '—'}</div>
+                </div>
+              )}
               <div className="browser-inspector__kv-row">
-                <div className="browser-inspector__kv-key">Текст</div>
-                <div className="browser-inspector__kv-val">{text ? String(text) : '—'}</div>
+                <div className="browser-inspector__kv-key">Шрифт</div>
+                <div className="browser-inspector__kv-val">
+                {font?.family || font?.size || font?.weight || font?.lineHeight
+                  ? `${font?.family || ''} ${font?.size || ''} ${font?.weight || ''} ${font?.lineHeight || ''}`.trim()
+                    : '—'}
+                </div>
               </div>
-            )}
-            <div className="browser-inspector__kv-row">
-              <div className="browser-inspector__kv-key">Шрифт</div>
-              <div className="browser-inspector__kv-val">
-                {font?.family || font?.size || font?.weight
-                  ? `${font?.family || ''} ${font?.size || ''} ${font?.weight || ''}`.trim()
-                  : '—'}
+              <div className="browser-inspector__kv-row">
+                <div className="browser-inspector__kv-key">Цвет</div>
+                <div className="browser-inspector__kv-val">{color ? String(color) : '—'}</div>
               </div>
-            </div>
-            <div className="browser-inspector__kv-row">
-              <div className="browser-inspector__kv-key">Цвет</div>
-              <div className="browser-inspector__kv-val">{color ? String(color) : '—'}</div>
             </div>
           </div>
-        </div>
+        ) : null}
 
-        {attrs && Object.keys(attrs).length > 0 && (
+        {hasAttrs ? (
           <div className="browser-inspector__node-block">
             <div className="browser-inspector__node-block-title">Атрибуты</div>
             <div className="browser-inspector__list">
-              {Object.keys(attrs)
+              {Object.keys(attrs!)
                 .sort()
                 .map((k) => (
                   <div key={k} className="browser-inspector__list-row">
@@ -647,7 +651,7 @@ export function BrowserInspector({ isOpen: controlledOpen, onOpenChange }: Brows
                 ))}
             </div>
           </div>
-        )}
+        ) : null}
 
         {renderStylesUserList(node)}
       </div>
