@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, dialog, globalShortcut } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { loadUserConfig, saveUserConfig } from './api/UserConfig'
@@ -73,9 +73,9 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(RENDERER_DIST, 'index.html'))
   }
 
-  if (VITE_DEV_SERVER_URL || process.argv.includes('--dev')) {
-    mainWindow.webContents.openDevTools()
-  }
+  // if (VITE_DEV_SERVER_URL || process.argv.includes('--dev')) {
+  //   mainWindow.webContents.openDevTools()
+  // }
 }
 
 ipcMain.handle('browser:ensure', async (_event, bounds: BrowserBounds) => {
@@ -209,8 +209,22 @@ ipcMain.handle('save-user-config', async (_event, userConfig: any) => {
   return saveUserConfig(userConfig)
 })
 
+function toggleDevTools(): void {
+  const w = appState.mainWindow
+  if (w && !w.isDestroyed()) {
+    if (w.webContents.isDevToolsOpened()) {
+      w.webContents.closeDevTools()
+    } else {
+      w.webContents.openDevTools()
+    }
+  }
+}
+
 app.whenReady().then(() => {
   createWindow()
+
+  globalShortcut.register('F12', toggleDevTools)
+  globalShortcut.register('CommandOrControl+Shift+I', toggleDevTools)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -220,6 +234,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  globalShortcut.unregisterAll()
   if (process.platform !== 'darwin') {
     app.quit()
     appState.mainWindow = null
@@ -227,4 +242,8 @@ app.on('window-all-closed', () => {
     appState.crawlView = null
     appState.activeCrawl = null
   }
+})
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
 })
